@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body, html {
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+
+        .login-container {
+            position: relative;
+            height: 100vh;
+            width: 100vw;
+            background-image: url('https://res.cloudinary.com/dlu2bqrda/image/upload/v1759218759/bg_qhybsq.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-container::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(76, 175, 80, 0.7); /* Green overlay with transparency */
+            z-index: 1;
+        }
+
+        .logo-container {
+            position: absolute;
+            top: 50px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 3;
+        }
+
+        .logo-img {
+            height: 120px;
+            width: auto;
+        }
+
+        .login-card {
+            position: relative;
+            z-index: 2;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            width: 400px;
+            max-width: 90vw;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        .user-icon {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .user-icon i {
+            font-size: 60px;
+            color: #333;
+            background: #fff;
+            border-radius: 50%;
+            padding: 20px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .login-title {
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 10px;
+        }
+
+        .login-subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-label {
+            font-weight: bold;
+            color: #333;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+        }
+
+        .form-label i {
+            margin-right: 8px;
+            width: 20px;
+        }
+
+        .form-control {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            padding: 12px 15px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            background: #f8f9fa;
+        }
+
+        .form-control:focus {
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 0.2rem rgba(76, 175, 80, 0.25);
+            background: #fff;
+        }
+
+        .password-toggle {
+            position: relative;
+        }
+
+        .password-toggle .toggle-password {
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            cursor: pointer;
+            color: #666;
+        }
+
+        .remember-forgot {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            font-size: 14px;
+        }
+
+        .form-check {
+            display: flex;
+            align-items: center;
+        }
+
+        .form-check-input {
+            margin-right: 8px;
+        }
+
+        .forgot-password {
+            color: #007bff;
+            text-decoration: none;
+            font-weight: 500;
+        }
+
+        .forgot-password:hover {
+            text-decoration: underline;
+        }
+
+        .login-btn {
+            width: 100%;
+            background: #4CAF50;
+            border: none;
+            border-radius: 50px;
+            padding: 15px;
+            font-size: 16px;
+            font-weight: bold;
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .login-btn:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4);
+        }
+
+        .login-btn:active {
+            transform: translateY(0);
+        }
+
+        .alert {
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .logo-container {
+                top: 30px;
+            }
+            
+            .logo-img {
+                height: 80px;
+            }
+            
+            .login-card {
+                margin-top: 120px;
+                padding: 30px 25px;
+                width: 350px;
+            }
+            
+            .user-icon i {
+                font-size: 50px;
+                padding: 15px;
+            }
+            
+            .login-title {
+                font-size: 20px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .login-card {
+                width: 320px;
+                padding: 25px 20px;
+            }
+            
+            .remember-forgot {
+                flex-direction: column;
+                gap: 10px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <!-- Logo -->
+        <div class="logo-container">
+            <img src="https://res.cloudinary.com/dlu2bqrda/image/upload/v1759219218/PLP_LOGO_ujtdgd.png" 
+                 alt="PLP Logo" 
+                 class="logo-img">
+        </div>
+
+        <!-- Login Card -->
+        <div class="login-card">
+            <!-- User Icon -->
+            <div class="user-icon">
+                <i class="fas fa-user-circle"></i>
+            </div>
+
+            <!-- Title -->
+            <h1 class="login-title">PLP Accreditation System</h1>
+            <p class="login-subtitle">Please Enter Your Details</p>
+
+            <!-- Messages -->
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Login Form -->
+            <form method="post" novalidate>
+                {% csrf_token %}
+                
+                <!-- Email Field -->
+                <div class="form-group">
+                    <label class="form-label" for="{{ form.email.id_for_label }}">
+                        <i class="fas fa-envelope"></i>
+                        EMAIL
+                    </label>
+                    {{ form.email }}
+                    {% if form.email.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.email.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Password Field -->
+                <div class="form-group">
+                    <label class="form-label" for="{{ form.password.id_for_label }}">
+                        <i class="fas fa-lock"></i>
+                        PASSWORD
+                    </label>
+                    <div class="password-toggle">
+                        {{ form.password }}
+                        <i class="fas fa-eye toggle-password" onclick="togglePassword()"></i>
+                    </div>
+                    {% if form.password.errors %}
+                        <div class="text-danger small mt-1">
+                            {% for error in form.password.errors %}
+                                <div>{{ error }}</div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- Remember Me & Forgot Password -->
+                <div class="remember-forgot">
+                    <div class="form-check">
+                        {{ form.remember_me }}
+                        <label class="form-check-label" for="{{ form.remember_me.id_for_label }}">
+                            Remember Me
+                        </label>
+                    </div>
+                    <a href="#" class="forgot-password">Forgot Password</a>
+                </div>
+
+                <!-- Form Errors -->
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger">
+                        {% for error in form.non_field_errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                <!-- Login Button -->
+                <button type="submit" class="login-btn">
+                    LOGIN
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JavaScript -->
+    <script>
+        function togglePassword() {
+            const passwordField = document.getElementById('{{ form.password.id_for_label }}');
+            const toggleIcon = document.querySelector('.toggle-password');
+            
+            if (passwordField.type === 'password') {
+                passwordField.type = 'text';
+                toggleIcon.classList.remove('fa-eye');
+                toggleIcon.classList.add('fa-eye-slash');
+            } else {
+                passwordField.type = 'password';
+                toggleIcon.classList.remove('fa-eye-slash');
+                toggleIcon.classList.add('fa-eye');
+            }
+        }
+
+        // Auto-dismiss alerts after 5 seconds
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(function(alert) {
+                const bsAlert = new bootstrap.Alert(alert);
+                bsAlert.close();
+            });
+        }, 5000);
+
+        // Form validation feedback
+        document.querySelector('form').addEventListener('submit', function(e) {
+            const email = document.getElementById('{{ form.email.id_for_label }}').value;
+            const password = document.getElementById('{{ form.password.id_for_label }}').value;
+            
+            if (!email || !password) {
+                e.preventDefault();
+                alert('Please fill in all required fields.');
+            }
+        });
+    </script>
+</body>
+</html>
