@@ -1,0 +1,302 @@
+<!-- Confirmation Modal Component -->
+<style>
+    .confirmation-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        justify-content: center;
+        align-items: center;
+        animation: fadeIn 0.2s ease;
+    }
+
+    .confirmation-modal-overlay.show {
+        display: flex;
+    }
+
+    .confirmation-modal {
+        background: white;
+        border-radius: 8px;
+        padding: 0;
+        max-width: 450px;
+        width: 90%;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        animation: slideUp 0.3s ease;
+        overflow: hidden;
+    }
+
+    .confirmation-modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .confirmation-modal-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .confirmation-modal-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 20px;
+        flex-shrink: 0;
+    }
+
+    .confirmation-modal-icon.save {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .confirmation-modal-icon.delete {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .confirmation-modal-icon.activate {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .confirmation-modal-icon.deactivate {
+        background: #f8f9fa;
+        color: #6c757d;
+    }
+
+    .confirmation-modal-body {
+        padding: 20px;
+    }
+
+    .confirmation-modal-message {
+        font-size: 14px;
+        color: #666;
+        line-height: 1.6;
+        margin: 0;
+    }
+
+    .confirmation-modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+    }
+
+    .confirmation-btn {
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        min-width: 80px;
+    }
+
+    .confirmation-btn-cancel {
+        background: #6c757d;
+        color: white;
+    }
+
+    .confirmation-btn-cancel:hover {
+        background: #5a6268;
+    }
+
+    .confirmation-btn-confirm {
+        background: var(--plp-green);
+        color: white;
+    }
+
+    .confirmation-btn-confirm:hover {
+        background: var(--plp-dark-green);
+    }
+
+    .confirmation-btn-confirm.delete {
+        background: #dc3545;
+    }
+
+    .confirmation-btn-confirm.delete:hover {
+        background: #c82333;
+    }
+
+    .confirmation-btn-confirm.deactivate {
+        background: #6c757d;
+    }
+
+    .confirmation-btn-confirm.deactivate:hover {
+        background: #5a6268;
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideUp {
+        from {
+            transform: translateY(20px);
+            opacity: 0;
+        }
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+</style>
+
+<div id="confirmationModalOverlay" class="confirmation-modal-overlay">
+    <div class="confirmation-modal">
+        <div class="confirmation-modal-header">
+            <span id="confirmationModalIcon" class="confirmation-modal-icon save">
+                <i class="fas fa-check"></i>
+            </span>
+            <h3 id="confirmationModalTitle" class="confirmation-modal-title">Confirm Action</h3>
+        </div>
+        <div class="confirmation-modal-body">
+            <p id="confirmationModalMessage" class="confirmation-modal-message">
+                Are you sure you want to proceed with this action?
+            </p>
+        </div>
+        <div class="confirmation-modal-footer">
+            <button type="button" class="confirmation-btn confirmation-btn-cancel" onclick="ConfirmationModal.cancel()">
+                Cancel
+            </button>
+            <button type="button" id="confirmationModalConfirmBtn" class="confirmation-btn confirmation-btn-confirm" onclick="ConfirmationModal.confirm()">
+                Confirm
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    class ConfirmationModalManager {
+        constructor() {
+            this.overlay = null;
+            this.icon = null;
+            this.title = null;
+            this.message = null;
+            this.confirmBtn = null;
+            this.callback = null;
+            this.initialized = false;
+        }
+
+        init() {
+            if (this.initialized) return;
+            
+            this.overlay = document.getElementById('confirmationModalOverlay');
+            this.icon = document.getElementById('confirmationModalIcon');
+            this.title = document.getElementById('confirmationModalTitle');
+            this.message = document.getElementById('confirmationModalMessage');
+            this.confirmBtn = document.getElementById('confirmationModalConfirmBtn');
+            
+            // Close on overlay click
+            this.overlay.addEventListener('click', (e) => {
+                if (e.target === this.overlay) {
+                    this.cancel();
+                }
+            });
+
+            // Close on Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.overlay.classList.contains('show')) {
+                    this.cancel();
+                }
+            });
+
+            this.initialized = true;
+        }
+
+        /**
+         * Show confirmation modal
+         * @param {Object} options - Configuration options
+         * @param {string} options.title - Modal title
+         * @param {string} options.message - Modal message
+         * @param {string} options.type - Modal type: 'save', 'delete', 'activate', 'deactivate' (default: 'save')
+         * @param {string} options.confirmText - Confirm button text (default: 'Confirm')
+         * @param {string} options.cancelText - Cancel button text (default: 'Cancel')
+         * @param {Function} options.onConfirm - Callback function when confirmed
+         * @param {Function} options.onCancel - Callback function when cancelled (optional)
+         */
+        show(options = {}) {
+            this.init();
+
+            const {
+                title = 'Confirm Action',
+                message = 'Are you sure you want to proceed with this action?',
+                type = 'save',
+                confirmText = 'Confirm',
+                cancelText = 'Cancel',
+                onConfirm = null,
+                onCancel = null
+            } = options;
+
+            // Set icon based on type
+            const icons = {
+                save: '<i class="fas fa-check"></i>',
+                delete: '<i class="fas fa-trash"></i>',
+                activate: '<i class="fas fa-check-circle"></i>',
+                deactivate: '<i class="fas fa-ban"></i>'
+            };
+
+            this.icon.innerHTML = icons[type] || icons.save;
+            this.icon.className = `confirmation-modal-icon ${type}`;
+
+            // Set content
+            this.title.textContent = title;
+            this.message.textContent = message;
+            this.confirmBtn.textContent = confirmText;
+            
+            // Set button style
+            this.confirmBtn.className = `confirmation-btn confirmation-btn-confirm ${type}`;
+
+            // Set callbacks
+            this.callback = onConfirm;
+            this.cancelCallback = onCancel;
+
+            // Show modal
+            this.overlay.classList.add('show');
+        }
+
+        confirm() {
+            if (this.callback && typeof this.callback === 'function') {
+                this.callback();
+            }
+            this.hide();
+        }
+
+        cancel() {
+            if (this.cancelCallback && typeof this.cancelCallback === 'function') {
+                this.cancelCallback();
+            }
+            this.hide();
+        }
+
+        hide() {
+            this.overlay.classList.remove('show');
+            this.callback = null;
+            this.cancelCallback = null;
+        }
+    }
+
+    // Create global instance
+    window.ConfirmationModal = new ConfirmationModalManager();
+</script>

@@ -1,0 +1,757 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Accreditation Settings{% endblock %}
+
+{% block content %}
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
+
+<style>
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .settings-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .action-buttons-group {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .btn-action-header {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-action-header:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .btn-action-header.edit {
+        background: var(--plp-green);
+    }
+    
+    .btn-action-header.edit:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .btn-action-header.archive {
+        background: var(--plp-green);
+    }
+    
+    .btn-action-header.archive:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .departments-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .department-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .department-item {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        justify-content: space-between;
+    }
+    
+    .department-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .department-item:last-child {
+        border-bottom: none;
+    }
+    
+    .department-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .department-logo {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+        flex-shrink: 0;
+    }
+    
+    .department-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .department-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-edit {
+        background: #ffc107;
+        color: #333;
+    }
+    
+    .btn-edit:hover {
+        background: #e0a800;
+    }
+    
+    .btn-activate {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-activate:hover {
+        background: #218838;
+    }
+    
+    .btn-deactivate {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-deactivate:hover {
+        background: #5a6268;
+    }
+    
+    .btn-archive {
+        background: #17a2b8;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #138496;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+    }
+    
+    .btn-archive {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #5a6268;
+    }
+    
+    .department-chevron {
+        color: #999;
+        font-size: 18px;
+        margin-left: 10px;
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 0;
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #333;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+        font-size: 14px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+    }
+    
+    .form-error {
+        color: #dc3545;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
+    }
+    
+    .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    .btn-submit {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .btn-submit:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .no-departments {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+    
+    .no-departments i {
+        font-size: 48px;
+        color: #ccc;
+        margin-bottom: 15px;
+    }
+    
+    .logo-preview {
+        margin-top: 10px;
+    }
+    
+    .logo-preview img {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+    }
+</style>
+
+<div class="settings-header">
+    <h1 class="settings-title">Accreditation Settings</h1>
+</div>
+
+<div class="section-header">
+    <h2 class="section-title">Departments</h2>
+    <div class="action-buttons-group">
+        <button class="btn-action-header" onclick="openAddModal()">
+            <i class="fas fa-plus"></i>
+            Add
+        </button>
+    </div>
+</div>
+
+<div class="departments-container">
+    <div class="department-list" id="departmentList">
+        {% if departments %}
+            {% for dept in departments %}
+            {% if not dept.is_archived %}
+            <div class="department-item" data-id="{{ dept.code }}" data-active="{{ dept.is_active|lower }}">
+                <div class="department-info">
+                    <img src="{{ dept.logo_url|default:'https://via.placeholder.com/50?text=Dept' }}" alt="{{ dept.name }}" class="department-logo" onerror="this.src='https://via.placeholder.com/50?text=Dept'">
+                    <span class="department-name">{{ dept.name }}</span>
+                </div>
+                <div class="department-actions">
+                    <button class="btn-action btn-edit" onclick="openEditModal('{{ dept.code }}', '{{ dept.name|escapejs }}')" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    {% if dept.is_active %}
+                    <button class="btn-action btn-deactivate" onclick="toggleDepartmentActive('{{ dept.code }}', false, '{{ dept.name|escapejs }}')" title="Deactivate">
+                        <i class="fas fa-ban"></i>
+                    </button>
+                    {% else %}
+                    <button class="btn-action btn-activate" onclick="toggleDepartmentActive('{{ dept.code }}', true, '{{ dept.name|escapejs }}')" title="Activate">
+                        <i class="fas fa-check-circle"></i>
+                    </button>
+                    {% endif %}
+                    <button class="btn-action btn-archive" onclick="archiveDepartment('{{ dept.code }}', '{{ dept.name|escapejs }}')" title="Archive">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                    <button class="btn-action btn-delete" onclick="deleteDepartment('{{ dept.code }}', '{{ dept.name|escapejs }}')" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <i class="fas fa-chevron-right department-chevron"></i>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="no-departments">
+                <i class="fas fa-folder-open"></i>
+                <p>No departments found</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Department Modal -->
+<div id="departmentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add Department</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="departmentForm" enctype="multipart/form-data">
+            <div class="modal-body">
+                <input type="hidden" id="departmentId" name="department_id">
+                <input type="hidden" id="currentLogoUrl" name="current_logo_url">
+                
+                <div class="form-group">
+                    <label for="departmentName">Department Name <span style="color: red;">*</span></label>
+                    <input 
+                        type="text" 
+                        id="departmentName" 
+                        name="name" 
+                        required
+                        placeholder="e.g., College of Computer Studies"
+                    >
+                    <span class="form-error" id="nameError"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="departmentLogo">Department Logo <span style="color: red;">*</span></label>
+                    <input 
+                        type="file" 
+                        id="departmentLogo" 
+                        name="logo" 
+                        accept="image/*"
+                        onchange="previewUploadedLogo(this)"
+                    >
+                    <span class="form-error" id="logoError"></span>
+                    <small style="color: #666; display: block; margin-top: 5px;">Upload an image file (JPG, PNG, etc.)</small>
+                    <div class="logo-preview" id="logoPreview" style="display: none; margin-top: 15px;">
+                        <img id="logoPreviewImage" src="" alt="Logo preview">
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn-submit" onclick="confirmSaveDepartment()">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let isEditMode = false;
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function previewUploadedLogo(input) {
+    const preview = document.getElementById('logoPreview');
+    const previewImage = document.getElementById('logoPreviewImage');
+    
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        
+        reader.readAsDataURL(input.files[0]);
+    } else {
+        preview.style.display = 'none';
+    }
+}
+
+function openAddModal() {
+    isEditMode = false;
+    document.getElementById('modalTitle').textContent = 'Add Department';
+    document.getElementById('departmentForm').reset();
+    document.getElementById('departmentId').value = '';
+    document.getElementById('currentLogoUrl').value = '';
+    document.getElementById('logoPreview').style.display = 'none';
+    clearErrors();
+    document.getElementById('departmentModal').classList.add('show');
+}
+
+function openEditModal(deptId, deptName) {
+    isEditMode = true;
+    document.getElementById('modalTitle').textContent = 'Edit Department';
+    clearErrors();
+    
+    // Fetch department data
+    fetch(`/dashboard/settings/departments/get/${deptId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const dept = data.department;
+                document.getElementById('departmentId').value = dept.code;
+                document.getElementById('departmentName').value = dept.name;
+                document.getElementById('currentLogoUrl').value = dept.logo_url || '';
+                
+                // Show current logo
+                const preview = document.getElementById('logoPreview');
+                const previewImage = document.getElementById('logoPreviewImage');
+                if (dept.logo_url) {
+                    previewImage.src = dept.logo_url;
+                    preview.style.display = 'block';
+                } else {
+                    preview.style.display = 'none';
+                }
+                
+                document.getElementById('departmentModal').classList.add('show');
+            } else {
+                Toast.error(data.message);
+            }
+        })
+        .catch(error => {
+            Toast.error('Error loading department data');
+            console.error('Error:', error);
+        });
+}
+
+function closeModal() {
+    document.getElementById('departmentModal').classList.remove('show');
+    document.getElementById('departmentForm').reset();
+    document.getElementById('logoPreview').style.display = 'none';
+}
+
+function toggleDepartmentActive(deptId, activate, deptName) {
+    const action = activate ? 'activate' : 'deactivate';
+    const actionText = activate ? 'Activate' : 'Deactivate';
+    const message = activate ? 
+        `Are you sure you want to activate "${deptName}"? This department will be active and functional.` :
+        `Are you sure you want to deactivate "${deptName}"? This department will be temporarily disabled but not removed.`;
+    
+    ConfirmationModal.show({
+        title: `${actionText} Department`,
+        message: message,
+        type: action,
+        confirmText: actionText,
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/toggle-active/${deptId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    is_active: activate
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error(`Error ${activate ? 'activating' : 'deactivating'} department`);
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function archiveDepartment(deptId, deptName) {
+    ConfirmationModal.show({
+        title: 'Archive Department',
+        message: `Are you sure you want to archive "${deptName}"? This department will be permanently removed from the active list.`,
+        type: 'deactivate',
+        confirmText: 'Archive',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/archive/${deptId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    is_archived: true
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error('Error archiving department');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function deleteDepartment(deptId, deptName) {
+    ConfirmationModal.show({
+        title: 'Delete Department',
+        message: `Are you sure you want to permanently delete "${deptName}"? This action cannot be undone.`,
+        type: 'delete',
+        confirmText: 'Delete',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/delete/${deptId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error('Error deleting department');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function clearErrors() {
+    document.querySelectorAll('.form-error').forEach(el => el.textContent = '');
+}
+
+function confirmSaveDepartment() {
+    clearErrors();
+    
+    // Validate form
+    const form = document.getElementById('departmentForm');
+    const name = document.getElementById('departmentName').value.trim();
+    const logoFile = document.getElementById('departmentLogo').files[0];
+    const currentLogoUrl = document.getElementById('currentLogoUrl').value;
+    
+    if (!name) {
+        document.getElementById('nameError').textContent = 'Department name is required';
+        return;
+    }
+    
+    // For add mode, logo is required. For edit mode, logo is optional (keep existing)
+    if (!isEditMode && !logoFile) {
+        document.getElementById('logoError').textContent = 'Department logo is required';
+        return;
+    }
+    
+    const actionText = isEditMode ? 'update' : 'create';
+    const titleText = isEditMode ? 'Update Department' : 'Create Department';
+    
+    ConfirmationModal.show({
+        title: titleText,
+        message: `Are you sure you want to ${actionText} this department?`,
+        type: 'save',
+        confirmText: isEditMode ? 'Update' : 'Create',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            saveDepartment();
+        }
+    });
+}
+
+function saveDepartment() {
+    const formData = new FormData(document.getElementById('departmentForm'));
+    const deptId = document.getElementById('departmentId').value;
+    
+    const url = isEditMode 
+        ? `/dashboard/settings/departments/edit/${deptId}/`
+        : '/dashboard/settings/departments/add/';
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    // Show loading state
+    const submitBtn = document.querySelector('.btn-submit');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Uploading...';
+    submitBtn.disabled = true;
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrftoken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        
+        if (data.success) {
+            Toast.success(data.message);
+            closeModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            if (data.errors) {
+                Object.keys(data.errors).forEach(key => {
+                    const errorEl = document.getElementById(key + 'Error');
+                    if (errorEl) {
+                        errorEl.textContent = Array.isArray(data.errors[key]) 
+                            ? data.errors[key].join(', ') 
+                            : data.errors[key];
+                    }
+                });
+            }
+            Toast.error(data.message);
+        }
+    })
+    .catch(error => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        Toast.error('An error occurred');
+        console.error('Error:', error);
+    });
+}
+</script>
+
+{% endblock %}

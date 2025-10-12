@@ -1,0 +1,810 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}User Management{% endblock %}
+
+{% block content %}
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
+
+<style>
+    .user-management-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .user-management-title {
+        font-size: 24px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .search-filter-section {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+        margin-bottom: 20px;
+    }
+    
+    .search-box {
+        flex: 1;
+        min-width: 250px;
+        position: relative;
+    }
+    
+    .search-box input {
+        width: 100%;
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .search-box i {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #666;
+    }
+    
+    .filter-group {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .filter-select {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        background: white;
+        cursor: pointer;
+        min-width: 150px;
+    }
+    
+    .btn-add {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+    }
+    
+    .btn-add:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .user-table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .user-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .user-table thead {
+        background: #4a7ba7;
+        color: white;
+    }
+    
+    .user-table th {
+        padding: 15px 12px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .user-table td {
+        padding: 15px 12px;
+        border-bottom: 1px solid #eee;
+        font-size: 14px;
+        vertical-align: middle;
+    }
+    
+    .user-info-cell {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .user-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+        flex-shrink: 0;
+    }
+    
+    .user-details {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .user-name {
+        font-weight: 600;
+        color: #333;
+        font-size: 14px;
+    }
+    
+    .user-email {
+        font-size: 12px;
+        color: #666;
+        margin-top: 2px;
+    }
+    
+    .user-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .status-active {
+        background: #d4edda;
+        color: #155724;
+    }
+    
+    .status-inactive {
+        background: #f8d7da;
+        color: #721c24;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-edit {
+        background: #ffc107;
+        color: #333;
+    }
+    
+    .btn-edit:hover {
+        background: #e0a800;
+    }
+    
+    .btn-toggle {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-toggle:hover {
+        background: #218838;
+    }
+    
+    .btn-toggle.deactivate {
+        background: #6c757d;
+    }
+    
+    .btn-toggle.deactivate:hover {
+        background: #5a6268;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 0;
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #333;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 15px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: 500;
+        color: #333;
+        font-size: 14px;
+    }
+    
+    .form-group input,
+    .form-group select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-error {
+        color: #dc3545;
+        font-size: 12px;
+        margin-top: 5px;
+    }
+    
+    .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    .btn-submit {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .btn-submit:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .no-users {
+        text-align: center;
+        padding: 40px 20px;
+        color: #666;
+    }
+</style>
+
+<div class="user-management-header">
+    <h1 class="user-management-title">User Management</h1>
+    <button class="btn-add" onclick="openAddModal()">
+        <i class="fas fa-plus"></i>
+        Add
+    </button>
+</div>
+
+<div class="search-filter-section">
+    <div class="search-box">
+        <input 
+            type="text" 
+            id="searchInput" 
+            placeholder="Search by name or email..." 
+            value="{{ search_query }}"
+            onkeyup="handleSearch()"
+        >
+        <i class="fas fa-search"></i>
+    </div>
+    
+    <div class="filter-group">
+        <select class="filter-select" id="departmentFilter" onchange="applyFilters()">
+            <option value="">Department</option>
+            {% for dept in departments %}
+                <option value="{{ dept.code }}" {% if department_filter == dept.code %}selected{% endif %}>
+                    {{ dept.name }}
+                </option>
+            {% endfor %}
+        </select>
+        
+        <select class="filter-select" id="roleFilter" onchange="applyFilters()">
+            <option value="">Role</option>
+            {% for role in roles %}
+                <option value="{{ role.code }}" {% if role_filter == role.code %}selected{% endif %}>
+                    {{ role.name }}
+                </option>
+            {% endfor %}
+        </select>
+    </div>
+</div>
+
+<div class="user-table-container">
+    <table class="user-table">
+        <thead>
+            <tr>
+                <th>NAME</th>
+                <th>DEPARTMENT</th>
+                <th>ROLE</th>
+                <th>STATUS</th>
+                <th>ACTION</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if users %}
+                {% for user_item in users %}
+                <tr>
+                    <td>
+                        <div class="user-info-cell">
+                            <img src="{{ user_item.profile_picture|default:'https://res.cloudinary.com/dlu2bqrda/image/upload/v1760105137/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg' }}" 
+                                 alt="{{ user_item.name }}" 
+                                 class="user-avatar">
+                            <div class="user-details">
+                                <div class="user-name">{{ user_item.name|default:"—" }}</div>
+                                <div class="user-email">{{ user_item.email|default:"—" }}</div>
+                            </div>
+                        </div>
+                    </td>
+                    <td>{{ user_item.department_name|default:"—" }}</td>
+                    <td>
+                        {% if user_item.role == 'qa_head' %}Super Admin
+                        {% elif user_item.role == 'qa_admin' %}Admin
+                        {% elif user_item.role == 'department_user' %}User
+                        {% else %}{{ user_item.role|default:"—" }}{% endif %}
+                    </td>
+                    <td>
+                        {% if user_item.is_active %}
+                            <span class="status-badge status-active">Active</span>
+                        {% else %}
+                            <span class="status-badge status-inactive">Inactive</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-action btn-edit" onclick="openEditModal('{{ user_item.id }}')" title="Edit">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            {% if user_item.is_active %}
+                                <button class="btn-action btn-toggle deactivate" onclick="toggleUserStatus('{{ user_item.id }}', false, '{{ user_item.name }}')" title="Deactivate">
+                                    <i class="fas fa-ban"></i>
+                                </button>
+                            {% else %}
+                                <button class="btn-action btn-toggle" onclick="toggleUserStatus('{{ user_item.id }}', true, '{{ user_item.name }}')" title="Activate">
+                                    <i class="fas fa-check-circle"></i>
+                                </button>
+                            {% endif %}
+                            <button class="btn-action btn-delete" onclick="deleteUser('{{ user_item.id }}', '{{ user_item.name }}')" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" class="no-users">
+                        <i class="fas fa-users" style="font-size: 48px; color: #ddd; margin-bottom: 10px;"></i>
+                        <p>No users found.</p>
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Add/Edit User Modal -->
+<div id="userModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add User</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="userForm" onsubmit="return false;">
+            <div class="modal-body">
+                <input type="hidden" id="userId" value="">
+                
+                <div class="form-group">
+                    <label for="userFirstName">First Name *</label>
+                    <input type="text" id="userFirstName" name="first_name" required>
+                    <div class="form-error" id="first_nameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userMiddleName">Middle Name</label>
+                    <input type="text" id="userMiddleName" name="middle_name">
+                    <div class="form-error" id="middle_nameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userLastName">Last Name *</label>
+                    <input type="text" id="userLastName" name="last_name" required>
+                    <div class="form-error" id="last_nameError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userEmailPrefix">Email *</label>
+                    <div style="display: flex; align-items: center; gap: 5px;">
+                        <input type="text" id="userEmailPrefix" name="email_prefix" required style="flex: 1;">
+                        <span style="color: #666; font-size: 14px;">@plpasig.edu.ph</span>
+                    </div>
+                    <small style="color: #666; font-size: 12px;">Enter email prefix only (e.g., john.doe)</small>
+                    <div class="form-error" id="email_prefixError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userDepartment">Department *</label>
+                    <select id="userDepartment" name="department" required>
+                        <option value="">Select Department</option>
+                        {% for dept in departments %}
+                            <option value="{{ dept.code }}">{{ dept.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-error" id="departmentError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userRole">Role *</label>
+                    <select id="userRole" name="role" required>
+                        <option value="">Select Role</option>
+                        {% for role in roles %}
+                            <option value="{{ role.code }}">{{ role.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <div class="form-error" id="roleError"></div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="userStatus">Status *</label>
+                    <select id="userStatus" name="status" required>
+                        <option value="active">Active</option>
+                        <option value="inactive">Inactive</option>
+                    </select>
+                    <div class="form-error" id="statusError"></div>
+                </div>
+                
+                <div id="generatedPasswordInfo" style="display: none; background: #e7f3ff; border-left: 4px solid #2196F3; padding: 15px; margin-top: 15px; border-radius: 4px;">
+                    <p style="margin: 0; font-weight: 600; color: #333; font-size: 14px;">
+                        <i class="fas fa-key"></i> Generated Password
+                    </p>
+                    <p id="generatedPasswordText" style="margin: 5px 0 0 0; font-size: 16px; font-weight: 700; color: #2196F3; font-family: 'Courier New', monospace;"></p>
+                    <small style="color: #666;">User will be required to change this password on first login.</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn-submit" onclick="confirmSaveUser()">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let isEditMode = false;
+
+function openAddModal() {
+    isEditMode = false;
+    document.getElementById('modalTitle').textContent = 'Add User';
+    document.getElementById('userForm').reset();
+    document.getElementById('userId').value = '';
+    document.getElementById('userStatus').value = 'active'; // Set default to active
+    document.getElementById('generatedPasswordInfo').style.display = 'none';
+    clearErrors();
+    document.getElementById('userModal').classList.add('show');
+}
+
+function openEditModal(userId) {
+    isEditMode = true;
+    document.getElementById('modalTitle').textContent = 'Edit User';
+    document.getElementById('userId').value = userId;
+    document.getElementById('generatedPasswordInfo').style.display = 'none';
+    clearErrors();
+    
+    // Fetch user data
+    fetch(`/dashboard/settings/user-management/get/${userId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Split full name if needed
+                const user = data.user;
+                
+                // Populate split name fields
+                document.getElementById('userFirstName').value = user.first_name || '';
+                document.getElementById('userMiddleName').value = user.middle_name || '';
+                document.getElementById('userLastName').value = user.last_name || '';
+                
+                // Extract email prefix (remove @plpasig.edu.ph)
+                const emailPrefix = user.email ? user.email.replace('@plpasig.edu.ph', '') : '';
+                document.getElementById('userEmailPrefix').value = emailPrefix;
+                
+                document.getElementById('userDepartment').value = user.department || '';
+                document.getElementById('userRole').value = user.role || '';
+                document.getElementById('userStatus').value = user.is_active ? 'active' : 'inactive';
+                
+                document.getElementById('userModal').classList.add('show');
+            } else {
+                Toast.error(data.message);
+            }
+        })
+        .catch(error => {
+            Toast.error('Error loading user data');
+            console.error('Error:', error);
+        });
+}
+
+function closeModal() {
+    document.getElementById('userModal').classList.remove('show');
+    document.getElementById('userForm').reset();
+    clearErrors();
+}
+
+function clearErrors() {
+    document.querySelectorAll('.form-error').forEach(el => el.textContent = '');
+}
+
+function confirmSaveUser() {
+    clearErrors();
+    
+    // Validate form first
+    const form = document.getElementById('userForm');
+    if (!form.checkValidity()) {
+        form.reportValidity();
+        return;
+    }
+    
+    const actionText = isEditMode ? 'update' : 'create';
+    const titleText = isEditMode ? 'Update User' : 'Create User';
+    
+    ConfirmationModal.show({
+        title: titleText,
+        message: `Are you sure you want to ${actionText} this user?`,
+        type: 'save',
+        confirmText: isEditMode ? 'Update' : 'Create',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            submitUser();
+        }
+    });
+}
+
+function submitUser() {
+    const formData = new FormData(document.getElementById('userForm'));
+    const userId = document.getElementById('userId').value;
+    
+    const url = isEditMode 
+        ? `/dashboard/settings/user-management/edit/${userId}/`
+        : '/dashboard/settings/user-management/add/';
+    
+    // Get CSRF token
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrftoken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show generated password for new users
+            if (!isEditMode && data.password) {
+                document.getElementById('generatedPasswordText').textContent = data.password;
+                document.getElementById('generatedPasswordInfo').style.display = 'block';
+                
+                // Change button text to "Done"
+                const submitBtn = document.querySelector('.btn-submit');
+                submitBtn.textContent = 'Done';
+                submitBtn.onclick = function() {
+                    closeModal();
+                    location.reload();
+                };
+                
+                Toast.success('User created successfully! Password displayed above.');
+            } else {
+                Toast.success(data.message);
+                closeModal();
+                setTimeout(() => location.reload(), 1000);
+            }
+        } else {
+            if (data.errors) {
+                Object.keys(data.errors).forEach(key => {
+                    const errorEl = document.getElementById(key + 'Error');
+                    if (errorEl) {
+                        errorEl.textContent = data.errors[key].join(', ');
+                    }
+                });
+            }
+            Toast.error(data.message);
+        }
+    })
+    .catch(error => {
+        Toast.error('An error occurred');
+        console.error('Error:', error);
+    });
+}
+
+function deleteUser(userId, userName) {
+    ConfirmationModal.show({
+        title: 'Delete User',
+        message: `Are you sure you want to delete user "${userName}"? This action cannot be undone.`,
+        type: 'delete',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            const csrftoken = getCookie('csrftoken');
+            
+            fetch(`/dashboard/settings/user-management/delete/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error('An error occurred');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function toggleUserStatus(userId, activate, userName) {
+    const action = activate ? 'activate' : 'deactivate';
+    const actionCapitalized = activate ? 'Activate' : 'Deactivate';
+    
+    ConfirmationModal.show({
+        title: `${actionCapitalized} User`,
+        message: `Are you sure you want to ${action} user "${userName}"?`,
+        type: activate ? 'activate' : 'deactivate',
+        confirmText: actionCapitalized,
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            const csrftoken = getCookie('csrftoken');
+            
+            fetch(`/dashboard/settings/user-management/toggle-status/${userId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ is_active: activate })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error('An error occurred');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function applyFilters() {
+    const search = document.getElementById('searchInput').value;
+    const department = document.getElementById('departmentFilter').value;
+    const role = document.getElementById('roleFilter').value;
+    
+    const params = new URLSearchParams();
+    if (search) params.append('search', search);
+    if (department) params.append('department', department);
+    if (role) params.append('role', role);
+    
+    window.location.href = '/dashboard/settings/user-management/?' + params.toString();
+}
+
+let searchTimeout;
+function handleSearch() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        applyFilters();
+    }, 500);
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
+{% endblock %}

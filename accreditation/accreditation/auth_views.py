@@ -20,7 +20,7 @@ def login_view(request):
     """Login view"""
     # Redirect if user is already authenticated
     if hasattr(request, 'user') and request.user.is_authenticated:
-        return redirect('dashboard:dashboard')
+        return redirect('dashboard:home')
     
     if request.method == 'POST':
         form = LoginForm(request.POST)
@@ -32,6 +32,7 @@ def login_view(request):
                 request.session['user_email'] = user.email
                 request.session['user_role'] = user.role
                 request.session['user_name'] = user.full_name
+                request.session['is_password_changed'] = user.is_password_changed
                 
                 # Set session expiry based on remember_me
                 if form.cleaned_data.get('remember_me'):
@@ -41,13 +42,8 @@ def login_view(request):
                 
                 messages.success(request, f'Welcome back, {user.full_name}!')
                 
-                # Redirect based on role
-                if user.is_qa_head:
-                    return redirect('dashboard:qa_head_dashboard')
-                elif user.is_qa_admin:
-                    return redirect('dashboard:qa_admin_dashboard')
-                else:
-                    return redirect('dashboard:department_dashboard')
+                # Redirect to unified dashboard home
+                return redirect('dashboard:home')
             else:
                 messages.error(request, 'Authentication failed. Please try again.')
         else:

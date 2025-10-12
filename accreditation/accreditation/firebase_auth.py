@@ -46,6 +46,7 @@ class FirebaseUser:
             self.last_name = user_data.get('last_name', '')
             self.role = user_data.get('role', UserRole.DEPARTMENT_USER)
             self.is_active = user_data.get('is_active', True)
+            self.is_password_changed = user_data.get('is_password_changed', False)
             self.date_joined = user_data.get('date_joined')
             self.last_login = user_data.get('last_login')
             self.password_hash = user_data.get('password_hash')
@@ -57,6 +58,7 @@ class FirebaseUser:
             self.last_name = ''
             self.role = UserRole.DEPARTMENT_USER
             self.is_active = True
+            self.is_password_changed = False
             self.date_joined = None
             self.last_login = None
             self.password_hash = None
@@ -264,37 +266,69 @@ def create_default_users():
     """Create default users for testing"""
     try:
         # Create QA Head
-        if not FirebaseUser.get_by_email('qahead@plp.edu'):
+        if not FirebaseUser.get_by_email('qahead@plpasig.edu.ph'):
             FirebaseUser.create_user(
-                email='qahead@plp.edu',
+                email='qahead@plpasig.edu.ph',
                 password='qahead123',
                 first_name='QA',
                 last_name='Head',
-                role=UserRole.QA_HEAD
+                middle_name='',
+                role=UserRole.QA_HEAD,
+                department='CCS'
             )
-            print("Created QA Head user: qahead@plp.edu")
+            print("Created QA Head user: qahead@plpasig.edu.ph")
         
         # Create QA Admin
-        if not FirebaseUser.get_by_email('qaadmin@plp.edu'):
+        if not FirebaseUser.get_by_email('qaadmin@plpasig.edu.ph'):
             FirebaseUser.create_user(
-                email='qaadmin@plp.edu',
+                email='qaadmin@plpasig.edu.ph',
                 password='qaadmin123',
                 first_name='QA',
                 last_name='Admin',
-                role=UserRole.QA_ADMIN
+                middle_name='',
+                role=UserRole.QA_ADMIN,
+                department='CCS'
             )
-            print("Created QA Admin user: qaadmin@plp.edu")
+            print("Created QA Admin user: qaadmin@plpasig.edu.ph")
         
-        # Create Department User
-        if not FirebaseUser.get_by_email('deptuser@plp.edu'):
+        # Create Department User (CCS)
+        if not FirebaseUser.get_by_email('ccsuser@plpasig.edu.ph'):
             FirebaseUser.create_user(
-                email='deptuser@plp.edu',
-                password='deptuser123',
-                first_name='Department',
+                email='ccsuser@plpasig.edu.ph',
+                password='ccsuser123',
+                first_name='CCS',
                 last_name='User',
-                role=UserRole.DEPARTMENT_USER
+                middle_name='',
+                role=UserRole.DEPARTMENT_USER,
+                department='CCS'
             )
-            print("Created Department User: deptuser@plp.edu")
+            print("Created Department User (CCS): ccsuser@plpasig.edu.ph")
+        
+        # Create Department User (CED)
+        if not FirebaseUser.get_by_email('ceduser@plpasig.edu.ph'):
+            FirebaseUser.create_user(
+                email='ceduser@plpasig.edu.ph',
+                password='ceduser123',
+                first_name='CED',
+                last_name='User',
+                middle_name='',
+                role=UserRole.DEPARTMENT_USER,
+                department='CED'
+            )
+            print("Created Department User (CED): ceduser@plpasig.edu.ph")
+        
+        # Create Department User (CAS)
+        if not FirebaseUser.get_by_email('casuser@plpasig.edu.ph'):
+            FirebaseUser.create_user(
+                email='casuser@plpasig.edu.ph',
+                password='casuser123',
+                first_name='CAS',
+                last_name='User',
+                middle_name='',
+                role=UserRole.DEPARTMENT_USER,
+                department='CAS'
+            )
+            print("Created Department User (CAS): casuser@plpasig.edu.ph")
             
     except Exception as e:
         print(f"Error creating default users: {e}")

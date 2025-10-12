@@ -16,16 +16,13 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
-from django.shortcuts import redirect
-
-def home_redirect(request):
-    """Redirect home to login"""
-    return redirect('login')
+from django.views.generic import RedirectView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('firestore/', include('accreditation.firebase_urls')),
     path('', include('accreditation.auth_urls')),
     path('dashboard/', include('accreditation.dashboard_urls')),
-    path('', home_redirect, name='home'),
+    # Redirect root URL to login page
+    path('', RedirectView.as_view(url='/login/', permanent=False), name='home'),
 ]
