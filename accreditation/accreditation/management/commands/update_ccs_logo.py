@@ -6,7 +6,7 @@ class Command(BaseCommand):
     help = 'Update College of Computer Studies logo URL'
 
     def handle(self, *args, **options):
-        logo_url = "https://res.cloudinary.com/dlu2bqrda/image/upload/v1760107585/compsci_tcgeee.png"
+        logo_url = "https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/compsci_tcgeee.png"
         
         # Get all departments
         departments = get_all_documents('departments')

@@ -1,0 +1,887 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}{{ program.name }} - Accreditation Types{% endblock %}
+
+{% block content %}
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
+
+<style>
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .settings-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 15px;
+    }
+    
+    .breadcrumb a {
+        color: var(--plp-green);
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .breadcrumb-separator {
+        color: #999;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .action-buttons-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .search-container {
+        position: relative;
+        margin-right: 10px;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 250px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+    
+    .no-results i {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 15px;
+    }
+    
+    .btn-action-header {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-action-header:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .types-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .type-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .type-item {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        justify-content: space-between;
+    }
+    
+    .type-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .type-item:last-child {
+        border-bottom: none;
+    }
+    
+    .type-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .type-logo {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+        flex-shrink: 0;
+    }
+    
+    .type-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .type-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-edit {
+        background: #ffc107;
+        color: #333;
+    }
+    
+    .btn-edit:hover {
+        background: #e0a800;
+    }
+    
+    .btn-activate {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-activate:hover {
+        background: #218838;
+    }
+    
+    .btn-deactivate {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-deactivate:hover {
+        background: #5a6268;
+    }
+    
+    .btn-archive {
+        background: #17a2b8;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #138496;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+    }
+    
+    .btn-archive {
+        background: #fd7e14;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #e66a00;
+    }
+    
+    .type-chevron {
+        color: #999;
+        font-size: 18px;
+        margin-left: 10px;
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 0;
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #333;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+        font-size: 14px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+    }
+    
+    .form-error {
+        color: #dc3545;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
+    }
+    
+    .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    .btn-submit {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .btn-submit:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .no-types {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+    
+    .no-types i {
+        font-size: 48px;
+        color: #ccc;
+        margin-bottom: 15px;
+    }
+    
+    .btn-back {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+        text-decoration: none;
+    }
+    
+    .btn-back:hover {
+        background: #5a6268;
+    }
+    
+    .logo-preview-container {
+        margin-top: 15px;
+    }
+    
+    .logo-preview {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+        display: none;
+    }
+    
+    .current-logo {
+        width: 80px;
+        height: 80px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+        margin-top: 10px;
+    }
+</style>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+    <a href="{% url 'dashboard:accreditation_settings' %}">Accreditation Settings</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{% url 'dashboard:department_programs' department.code %}">{{ department.name }} Programs</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>{{ program.name }} - Accreditation Types</span>
+</div>
+
+<div class="settings-header">
+    <h1 class="settings-title">{{ program.name }} - Accreditation Types</h1>
+    <a href="{% url 'dashboard:department_programs' department.code %}" class="btn-back">
+        <i class="fas fa-arrow-left"></i>
+        Back to Programs
+    </a>
+</div>
+
+<div class="section-header">
+    <h2 class="section-title">Accreditation Types</h2>
+    <div class="action-buttons-group">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchTypes" placeholder="Search types..." onkeyup="searchTypes()">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+        <button class="btn-action-header" onclick="openAddModal()">
+            <i class="fas fa-plus"></i>
+            Add Type
+        </button>
+    </div>
+</div>
+
+<div class="types-container">
+    <div class="type-list" id="typeList">
+        {% if types %}
+            {% for type in types %}
+            {% if not type.is_archived %}
+            <div class="type-item" data-id="{{ type.id }}" data-active="{{ type.is_active|lower }}" onclick="navigateToTypeAreas('{{ type.id }}', event)">
+                <div class="type-info">
+                    <img src="{{ type.logo_url|default:'https://via.placeholder.com/50?text=Type' }}" alt="{{ type.name }}" class="type-logo" onerror="this.src='https://via.placeholder.com/50?text=Type'">
+                    <span class="type-name">{{ type.name }}</span>
+                </div>
+                <div class="type-actions">
+                    <button class="btn-action btn-edit" onclick="openEditModal('{{ type.id }}', '{{ type.name|escapejs }}'); event.stopPropagation();" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    {% if type.is_active %}
+                    <button class="btn-action btn-deactivate" onclick="toggleTypeActive('{{ type.id }}', false, '{{ type.name|escapejs }}'); event.stopPropagation();" title="Deactivate">
+                        <i class="fas fa-ban"></i>
+                    </button>
+                    {% else %}
+                    <button class="btn-action btn-activate" onclick="toggleTypeActive('{{ type.id }}', true, '{{ type.name|escapejs }}'); event.stopPropagation();" title="Activate">
+                        <i class="fas fa-check-circle"></i>
+                    </button>
+                    {% endif %}
+                    <button class="btn-action btn-archive" onclick="archiveType('{{ type.id }}', '{{ type.name|escapejs }}'); event.stopPropagation();" title="Archive">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                    <button class="btn-action btn-delete" onclick="deleteType('{{ type.id }}', '{{ type.name|escapejs }}'); event.stopPropagation();" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <i class="fas fa-chevron-right type-chevron"></i>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="no-types">
+                <i class="fas fa-certificate"></i>
+                <p>No accreditation types found for this program</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Type Modal -->
+<div id="typeModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add Accreditation Type</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="typeForm" enctype="multipart/form-data">
+            <div class="modal-body">
+                <input type="hidden" id="typeId" name="type_id">
+                
+                <div class="form-group">
+                    <label for="typeName">Type Name <span style="color: red;">*</span></label>
+                    <input 
+                        type="text" 
+                        id="typeName" 
+                        name="name" 
+                        required
+                        placeholder="e.g., AACCUP, PACUCOA, ISO"
+                    >
+                    <span class="form-error" id="nameError"></span>
+                </div>
+                
+                <div class="form-group">
+                    <label for="typeLogo">Accreditation Type Logo <span style="color: red;">*</span></label>
+                    <input 
+                        type="file" 
+                        id="typeLogo" 
+                        name="logo"
+                        accept="image/*"
+                        onchange="previewLogo(event)"
+                    >
+                    <small style="color: #666; display: block; margin-top: 5px;">Upload an image file (JPG, PNG, etc.)</small>
+                    <div class="logo-preview-container">
+                        <img id="logoPreview" class="logo-preview" alt="Logo preview">
+                        <img id="currentLogo" class="current-logo" style="display: none;" alt="Current logo">
+                    </div>
+                    <span class="form-error" id="logoError"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn-submit" onclick="confirmSaveType()">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let isEditMode = false;
+const departmentId = '{{ department.code }}';
+const programId = '{{ program.code }}';
+
+function navigateToTypeAreas(typeId, event) {
+    // Navigate to the type areas page
+    window.location.href = `/dashboard/settings/departments/${departmentId}/programs/${programId}/types/${typeId}/areas/`;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function previewLogo(event) {
+    const file = event.target.files[0];
+    const preview = document.getElementById('logoPreview');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            preview.src = e.target.result;
+            preview.style.display = 'block';
+            document.getElementById('currentLogo').style.display = 'none';
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+function openAddModal() {
+    isEditMode = false;
+    document.getElementById('modalTitle').textContent = 'Add Accreditation Type';
+    document.getElementById('typeForm').reset();
+    document.getElementById('typeId').value = '';
+    document.getElementById('logoPreview').style.display = 'none';
+    document.getElementById('currentLogo').style.display = 'none';
+    clearErrors();
+    document.getElementById('typeModal').classList.add('show');
+}
+
+function openEditModal(typeId, typeName) {
+    isEditMode = true;
+    document.getElementById('modalTitle').textContent = 'Edit Accreditation Type';
+    clearErrors();
+    
+    // Fetch type data
+    fetch(`/dashboard/settings/departments/${departmentId}/programs/${programId}/types/get/${typeId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const type = data.type;
+                document.getElementById('typeId').value = type.id;
+                document.getElementById('typeName').value = type.name;
+                
+                // Show current logo if exists
+                if (type.logo_url) {
+                    const currentLogo = document.getElementById('currentLogo');
+                    currentLogo.src = type.logo_url;
+                    currentLogo.style.display = 'block';
+                }
+                
+                document.getElementById('logoPreview').style.display = 'none';
+                document.getElementById('typeModal').classList.add('show');
+            } else {
+                Toast.error(data.message);
+            }
+        })
+        .catch(error => {
+            Toast.error('Error loading type data');
+            console.error('Error:', error);
+        });
+}
+
+function closeModal() {
+    document.getElementById('typeModal').classList.remove('show');
+    document.getElementById('typeForm').reset();
+    document.getElementById('logoPreview').style.display = 'none';
+    document.getElementById('currentLogo').style.display = 'none';
+}
+
+function toggleTypeActive(typeId, activate, typeName) {
+    const action = activate ? 'activate' : 'deactivate';
+    const actionText = activate ? 'Activate' : 'Deactivate';
+    const message = activate ? 
+        `Are you sure you want to activate "${typeName}"? This type will be active and functional.` :
+        `Are you sure you want to deactivate "${typeName}"? This type will be temporarily disabled but not removed.`;
+    
+    ConfirmationModal.show({
+        title: `${actionText} Accreditation Type`,
+        message: message,
+        type: action,
+        confirmText: actionText,
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/${departmentId}/programs/${programId}/types/toggle-active/${typeId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    is_active: activate
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error(`Error ${activate ? 'activating' : 'deactivating'} type`);
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function archiveType(typeId, typeName) {
+    ConfirmationModal.show({
+        title: 'Archive Accreditation Type',
+        message: `Are you sure you want to archive "${typeName}"? This type will be permanently removed from the active list.`,
+        type: 'deactivate',
+        confirmText: 'Archive',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/${departmentId}/programs/${programId}/types/archive/${typeId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    is_archived: true
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error('Error archiving type');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function deleteType(typeId, typeName) {
+    ConfirmationModal.show({
+        title: 'Delete Accreditation Type',
+        message: `Are you sure you want to permanently delete "${typeName}"? This action cannot be undone.`,
+        type: 'delete',
+        confirmText: 'Delete',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/${departmentId}/programs/${programId}/types/delete/${typeId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error('Error deleting type');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function clearErrors() {
+    document.querySelectorAll('.form-error').forEach(el => el.textContent = '');
+}
+
+function confirmSaveType() {
+    clearErrors();
+    
+    // Validate form
+    const name = document.getElementById('typeName').value.trim();
+    
+    if (!name) {
+        document.getElementById('nameError').textContent = 'Type name is required';
+        return;
+    }
+    
+    const actionText = isEditMode ? 'update' : 'create';
+    const titleText = isEditMode ? 'Update Accreditation Type' : 'Create Accreditation Type';
+    
+    ConfirmationModal.show({
+        title: titleText,
+        message: `Are you sure you want to ${actionText} this accreditation type?`,
+        type: 'save',
+        confirmText: isEditMode ? 'Update' : 'Create',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            saveType();
+        }
+    });
+}
+
+function saveType() {
+    const formData = new FormData(document.getElementById('typeForm'));
+    const typeId = document.getElementById('typeId').value;
+    
+    const url = isEditMode 
+        ? `/dashboard/settings/departments/${departmentId}/programs/${programId}/types/edit/${typeId}/`
+        : `/dashboard/settings/departments/${departmentId}/programs/${programId}/types/add/`;
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    // Show loading state
+    const submitBtn = document.querySelector('.btn-submit');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Saving...';
+    submitBtn.disabled = true;
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrftoken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        
+        if (data.success) {
+            Toast.success(data.message);
+            closeModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            if (data.errors) {
+                Object.keys(data.errors).forEach(key => {
+                    const errorEl = document.getElementById(key + 'Error');
+                    if (errorEl) {
+                        errorEl.textContent = Array.isArray(data.errors[key]) 
+                            ? data.errors[key].join(', ') 
+                            : data.errors[key];
+                    }
+                });
+            }
+            Toast.error(data.message);
+        }
+    })
+    .catch(error => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        Toast.error('An error occurred');
+        console.error('Error:', error);
+    });
+}
+
+// Search types function
+function searchTypes() {
+    const searchInput = document.getElementById('searchTypes');
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const list = document.getElementById('typeList');
+    const items = list.getElementsByClassName('type-item');
+    let visibleCount = 0;
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const nameElement = item.querySelector('.type-name');
+        
+        if (nameElement) {
+            const name = nameElement.textContent || nameElement.innerText;
+            
+            if (name.toLowerCase().indexOf(searchTerm) > -1) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        }
+    }
+    
+    let noResultsDiv = list.parentElement.querySelector('.no-results');
+    
+    if (visibleCount === 0 && searchTerm !== '') {
+        if (!noResultsDiv) {
+            noResultsDiv = document.createElement('div');
+            noResultsDiv.className = 'no-results';
+            noResultsDiv.innerHTML = '<i class="fas fa-search"></i><p>No results found for "' + searchInput.value + '"</p>';
+            list.parentElement.appendChild(noResultsDiv);
+        }
+        list.style.display = 'none';
+    } else {
+        if (noResultsDiv) {
+            noResultsDiv.remove();
+        }
+        list.style.display = '';
+    }
+}
+</script>
+
+{% endblock %}

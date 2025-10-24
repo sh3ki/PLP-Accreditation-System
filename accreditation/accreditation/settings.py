@@ -12,6 +12,10 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -146,8 +150,8 @@ LOGOUT_REDIRECT_URL = '/login/'
 
 # Firebase Configuration
 FIREBASE_CONFIG = {
-    'project_id': 'accreditation-6af94',
-    'project_number': '662108211681'
+    'project_id': 'plp-accreditation',
+    'project_number': '659742231759'
 }
 
 # Firebase Service Account Path

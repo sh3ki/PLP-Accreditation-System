@@ -16,7 +16,7 @@ class Command(BaseCommand):
             
             self.stdout.write(self.style.SUCCESS('\n=== Adding Profile Pictures ===\n'))
             
-            default_profile = 'https://res.cloudinary.com/dlu2bqrda/image/upload/v1760105137/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg'
+            default_profile = 'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg'
             updated_count = 0
             already_has = 0
             

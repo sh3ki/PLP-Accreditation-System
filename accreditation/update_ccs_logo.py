@@ -7,7 +7,7 @@ django.setup()
 from accreditation.firebase_utils import get_all_documents, update_document
 
 # Logo URL
-logo_url = "https://res.cloudinary.com/dlu2bqrda/image/upload/v1760107585/compsci_tcgeee.png"
+logo_url = "https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/compsci_tcgeee.png"
 
 # Get all departments
 departments = get_all_documents('departments')

@@ -1,0 +1,282 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}{{ area.name }} - Checklists{% endblock %}
+
+{% block content %}
+{% include 'components/toast_notifications.html' %}
+
+<style>
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .settings-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .breadcrumb a {
+        color: var(--plp-green);
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .action-buttons-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .search-container {
+        position: relative;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 250px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .checklists-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .checklist-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .checklist-item {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        justify-content: space-between;
+    }
+    
+    .checklist-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .checklist-item:last-child {
+        border-bottom: none;
+    }
+    
+    .checklist-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .checklist-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .checklist-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .btn-archive {
+        background: #fd7e14;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #e66a00;
+    }
+    
+    .no-checklists {
+        padding: 60px 20px;
+        text-align: center;
+        color: #999;
+    }
+    
+    .no-checklists i {
+        font-size: 64px;
+        color: #ddd;
+        margin-bottom: 20px;
+    }
+    
+    .no-checklists p {
+        font-size: 18px;
+        margin: 0;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+        display: none;
+    }
+    
+    .no-results i {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 15px;
+    }
+</style>
+
+<div class="settings-header">
+    <h1 class="settings-title">{{ area.name }} - Checklists</h1>
+</div>
+
+<div class="breadcrumb">
+    <a href="{% url 'dashboard:accreditation' %}">Accreditation</a>
+    <i class="fas fa-chevron-right"></i>
+    <a href="{% url 'dashboard:accreditation_department_programs' dept_id %}">{{ department.name }}</a>
+    <i class="fas fa-chevron-right"></i>
+    <a href="{% url 'dashboard:accreditation_program_types' dept_id prog_id %}">{{ program.code }} - {{ program.name }}</a>
+    <i class="fas fa-chevron-right"></i>
+    <a href="{% url 'dashboard:accreditation_type_areas' dept_id prog_id type_id %}">{{ accreditation_type.name }}</a>
+    <i class="fas fa-chevron-right"></i>
+    <span>{{ area.name }}</span>
+</div>
+
+<div class="section-header">
+    <h2 class="section-title">Checklists</h2>
+    <div class="action-buttons-group">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchChecklists" placeholder="Search checklists..." onkeyup="searchChecklists()">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </div>
+</div>
+
+<div class="checklists-container">
+    <div class="checklist-list" id="checklistList">
+        {% if checklists %}
+            {% for checklist in checklists %}
+            <div class="checklist-item">
+                <div class="checklist-info">
+                    <span class="checklist-name">{{ checklist.name }}</span>
+                </div>
+                <div class="checklist-actions">
+                    <button class="btn-action btn-archive" onclick="event.stopPropagation();" title="Archive">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-checklists">
+                <i class="fas fa-folder-open"></i>
+                <p>No checklists found</p>
+            </div>
+        {% endif %}
+        <div class="no-results">
+            <i class="fas fa-search"></i>
+            <p>No results found</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function searchChecklists() {
+    const input = document.getElementById('searchChecklists');
+    const filter = input.value.toLowerCase();
+    const list = document.getElementById('checklistList');
+    const items = list.getElementsByClassName('checklist-item');
+    let hasResults = false;
+    
+    for (let i = 0; i < items.length; i++) {
+        const name = items[i].getElementsByClassName('checklist-name')[0];
+        if (name) {
+            const nameText = name.textContent || name.innerText;
+            if (nameText.toLowerCase().indexOf(filter) > -1) {
+                items[i].style.display = "";
+                hasResults = true;
+            } else {
+                items[i].style.display = "none";
+            }
+        }
+    }
+    
+    const noResultsMsg = list.querySelector('.no-results');
+    if (!hasResults && filter) {
+        noResultsMsg.style.display = 'block';
+    } else {
+        noResultsMsg.style.display = 'none';
+    }
+}
+</script>
+{% endblock %}

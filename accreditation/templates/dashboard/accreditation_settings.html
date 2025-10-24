@@ -42,6 +42,48 @@
     .action-buttons-group {
         display: flex;
         gap: 10px;
+        align-items: center;
+    }
+    
+    .search-container {
+        position: relative;
+        margin-right: 10px;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 250px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+    
+    .no-results i {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 15px;
     }
     
     .btn-action-header {
@@ -98,6 +140,7 @@
         border-bottom: 1px solid #eee;
         transition: background 0.2s;
         justify-content: space-between;
+        cursor: pointer;
     }
     
     .department-item:hover {
@@ -194,12 +237,12 @@
     }
     
     .btn-archive {
-        background: #6c757d;
+        background: #fd7e14;
         color: white;
     }
     
     .btn-archive:hover {
-        background: #5a6268;
+        background: #e66a00;
     }
     
     .department-chevron {
@@ -368,6 +411,10 @@
 <div class="section-header">
     <h2 class="section-title">Departments</h2>
     <div class="action-buttons-group">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchDepartments" placeholder="Search departments..." onkeyup="searchItems('departmentList', 'searchDepartments', 'department-item', 'department-name')">
+            <i class="fas fa-search search-icon"></i>
+        </div>
         <button class="btn-action-header" onclick="openAddModal()">
             <i class="fas fa-plus"></i>
             Add
@@ -380,28 +427,28 @@
         {% if departments %}
             {% for dept in departments %}
             {% if not dept.is_archived %}
-            <div class="department-item" data-id="{{ dept.code }}" data-active="{{ dept.is_active|lower }}">
+            <div class="department-item" data-id="{{ dept.code }}" data-active="{{ dept.is_active|lower }}" onclick="navigateToDepartmentPrograms('{{ dept.code }}', event)">
                 <div class="department-info">
-                    <img src="{{ dept.logo_url|default:'https://via.placeholder.com/50?text=Dept' }}" alt="{{ dept.name }}" class="department-logo" onerror="this.src='https://via.placeholder.com/50?text=Dept'">
+                    <img src="{{ dept.logo_url|default:'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg' }}" alt="{{ dept.name }}" class="department-logo" onerror="this.src='https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg'">
                     <span class="department-name">{{ dept.name }}</span>
                 </div>
                 <div class="department-actions">
-                    <button class="btn-action btn-edit" onclick="openEditModal('{{ dept.code }}', '{{ dept.name|escapejs }}')" title="Edit">
+                    <button class="btn-action btn-edit" onclick="openEditModal('{{ dept.code }}', '{{ dept.name|escapejs }}'); event.stopPropagation();" title="Edit">
                         <i class="fas fa-edit"></i>
                     </button>
                     {% if dept.is_active %}
-                    <button class="btn-action btn-deactivate" onclick="toggleDepartmentActive('{{ dept.code }}', false, '{{ dept.name|escapejs }}')" title="Deactivate">
+                    <button class="btn-action btn-deactivate" onclick="toggleDepartmentActive('{{ dept.code }}', false, '{{ dept.name|escapejs }}'); event.stopPropagation();" title="Deactivate">
                         <i class="fas fa-ban"></i>
                     </button>
                     {% else %}
-                    <button class="btn-action btn-activate" onclick="toggleDepartmentActive('{{ dept.code }}', true, '{{ dept.name|escapejs }}')" title="Activate">
+                    <button class="btn-action btn-activate" onclick="toggleDepartmentActive('{{ dept.code }}', true, '{{ dept.name|escapejs }}'); event.stopPropagation();" title="Activate">
                         <i class="fas fa-check-circle"></i>
                     </button>
                     {% endif %}
-                    <button class="btn-action btn-archive" onclick="archiveDepartment('{{ dept.code }}', '{{ dept.name|escapejs }}')" title="Archive">
+                    <button class="btn-action btn-archive" onclick="archiveDepartment('{{ dept.code }}', '{{ dept.name|escapejs }}'); event.stopPropagation();" title="Archive">
                         <i class="fas fa-archive"></i>
                     </button>
-                    <button class="btn-action btn-delete" onclick="deleteDepartment('{{ dept.code }}', '{{ dept.name|escapejs }}')" title="Delete">
+                    <button class="btn-action btn-delete" onclick="deleteDepartment('{{ dept.code }}', '{{ dept.name|escapejs }}'); event.stopPropagation();" title="Delete">
                         <i class="fas fa-trash"></i>
                     </button>
                     <i class="fas fa-chevron-right department-chevron"></i>
@@ -751,6 +798,56 @@ function saveDepartment() {
         Toast.error('An error occurred');
         console.error('Error:', error);
     });
+}
+
+function navigateToDepartmentPrograms(deptId, event) {
+    // Navigate to the department's programs page
+    window.location.href = `/dashboard/settings/departments/${deptId}/programs/`;
+}
+
+// Real-time search function
+function searchItems(listId, searchInputId, itemClass, nameClass) {
+    const searchInput = document.getElementById(searchInputId);
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const list = document.getElementById(listId);
+    const items = list.getElementsByClassName(itemClass);
+    let visibleCount = 0;
+    
+    // Loop through all items
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const nameElement = item.getElementsByClassName(nameClass)[0];
+        
+        if (nameElement) {
+            const itemName = nameElement.textContent || nameElement.innerText;
+            
+            // Check if search term is found in the item name (case-insensitive, partial match)
+            if (itemName.toLowerCase().indexOf(searchTerm) > -1) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        }
+    }
+    
+    // Show "no results" message if no items match
+    let noResultsDiv = list.parentElement.querySelector('.no-results');
+    
+    if (visibleCount === 0 && searchTerm !== '') {
+        if (!noResultsDiv) {
+            noResultsDiv = document.createElement('div');
+            noResultsDiv.className = 'no-results';
+            noResultsDiv.innerHTML = '<i class="fas fa-search"></i><p>No results found for "' + searchInput.value + '"</p>';
+            list.parentElement.appendChild(noResultsDiv);
+        }
+        list.style.display = 'none';
+    } else {
+        if (noResultsDiv) {
+            noResultsDiv.remove();
+        }
+        list.style.display = '';
+    }
 }
 </script>
 

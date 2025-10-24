@@ -1,7 +1,7 @@
 """
 Firebase Firestore Database Helper for Django
 
-This module provides utility functions to interact with Firestore database.
+This area provides utility functions to interact with Firestore database.
 It includes common CRUD operations and helper methods for Django integration.
 """
 

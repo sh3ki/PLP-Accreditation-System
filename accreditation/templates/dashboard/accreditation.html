@@ -3,20 +3,277 @@
 {% block title %}Accreditation{% endblock %}
 
 {% block content %}
-<h1 class="dashboard-title">Accreditation</h1>
+{% include 'components/toast_notifications.html' %}
 
-<div class="content-section">
-    <h2 class="section-title">
-        <i class="fas fa-certificate me-2"></i>
-        Accreditation Management
-    </h2>
-    <p>Accreditation management functionality will be implemented here.</p>
-    <p>Features:</p>
-    <ul>
-        <li>Program accreditation status</li>
-        <li>Accreditation documents</li>
-        <li>Compliance checklists</li>
-        <li>Accreditation timeline</li>
-    </ul>
+<style>
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .settings-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .action-buttons-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .search-container {
+        position: relative;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 250px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+    
+    .no-results i {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 15px;
+    }
+    
+    .departments-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .department-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .department-item {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        justify-content: space-between;
+        cursor: pointer;
+    }
+    
+    .department-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .department-item:last-child {
+        border-bottom: none;
+    }
+    
+    .department-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .department-logo {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+    }
+    
+    .department-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .department-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .btn-archive {
+        background: #fd7e14;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #e66a00;
+    }
+    
+    .department-chevron {
+        color: #999;
+        font-size: 18px;
+        margin-left: 10px;
+    }
+    
+    .no-departments {
+        padding: 60px 20px;
+        text-align: center;
+        color: #999;
+    }
+    
+    .no-departments i {
+        font-size: 64px;
+        color: #ddd;
+        margin-bottom: 20px;
+    }
+    
+    .no-departments p {
+        font-size: 18px;
+        margin: 0;
+    }
+</style>
+
+<div class="settings-header">
+    <h1 class="settings-title">Accreditation</h1>
 </div>
+
+<div class="section-header">
+    <h2 class="section-title">Departments</h2>
+    <div class="action-buttons-group">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchDepartments" placeholder="Search departments..." onkeyup="searchItems('departmentList', 'searchDepartments', 'department-item', 'department-name')">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </div>
+</div>
+
+<div class="departments-container">
+    <div class="department-list" id="departmentList">
+        {% if departments %}
+            {% for dept in departments %}
+            {% if not dept.is_archived %}
+            <div class="department-item" data-id="{{ dept.code }}" onclick="navigateToDepartmentPrograms('{{ dept.code }}', event)">
+                <div class="department-info">
+                    <img src="{{ dept.logo_url|default:'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg' }}" alt="{{ dept.name }}" class="department-logo" onerror="this.src='https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg'">
+                    <span class="department-name">{{ dept.name }}</span>
+                </div>
+                <div class="department-actions">
+                    <button class="btn-action btn-archive" onclick="event.stopPropagation();" title="Archive">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                    <i class="fas fa-chevron-right department-chevron"></i>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="no-departments">
+                <i class="fas fa-folder-open"></i>
+                <p>No departments found</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+function navigateToDepartmentPrograms(deptCode, event) {
+    if (event && event.target.closest('.btn-action')) {
+        return;
+    }
+    window.location.href = `/dashboard/accreditation/department/${deptCode}/programs/`;
+}
+
+function searchItems(listId, searchInputId, itemClass, nameClass) {
+    const input = document.getElementById(searchInputId);
+    const filter = input.value.toLowerCase();
+    const list = document.getElementById(listId);
+    const items = list.getElementsByClassName(itemClass);
+    let hasResults = false;
+    
+    for (let i = 0; i < items.length; i++) {
+        const nameElement = items[i].getElementsByClassName(nameClass)[0];
+        if (nameElement) {
+            const textValue = nameElement.textContent || nameElement.innerText;
+            if (textValue.toLowerCase().indexOf(filter) > -1) {
+                items[i].style.display = "";
+                hasResults = true;
+            } else {
+                items[i].style.display = "none";
+            }
+        }
+    }
+    
+    // Show/hide no results message
+    let noResultsMsg = list.querySelector('.no-results');
+    if (!hasResults && filter) {
+        if (!noResultsMsg) {
+            noResultsMsg = document.createElement('div');
+            noResultsMsg.className = 'no-results';
+            noResultsMsg.innerHTML = '<i class="fas fa-search"></i><p>No results found</p>';
+            list.appendChild(noResultsMsg);
+        }
+        noResultsMsg.style.display = 'block';
+    } else if (noResultsMsg) {
+        noResultsMsg.style.display = 'none';
+    }
+}
+</script>
 {% endblock %}

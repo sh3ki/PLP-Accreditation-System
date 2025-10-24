@@ -1,0 +1,814 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}{{ accreditation_type.name }} - Areas{% endblock %}
+
+{% block content %}
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
+
+<style>
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .settings-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 15px;
+    }
+    
+    .breadcrumb a {
+        color: var(--plp-green);
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .breadcrumb-separator {
+        color: #999;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .action-buttons-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .search-container {
+        position: relative;
+        margin-right: 10px;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 250px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+    
+    .no-results i {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 15px;
+    }
+    
+    .btn-action-header {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-action-header:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .areas-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .area-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .area-item {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        justify-content: space-between;
+    }
+    
+    .area-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .area-item:last-child {
+        border-bottom: none;
+    }
+    
+    .area-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .area-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .area-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-edit {
+        background: #ffc107;
+        color: #333;
+    }
+    
+    .btn-edit:hover {
+        background: #e0a800;
+    }
+    
+    .btn-activate {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-activate:hover {
+        background: #218838;
+    }
+    
+    .btn-deactivate {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-deactivate:hover {
+        background: #5a6268;
+    }
+    
+    .btn-archive {
+        background: #17a2b8;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #138496;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+    }
+    
+    .btn-archive {
+        background: #fd7e14;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #e66a00;
+    }
+    
+    .area-chevron {
+        color: #999;
+        font-size: 18px;
+        margin-left: 10px;
+    }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 0;
+        width: 90%;
+        max-width: 500px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #333;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+        font-size: 14px;
+    }
+    
+    .form-group input {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+    }
+    
+    .form-error {
+        color: #dc3545;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
+    }
+    
+    .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    .btn-submit {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .btn-submit:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .no-areas {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+    
+    .no-areas i {
+        font-size: 48px;
+        color: #ccc;
+        margin-bottom: 15px;
+    }
+    
+    .btn-back {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+        text-decoration: none;
+    }
+    
+    .btn-back:hover {
+        background: #5a6268;
+    }
+</style>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+    <a href="{% url 'dashboard:accreditation_settings' %}">Accreditation Settings</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{% url 'dashboard:department_programs' department.code %}">{{ department.name }} Programs</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{% url 'dashboard:program_types' department.code program.code %}">{{ program.name }} Types</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>{{ accreditation_type.name }} - Areas</span>
+</div>
+
+<div class="settings-header">
+    <h1 class="settings-title">{{ accreditation_type.name }} - Areas</h1>
+    <a href="{% url 'dashboard:program_types' department.code program.code %}" class="btn-back">
+        <i class="fas fa-arrow-left"></i>
+        Back to Types
+    </a>
+</div>
+
+<div class="section-header">
+    <h2 class="section-title">Areas</h2>
+    <div class="action-buttons-group">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchAreas" placeholder="Search areas..." onkeyup="searchAreas()">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+        <button class="btn-action-header" onclick="openAddModal()">
+            <i class="fas fa-plus"></i>
+            Add Area
+        </button>
+    </div>
+</div>
+
+<div class="areas-container">
+    <div class="area-list" id="moduleList">
+        {% if areas %}
+            {% for area in areas %}
+            {% if not area.is_archived %}
+            <div class="area-item" data-id="{{ area.id }}" data-active="{{ area.is_active|lower }}" onclick="navigateToAreaChecklists('{{ area.id }}', event)">
+                <div class="area-info">
+                    <span class="area-name">{{ area.name }}</span>
+                </div>
+                <div class="area-actions">
+                    <button class="btn-action btn-edit" onclick="openEditModal('{{ area.id }}', '{{ area.name|escapejs }}'); event.stopPropagation();" title="Edit">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    {% if area.is_active %}
+                    <button class="btn-action btn-deactivate" onclick="toggleAreaActive('{{ area.id }}', false, '{{ area.name|escapejs }}'); event.stopPropagation();" title="Deactivate">
+                        <i class="fas fa-ban"></i>
+                    </button>
+                    {% else %}
+                    <button class="btn-action btn-activate" onclick="toggleAreaActive('{{ area.id }}', true, '{{ area.name|escapejs }}'); event.stopPropagation();" title="Activate">
+                        <i class="fas fa-check-circle"></i>
+                    </button>
+                    {% endif %}
+                    <button class="btn-action btn-archive" onclick="archiveArea('{{ area.id }}', '{{ area.name|escapejs }}'); event.stopPropagation();" title="Archive">
+                        <i class="fas fa-archive"></i>
+                    </button>
+                    <button class="btn-action btn-delete" onclick="deleteArea('{{ area.id }}', '{{ area.name|escapejs }}'); event.stopPropagation();" title="Delete">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <i class="fas fa-chevron-right area-chevron"></i>
+                </div>
+            </div>
+            {% endif %}
+            {% endfor %}
+        {% else %}
+            <div class="no-areas">
+                <i class="fas fa-cubes"></i>
+                <p>No areas found for this accreditation type</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Area Modal -->
+<div id="moduleModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle">Add Area</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="moduleForm">
+            <div class="modal-body">
+                <input type="hidden" id="moduleId" name="area_id">
+                
+                <div class="form-group">
+                    <label for="moduleName">Area Name <span style="color: red;">*</span></label>
+                    <input 
+                        type="text" 
+                        id="moduleName" 
+                        name="name" 
+                        required
+                        placeholder="e.g., Area 1, Assessment, Governance"
+                    >
+                    <span class="form-error" id="nameError"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
+                <button type="button" class="btn-submit" onclick="confirmSaveArea()">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+let isEditMode = false;
+const departmentId = '{{ department.code }}';
+const programId = '{{ program.code }}';
+const typeId = '{{ accreditation_type.id }}';
+
+function navigateToAreaChecklists(moduleId, event) {
+    // Navigate to the area checklists page
+    window.location.href = `/dashboard/settings/departments/${departmentId}/programs/${programId}/types/${typeId}/areas/${moduleId}/checklists/`;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function openAddModal() {
+    isEditMode = false;
+    document.getElementById('modalTitle').textContent = 'Add Area';
+    document.getElementById('moduleForm').reset();
+    document.getElementById('moduleId').value = '';
+    clearErrors();
+    document.getElementById('moduleModal').classList.add('show');
+}
+
+function openEditModal(moduleId, moduleName) {
+    isEditMode = true;
+    document.getElementById('modalTitle').textContent = 'Edit Area';
+    clearErrors();
+    
+    // Fetch area data
+    fetch(`/dashboard/settings/departments/${departmentId}/programs/${programId}/types/${typeId}/areas/get/${moduleId}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const area = data.area;
+                document.getElementById('moduleId').value = area.id;
+                document.getElementById('moduleName').value = area.name;
+                
+                document.getElementById('moduleModal').classList.add('show');
+            } else {
+                Toast.error(data.message);
+            }
+        })
+        .catch(error => {
+            Toast.error('Error loading area data');
+            console.error('Error:', error);
+        });
+}
+
+function closeModal() {
+    document.getElementById('moduleModal').classList.remove('show');
+    document.getElementById('moduleForm').reset();
+}
+
+function toggleAreaActive(moduleId, activate, moduleName) {
+    const action = activate ? 'activate' : 'deactivate';
+    const actionText = activate ? 'Activate' : 'Deactivate';
+    const message = activate ? 
+        `Are you sure you want to activate "${moduleName}"? This area will be active and functional.` :
+        `Are you sure you want to deactivate "${moduleName}"? This area will be temporarily disabled but not removed.`;
+    
+    ConfirmationModal.show({
+        title: `${actionText} Area`,
+        message: message,
+        type: action,
+        confirmText: actionText,
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/${departmentId}/programs/${programId}/types/${typeId}/areas/toggle-active/${moduleId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    is_active: activate
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error(`Error ${activate ? 'activating' : 'deactivating'} area`);
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function archiveArea(moduleId, moduleName) {
+    ConfirmationModal.show({
+        title: 'Archive Area',
+        message: `Are you sure you want to archive "${moduleName}"? This area will be permanently removed from the active list.`,
+        type: 'deactivate',
+        confirmText: 'Archive',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/${departmentId}/programs/${programId}/types/${typeId}/areas/archive/${moduleId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({
+                    is_archived: true
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error('Error archiving area');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function deleteArea(moduleId, moduleName) {
+    ConfirmationModal.show({
+        title: 'Delete Area',
+        message: `Are you sure you want to permanently delete "${moduleName}"? This action cannot be undone.`,
+        type: 'delete',
+        confirmText: 'Delete',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/${departmentId}/programs/${programId}/types/${typeId}/areas/delete/${moduleId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message);
+                }
+            })
+            .catch(error => {
+                Toast.error('Error deleting area');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function clearErrors() {
+    document.querySelectorAll('.form-error').forEach(el => el.textContent = '');
+}
+
+function confirmSaveArea() {
+    clearErrors();
+    
+    // Validate form
+    const name = document.getElementById('moduleName').value.trim();
+    
+    if (!name) {
+        document.getElementById('nameError').textContent = 'Area name is required';
+        return;
+    }
+    
+    const actionText = isEditMode ? 'update' : 'create';
+    const titleText = isEditMode ? 'Update Area' : 'Create Area';
+    
+    ConfirmationModal.show({
+        title: titleText,
+        message: `Are you sure you want to ${actionText} this area?`,
+        type: 'save',
+        confirmText: isEditMode ? 'Update' : 'Create',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            saveArea();
+        }
+    });
+}
+
+function saveArea() {
+    const formData = new FormData(document.getElementById('moduleForm'));
+    const moduleId = document.getElementById('moduleId').value;
+    
+    const url = isEditMode 
+        ? `/dashboard/settings/departments/${departmentId}/programs/${programId}/types/${typeId}/areas/edit/${moduleId}/`
+        : `/dashboard/settings/departments/${departmentId}/programs/${programId}/types/${typeId}/areas/add/`;
+    
+    const csrftoken = getCookie('csrftoken');
+    
+    // Show loading state
+    const submitBtn = document.querySelector('.btn-submit');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Saving...';
+    submitBtn.disabled = true;
+    
+    fetch(url, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': csrftoken
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        
+        if (data.success) {
+            Toast.success(data.message);
+            closeModal();
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            if (data.errors) {
+                Object.keys(data.errors).forEach(key => {
+                    const errorEl = document.getElementById(key + 'Error');
+                    if (errorEl) {
+                        errorEl.textContent = Array.isArray(data.errors[key]) 
+                            ? data.errors[key].join(', ') 
+                            : data.errors[key];
+                    }
+                });
+            }
+            Toast.error(data.message);
+        }
+    })
+    .catch(error => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        Toast.error('An error occurred');
+        console.error('Error:', error);
+    });
+}
+
+// Search areas function
+function searchAreas() {
+    const searchInput = document.getElementById('searchAreas');
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const list = document.getElementById('moduleList');
+    const items = list.getElementsByClassName('area-item');
+    let visibleCount = 0;
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const nameElement = item.querySelector('.area-name');
+        
+        if (nameElement) {
+            const name = nameElement.textContent || nameElement.innerText;
+            
+            if (name.toLowerCase().indexOf(searchTerm) > -1) {
+                item.style.display = '';
+                visibleCount++;
+            } else {
+                item.style.display = 'none';
+            }
+        }
+    }
+    
+    let noResultsDiv = list.parentElement.querySelector('.no-results');
+    
+    if (visibleCount === 0 && searchTerm !== '') {
+        if (!noResultsDiv) {
+            noResultsDiv = document.createElement('div');
+            noResultsDiv.className = 'no-results';
+            noResultsDiv.innerHTML = '<i class="fas fa-search"></i><p>No results found for "' + searchInput.value + '"</p>';
+            list.parentElement.appendChild(noResultsDiv);
+        }
+        list.style.display = 'none';
+    } else {
+        if (noResultsDiv) {
+            noResultsDiv.remove();
+        }
+        list.style.display = '';
+    }
+}
+</script>
+
+{% endblock %}

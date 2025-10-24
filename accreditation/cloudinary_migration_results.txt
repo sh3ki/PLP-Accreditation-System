@@ -1,0 +1,30 @@
+CLOUDINARY MIGRATION RESULTS
+============================================================
+
+Migration Date: 2025-10-24 13:39:02.894808
+Total Images: 4
+Successful: 4
+Failed: 0
+
+URL MAPPINGS:
+------------------------------------------------------------
+
+PLP Logo - Used in dashboards:
+  Old: https://res.cloudinary.com/dlu2bqrda/image/upload/v1759219218/PLP_LOGO_ujtdgd.png
+  New: https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284239/PLP_LOGO_ujtdgd.png
+  Public ID: PLP_LOGO_ujtdgd
+
+Default Profile Picture - Used in user management:
+  Old: https://res.cloudinary.com/dlu2bqrda/image/upload/v1760105137/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg
+  New: https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg
+  Public ID: default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve
+
+CCS Logo - Used in department:
+  Old: https://res.cloudinary.com/dlu2bqrda/image/upload/v1760107585/compsci_tcgeee.png
+  New: https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/compsci_tcgeee.png
+  Public ID: compsci_tcgeee
+
+Login Background Image:
+  Old: https://res.cloudinary.com/dlu2bqrda/image/upload/v1759218759/bg_qhybsq.jpg
+  New: https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284342/bg_qhybsq.jpg
+  Public ID: bg_qhybsq

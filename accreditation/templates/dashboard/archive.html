@@ -3,13 +3,763 @@
 {% block title %}Archive{% endblock %}
 
 {% block content %}
-<h1 class="dashboard-title">Archive</h1>
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
-<div class="content-section">
-    <h2 class="section-title">
-        <i class="fas fa-archive me-2"></i>
-        Document Archive
-    </h2>
-    <p>Archived documents and records will be available here.</p>
+<style>
+    .archive-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+    
+    .archive-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .filter-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 10px;
+    }
+    
+    .filter-tab {
+        background: transparent;
+        color: #666;
+        padding: 10px 20px;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s;
+    }
+    
+    .filter-tab:hover {
+        color: var(--plp-green);
+    }
+    
+    .filter-tab.active {
+        color: var(--plp-green);
+        border-bottom-color: var(--plp-green);
+    }
+    
+    .archive-section {
+        display: none;
+    }
+    
+    .archive-section.active {
+        display: block;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .items-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .item-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .archive-item {
+        display: flex;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        justify-content: space-between;
+    }
+    
+    .archive-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .archive-item:last-child {
+        border-bottom: none;
+    }
+    
+    .item-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .item-logo {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+        flex-shrink: 0;
+    }
+    
+    .item-details {
+        flex: 1;
+    }
+    
+    .item-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+        margin-bottom: 4px;
+    }
+    
+    .item-meta {
+        font-size: 13px;
+        color: #666;
+    }
+    
+    /* Hierarchical program display */
+    .program-hierarchy {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .breadcrumb-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #333;
+    }
+    
+    .breadcrumb-code {
+        font-weight: 600;
+        color: var(--plp-green);
+    }
+    
+    .breadcrumb-name {
+        color: #666;
+    }
+    
+    .parent-dept {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 250px;
+    }
+    
+    .hierarchy-separator {
+        color: #ccc;
+        font-size: 20px;
+        margin: 0 5px;
+    }
+    
+    .program-info {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .program-code {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--plp-green);
+    }
+    
+    .program-name {
+        font-size: 15px;
+        color: #333;
+    }
+    
+    .type-logo-small {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+    }
+    
+    .item-actions {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-unarchive {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-unarchive:hover {
+        background: #218838;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        color: #ccc;
+        margin-bottom: 15px;
+    }
+    
+    .empty-state p {
+        font-size: 16px;
+        margin: 0;
+    }
+    
+    .search-container {
+        position: relative;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 300px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+    
+    .no-results i {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 15px;
+    }
+</style>
+
+<div class="archive-header">
+    <h1 class="archive-title">Archive</h1>
 </div>
+
+<div class="filter-tabs">
+    <button class="filter-tab active" onclick="switchTab('departments')">
+        <i class="fas fa-building"></i> Departments
+    </button>
+    <button class="filter-tab" onclick="switchTab('programs')">
+        <i class="fas fa-graduation-cap"></i> Programs
+    </button>
+    <button class="filter-tab" onclick="switchTab('types')">
+        <i class="fas fa-certificate"></i> Accreditation Types
+    </button>
+    <button class="filter-tab" onclick="switchTab('areas')">
+        <i class="fas fa-book"></i> Areas
+    </button>
+    <button class="filter-tab" onclick="switchTab('checklists')">
+        <i class="fas fa-list-check"></i> Checklists
+    </button>
+</div>
+
+<!-- Departments Archive -->
+<div id="departments-section" class="archive-section active">
+    <div class="section-header">
+        <h2 class="section-title">Archived Departments</h2>
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchDepartments" placeholder="Search departments..." onkeyup="searchArchiveItems('departments')">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </div>
+    <div class="items-container">
+        <div id="departments-list" class="item-list"></div>
+    </div>
+</div>
+
+<!-- Programs Archive -->
+<div id="programs-section" class="archive-section">
+    <div class="section-header">
+        <h2 class="section-title">Archived Programs</h2>
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchPrograms" placeholder="Search programs..." onkeyup="searchArchiveItems('programs')">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </div>
+    <div class="items-container">
+        <div id="programs-list" class="item-list"></div>
+    </div>
+</div>
+
+<!-- Accreditation Types Archive -->
+<div id="types-section" class="archive-section">
+    <div class="section-header">
+        <h2 class="section-title">Archived Accreditation Types</h2>
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchTypes" placeholder="Search types..." onkeyup="searchArchiveItems('types')">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </div>
+    <div class="items-container">
+        <div id="types-list" class="item-list"></div>
+    </div>
+</div>
+
+<!-- Areas Archive -->
+<div id="areas-section" class="archive-section">
+    <div class="section-header">
+        <h2 class="section-title">Archived Areas</h2>
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchAreas" placeholder="Search areas..." onkeyup="searchArchiveItems('areas')">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </div>
+    <div class="items-container">
+        <div id="areas-list" class="item-list"></div>
+    </div>
+</div>
+
+<!-- Checklists Archive -->
+<div id="checklists-section" class="archive-section">
+    <div class="section-header">
+        <h2 class="section-title">Archived Checklists</h2>
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchChecklists" placeholder="Search checklists..." onkeyup="searchArchiveItems('checklists')">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+    </div>
+    <div class="items-container">
+        <div id="checklists-list" class="item-list"></div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Switch between tabs
+function switchTab(tabName) {
+    // Update tab buttons
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    event.target.closest('.filter-tab').classList.add('active');
+    
+    // Update sections
+    document.querySelectorAll('.archive-section').forEach(section => {
+        section.classList.remove('active');
+    });
+    document.getElementById(`${tabName}-section`).classList.add('active');
+    
+    // Load data for the tab
+    loadArchiveData(tabName);
+}
+
+// Load archived items
+function loadArchiveData(type) {
+    const listContainer = document.getElementById(`${type}-list`);
+    
+    fetch(`/dashboard/archive/api/${type}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.items.length > 0) {
+                renderItems(type, data.items, listContainer);
+            } else {
+                listContainer.innerHTML = `
+                    <div class="empty-state">
+                        <i class="fas fa-archive"></i>
+                        <p>No archived ${type} found</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading archive data:', error);
+            listContainer.innerHTML = `
+                <div class="empty-state">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <p>Error loading archived items</p>
+                </div>
+            `;
+        });
+}
+
+// Render items in the list
+function renderItems(type, items, container) {
+    container.innerHTML = items.map(item => {
+        if (type === 'departments') {
+            return renderDepartmentItem(item);
+        } else if (type === 'programs') {
+            return renderProgramItem(item);
+        } else {
+            return renderGenericItem(type, item);
+        }
+    }).join('');
+}
+
+// Render department item (table-like format)
+function renderDepartmentItem(dept) {
+    const logo = dept.logo_url || 'https://via.placeholder.com/50?text=D';
+    const name = dept.name || 'Unnamed Department';
+    const itemId = dept.id;
+    
+    return `
+        <div class="archive-item">
+            <div class="item-info">
+                <img src="${logo}" alt="${name}" class="item-logo" onerror="this.src='https://via.placeholder.com/50?text=D'">
+                <div class="item-details">
+                    <div class="item-name">${name}</div>
+                </div>
+            </div>
+            <div class="item-actions">
+                <button class="btn-action btn-unarchive" onclick="unarchiveItem('departments', '${itemId}', '${escapeHtml(name)}')" title="Unarchive">
+                    <i class="fas fa-box-open"></i>
+                </button>
+                <button class="btn-action btn-delete" onclick="deleteArchivedItem('departments', '${itemId}', '${escapeHtml(name)}')" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Render program item (hierarchical format with department)
+function renderProgramItem(program) {
+    const deptCode = program.department_code || 'N/A';
+    const progCode = program.code || 'N/A';
+    const progName = program.name || 'Unnamed Program';
+    const itemId = program.id;
+    
+    return `
+        <div class="archive-item">
+            <div class="program-hierarchy">
+                <span class="breadcrumb-code">${deptCode}</span>
+                <span class="hierarchy-separator">│</span>
+                <span class="breadcrumb-code">${progCode}</span>
+                <span class="breadcrumb-name">${progName}</span>
+            </div>
+            <div class="item-actions">
+                <button class="btn-action btn-unarchive" onclick="unarchiveItem('programs', '${itemId}', '${escapeHtml(progName)}')" title="Unarchive">
+                    <i class="fas fa-box-open"></i>
+                </button>
+                <button class="btn-action btn-delete" onclick="deleteArchivedItem('programs', '${itemId}', '${escapeHtml(progName)}')" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Render generic item (for types, areas, checklists)
+function renderGenericItem(type, item) {
+    const itemId = item.id || item.code;
+    const name = item.name || 'Unnamed';
+    
+    let hierarchyHtml = '';
+    
+    if (type === 'types') {
+        // Department Code | Program Code | Type Image Type Name
+        const deptCode = item.department_code || 'N/A';
+        const progCode = item.program_code || 'N/A';
+        const typeLogo = item.logo_url || 'https://via.placeholder.com/30?text=T';
+        
+        hierarchyHtml = `
+            <span class="breadcrumb-code">${deptCode}</span>
+            <span class="hierarchy-separator">│</span>
+            <span class="breadcrumb-code">${progCode}</span>
+            <span class="hierarchy-separator">│</span>
+            <img src="${typeLogo}" alt="${name}" class="type-logo-small" onerror="this.src='https://via.placeholder.com/30?text=T'">
+            <span class="breadcrumb-name">${name}</span>
+        `;
+    } else if (type === 'areas') {
+        // Department Code | Program Code | Type Name | Area Name
+        const deptCode = item.department_code || 'N/A';
+        const progCode = item.program_code || 'N/A';
+        const typeName = item.type_name || 'Unknown Type';
+        
+        hierarchyHtml = `
+            <span class="breadcrumb-code">${deptCode}</span>
+            <span class="hierarchy-separator">│</span>
+            <span class="breadcrumb-code">${progCode}</span>
+            <span class="hierarchy-separator">│</span>
+            <span class="breadcrumb-name">${typeName}</span>
+            <span class="hierarchy-separator">│</span>
+            <span class="breadcrumb-name">${name}</span>
+        `;
+    } else if (type === 'checklists') {
+        // Department Code | Program Code | Type Name | Area Name | Checklist Name
+        const deptCode = item.department_code || 'N/A';
+        const progCode = item.program_code || 'N/A';
+        const typeName = item.type_name || 'Unknown Type';
+        const areaName = item.area_name || 'Unknown Area';
+        
+        hierarchyHtml = `
+            <span class="breadcrumb-code">${deptCode}</span>
+            <span class="hierarchy-separator">│</span>
+            <span class="breadcrumb-code">${progCode}</span>
+            <span class="hierarchy-separator">│</span>
+            <span class="breadcrumb-name">${typeName}</span>
+            <span class="hierarchy-separator">│</span>
+            <span class="breadcrumb-name">${areaName}</span>
+            <span class="hierarchy-separator">│</span>
+            <span class="breadcrumb-name">${name}</span>
+        `;
+    }
+    
+    return `
+        <div class="archive-item">
+            <div class="program-hierarchy">
+                ${hierarchyHtml}
+            </div>
+            <div class="item-actions">
+                <button class="btn-action btn-unarchive" onclick="unarchiveItem('${type}', '${itemId}', '${escapeHtml(name)}')" title="Unarchive">
+                    <i class="fas fa-box-open"></i>
+                </button>
+                <button class="btn-action btn-delete" onclick="deleteArchivedItem('${type}', '${itemId}', '${escapeHtml(name)}')" title="Delete">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Escape HTML to prevent XSS
+function escapeHtml(text) {
+    const map = {
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#039;'
+    };
+    return text.replace(/[&<>"']/g, m => map[m]);
+}
+
+// Get metadata for item
+function getItemMeta(type, item) {
+    switch(type) {
+        case 'programs':
+            return `Code: ${item.code}`;
+        case 'areas':
+            return `Code: ${item.code}`;
+        case 'checklists':
+            return `Code: ${item.code}`;
+        default:
+            return '';
+    }
+}
+
+// Unarchive item
+function unarchiveItem(type, itemId, itemName) {
+    ConfirmationModal.show({
+        title: 'Unarchive Item',
+        message: `Are you sure you want to unarchive "${itemName}"? This will restore it to the active list.`,
+        type: 'activate',
+        confirmText: 'Unarchive',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            performUnarchive(type, itemId, itemName);
+        }
+    });
+}
+
+function performUnarchive(type, itemId, itemName) {
+    const csrf_token = getCookie('csrftoken');
+    const url = `/dashboard/archive/api/${type}/${itemId}/unarchive/`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrf_token
+        },
+        body: JSON.stringify({ is_archived: false })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Toast.success(data.message || `${itemName} has been unarchived successfully`);
+            loadArchiveData(type);
+        } else {
+            Toast.error(data.message || 'Failed to unarchive item');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Toast.error('An error occurred while unarchiving');
+    });
+}
+
+// Delete archived item
+function deleteArchivedItem(type, itemId, itemName) {
+    ConfirmationModal.show({
+        title: 'Delete Item Permanently',
+        message: `Are you sure you want to PERMANENTLY DELETE "${itemName}"? This action cannot be undone!`,
+        type: 'delete',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            performDelete(type, itemId, itemName);
+        }
+    });
+}
+
+function performDelete(type, itemId, itemName) {
+    const csrf_token = getCookie('csrftoken');
+    const url = `/dashboard/archive/api/${type}/${itemId}/delete/`;
+    
+    fetch(url, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrf_token
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Toast.success(data.message || `${itemName} has been permanently deleted`);
+            loadArchiveData(type);
+        } else {
+            Toast.error(data.message || 'Failed to delete item');
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        Toast.error('An error occurred while deleting');
+    });
+}
+
+// Search archive items function
+function searchArchiveItems(type) {
+    const searchInput = document.getElementById('search' + type.charAt(0).toUpperCase() + type.slice(1));
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const list = document.getElementById(type + '-list');
+    const items = list.getElementsByClassName('archive-item');
+    let visibleCount = 0;
+    
+    for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        let searchText = '';
+        
+        // Get text to search based on type
+        if (type === 'departments') {
+            const nameElement = item.querySelector('.item-name');
+            searchText = nameElement ? (nameElement.textContent || nameElement.innerText) : '';
+        } else if (type === 'programs') {
+            const codeElement = item.querySelector('.breadcrumb-code');
+            const nameElement = item.querySelector('.breadcrumb-name');
+            const code = codeElement ? (codeElement.textContent || codeElement.innerText) : '';
+            const name = nameElement ? (nameElement.textContent || nameElement.innerText) : '';
+            searchText = code + ' ' + name;
+        } else {
+            // For types, areas, checklists - search in all breadcrumb elements
+            const breadcrumbCodes = item.querySelectorAll('.breadcrumb-code');
+            const breadcrumbNames = item.querySelectorAll('.breadcrumb-name');
+            let allText = '';
+            
+            breadcrumbCodes.forEach(el => {
+                allText += (el.textContent || el.innerText) + ' ';
+            });
+            
+            breadcrumbNames.forEach(el => {
+                allText += (el.textContent || el.innerText) + ' ';
+            });
+            
+            searchText = allText;
+        }
+        
+        // Check if search term is found
+        if (searchText.toLowerCase().indexOf(searchTerm) > -1) {
+            item.style.display = '';
+            visibleCount++;
+        } else {
+            item.style.display = 'none';
+        }
+    }
+    
+    // Show "no results" message if no items match
+    let noResultsDiv = list.parentElement.querySelector('.no-results');
+    
+    if (visibleCount === 0 && searchTerm !== '') {
+        if (!noResultsDiv) {
+            noResultsDiv = document.createElement('div');
+            noResultsDiv.className = 'no-results';
+            noResultsDiv.innerHTML = '<i class="fas fa-search"></i><p>No results found for "' + searchInput.value + '"</p>';
+            list.parentElement.appendChild(noResultsDiv);
+        }
+        list.style.display = 'none';
+    } else {
+        if (noResultsDiv) {
+            noResultsDiv.remove();
+        }
+        list.style.display = '';
+    }
+}
+
+// Load departments on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadArchiveData('departments');
+});
+</script>
 {% endblock %}
+

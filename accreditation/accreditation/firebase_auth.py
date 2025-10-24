@@ -1,7 +1,7 @@
 """
 Custom User Model for Firebase Firestore
 
-This module defines the User model and authentication system using Firebase Firestore
+This area defines the User model and authentication system using Firebase Firestore
 as the backend database instead of traditional Django models.
 """
 
