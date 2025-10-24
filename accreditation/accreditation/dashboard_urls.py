@@ -78,6 +78,13 @@ urlpatterns = [
     path('settings/departments/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/delete/<str:checklist_id>/', dashboard_views.checklist_delete_view, name='checklist_delete'),
     path('settings/departments/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/get/<str:checklist_id>/', dashboard_views.checklist_get_view, name='checklist_get'),
     
+    # Document management (within checklists)
+    path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/', dashboard_views.checklist_documents_view, name='checklist_documents'),
+    path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/add/', dashboard_views.document_add_view, name='document_add'),
+    path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/view/', dashboard_views.document_view, name='document_view'),
+    path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/update-status/', dashboard_views.document_update_status_view, name='document_update_status'),
+    path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/delete/', dashboard_views.document_delete_view, name='document_delete'),
+    
     path('settings/appearance/', dashboard_views.system_appearance_view, name='system_appearance'),
     path('change-password/', dashboard_views.change_password_view, name='change_password'),
     
@@ -89,6 +96,13 @@ urlpatterns = [
     path('archive/api/checklists/', dashboard_views.archive_api_checklists, name='archive_api_checklists'),
     path('archive/api/<str:item_type>/<str:item_id>/unarchive/', dashboard_views.archive_api_unarchive, name='archive_api_unarchive'),
     path('archive/api/<str:item_type>/<str:item_id>/delete/', dashboard_views.archive_api_delete, name='archive_api_delete'),
+    
+    # API endpoints for document modal dropdowns
+    path('api/departments/', dashboard_views.api_get_departments, name='api_get_departments'),
+    path('api/departments/<str:dept_id>/programs/', dashboard_views.api_get_department_programs, name='api_get_department_programs'),
+    path('api/programs/<str:prog_id>/types/', dashboard_views.api_get_program_types, name='api_get_program_types'),
+    path('api/types/<str:type_id>/areas/', dashboard_views.api_get_type_areas, name='api_get_type_areas'),
+    path('api/areas/<str:area_id>/checklists/', dashboard_views.api_get_area_checklists, name='api_get_area_checklists'),
     
     # Legacy URLs for backward compatibility
     path('qa-head/', dashboard_views.qa_head_dashboard, name='qa_head_dashboard'),

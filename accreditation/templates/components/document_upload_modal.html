@@ -1,0 +1,737 @@
+<!-- Document Upload Modal Component -->
+<style>
+    /* Add Document Button Style */
+    .btn-action-header {
+        background: var(--plp-green);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-action-header:hover {
+        background: var(--plp-dark-green);
+    }
+
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        animation: fadeIn 0.3s;
+    }
+    
+    .modal.show {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        color: #333;
+        font-size: 20px;
+        font-weight: 600;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #999;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.3s;
+    }
+    
+    .modal-close:hover {
+        background: #f0f0f0;
+        color: #333;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        color: #333;
+        font-weight: 500;
+        font-size: 14px;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="file"],
+    .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: border-color 0.3s;
+    }
+    
+    .form-group input[type="text"]:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .file-format-note {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .additional-documents {
+        margin-top: 10px;
+    }
+    
+    .additional-document-item {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        margin-bottom: 10px;
+        padding: 10px;
+        background: #f8f9fa;
+        border-radius: 4px;
+        position: relative;
+    }
+    
+    .btn-add-additional {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        transition: background 0.3s;
+    }
+    
+    .btn-add-additional:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .btn-remove-additional {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 24px;
+        height: 24px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        transition: background 0.3s;
+    }
+    
+    .btn-remove-additional:hover {
+        background: #c82333;
+    }
+    
+    .modal-footer {
+        padding: 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background 0.3s;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    .btn-submit {
+        background: var(--plp-green);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: background 0.3s;
+    }
+    
+    .btn-submit:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .btn-submit:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+        }
+        to {
+            opacity: 1;
+        }
+    }
+</style>
+
+<!-- Add Document Modal -->
+<div id="documentModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add Documents</h3>
+            <button class="modal-close" onclick="closeDocumentModal()">&times;</button>
+        </div>
+        <form id="documentForm" enctype="multipart/form-data">
+            <div class="modal-body">
+                <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+                
+                <div class="form-group">
+                    <label for="modalDepartment">Department <span style="color: red;">*</span></label>
+                    <select id="modalDepartment" name="department_id" required onchange="loadModalPrograms()">
+                        <option value="">Select Department</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modalProgram">Program <span style="color: red;">*</span></label>
+                    <select id="modalProgram" name="program_id" required onchange="loadModalTypes()">
+                        <option value="">Select Program</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modalType">Accreditation Type <span style="color: red;">*</span></label>
+                    <select id="modalType" name="accreditation_type_id" required onchange="loadModalAreas()">
+                        <option value="">Select Type</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modalArea">Area <span style="color: red;">*</span></label>
+                    <select id="modalArea" name="area_id" required onchange="loadModalChecklists()">
+                        <option value="">Select Area</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="modalChecklist">Checklist <span style="color: red;">*</span></label>
+                    <select id="modalChecklist" name="checklist_id" required>
+                        <option value="">Select Checklist</option>
+                    </select>
+                </div>
+                
+                <hr style="margin: 20px 0; border: none; border-top: 1px solid #e0e0e0;">
+                
+                <div class="form-group">
+                    <label>Required Documents <span style="color: red;">*</span></label>
+                    <div class="additional-documents">
+                        <div id="requiredDocumentsContainer">
+                            <div class="additional-document-item">
+                                <input type="text" name="required_document_names[]" placeholder="Document name" style="margin-bottom: 5px;" required>
+                                <input type="file" name="required_documents[]" accept=".doc,.docx" required>
+                            </div>
+                        </div>
+                        <button type="button" class="btn-add-additional" onclick="addRequiredDocumentField()">
+                            <i class="fas fa-plus"></i> Add More Required
+                        </button>
+                    </div>
+                    <div class="file-format-note">Accepted formats: .doc, .docx</div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Additional Documents (Optional)</label>
+                    <div class="additional-documents">
+                        <div id="additionalDocumentsContainer">
+                            <div class="additional-document-item">
+                                <input type="text" name="additional_document_names[]" placeholder="Document name" style="margin-bottom: 5px;">
+                                <input type="file" name="additional_documents[]" accept=".doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif">
+                            </div>
+                        </div>
+                        <button type="button" class="btn-add-additional" onclick="addAdditionalDocumentField()">
+                            <i class="fas fa-plus"></i> Add More Additional
+                        </button>
+                    </div>
+                    <div class="file-format-note">Accepted formats: .doc, .docx, .pdf, .ppt, .pptx, .xls, .xlsx, images</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeDocumentModal()">Cancel</button>
+                <button type="button" class="btn-submit" onclick="uploadDocuments()">Upload</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// Context variables - to be set by parent page
+var MODAL_CONTEXT = {
+    departmentId: '{{ dept_id|default:"" }}',
+    programId: '{{ prog_id|default:"" }}',
+    typeId: '{{ type_id|default:"" }}',
+    areaId: '{{ area_id|default:"" }}',
+    checklistId: '{{ checklist_id|default:"" }}'
+};
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function openAddDocumentModal() {
+    document.getElementById('documentModal').classList.add('show');
+    document.getElementById('documentForm').reset();
+    
+    // Disable all dropdowns initially except Department
+    document.getElementById('modalProgram').disabled = true;
+    document.getElementById('modalType').disabled = true;
+    document.getElementById('modalArea').disabled = true;
+    document.getElementById('modalChecklist').disabled = true;
+    
+    loadModalDepartments();
+}
+
+function closeDocumentModal() {
+    document.getElementById('documentModal').classList.remove('show');
+}
+
+function loadModalDepartments() {
+    fetch('/dashboard/api/departments/')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            const select = document.getElementById('modalDepartment');
+            select.innerHTML = '<option value="">Select Department</option>';
+            
+            if (data.departments && data.departments.length > 0) {
+                data.departments.forEach(dept => {
+                    const option = document.createElement('option');
+                    option.value = dept.id;
+                    option.textContent = dept.name;
+                    select.appendChild(option);
+                });
+                
+                // Preselect department if available
+                if (MODAL_CONTEXT.departmentId) {
+                    // Try to find department by ID first, then by name
+                    const deptOption = Array.from(select.options).find(opt => 
+                        opt.value === MODAL_CONTEXT.departmentId || opt.value.includes(MODAL_CONTEXT.departmentId)
+                    );
+                    
+                    if (deptOption) {
+                        select.value = deptOption.value;
+                        loadModalPrograms();
+                    }
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error loading departments:', error);
+            Toast.error('Failed to load departments');
+        });
+}
+
+function loadModalPrograms() {
+    const deptId = document.getElementById('modalDepartment').value;
+    const select = document.getElementById('modalProgram');
+    const typeSelect = document.getElementById('modalType');
+    const areaSelect = document.getElementById('modalArea');
+    const checklistSelect = document.getElementById('modalChecklist');
+    
+    if (!deptId) {
+        // Disable and reset all child dropdowns
+        select.innerHTML = '<option value="">Select Program</option>';
+        select.disabled = true;
+        typeSelect.innerHTML = '<option value="">Select Type</option>';
+        typeSelect.disabled = true;
+        areaSelect.innerHTML = '<option value="">Select Area</option>';
+        areaSelect.disabled = true;
+        checklistSelect.innerHTML = '<option value="">Select Checklist</option>';
+        checklistSelect.disabled = true;
+        return;
+    }
+    
+    fetch(`/dashboard/api/departments/${deptId}/programs/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            select.innerHTML = '<option value="">Select Program</option>';
+            
+            if (data.programs && data.programs.length > 0) {
+                data.programs.forEach(prog => {
+                    const option = document.createElement('option');
+                    option.value = prog.id;
+                    option.textContent = prog.code ? `${prog.code} - ${prog.name}` : prog.name;
+                    select.appendChild(option);
+                });
+                
+                // Enable program dropdown
+                select.disabled = false;
+                
+                // Preselect program if available
+                if (MODAL_CONTEXT.programId) {
+                    const progOption = Array.from(select.options).find(opt => 
+                        opt.value === MODAL_CONTEXT.programId || opt.value.includes(MODAL_CONTEXT.programId)
+                    );
+                    
+                    if (progOption) {
+                        select.value = progOption.value;
+                        loadModalTypes();
+                    }
+                }
+            } else {
+                select.innerHTML = '<option value="">No programs available</option>';
+                select.disabled = true;
+            }
+            
+            // Reset child dropdowns
+            typeSelect.innerHTML = '<option value="">Select Type</option>';
+            typeSelect.disabled = true;
+            areaSelect.innerHTML = '<option value="">Select Area</option>';
+            areaSelect.disabled = true;
+            checklistSelect.innerHTML = '<option value="">Select Checklist</option>';
+            checklistSelect.disabled = true;
+        })
+        .catch(error => {
+            console.error('Error loading programs:', error);
+            Toast.error('Failed to load programs');
+            select.innerHTML = '<option value="">Error loading programs</option>';
+            select.disabled = true;
+        });
+}
+
+function loadModalTypes() {
+    const progId = document.getElementById('modalProgram').value;
+    const select = document.getElementById('modalType');
+    const areaSelect = document.getElementById('modalArea');
+    const checklistSelect = document.getElementById('modalChecklist');
+    
+    if (!progId) {
+        select.innerHTML = '<option value="">Select Type</option>';
+        select.disabled = true;
+        areaSelect.innerHTML = '<option value="">Select Area</option>';
+        areaSelect.disabled = true;
+        checklistSelect.innerHTML = '<option value="">Select Checklist</option>';
+        checklistSelect.disabled = true;
+        return;
+    }
+    
+    fetch(`/dashboard/api/programs/${progId}/types/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            select.innerHTML = '<option value="">Select Type</option>';
+            
+            if (data.types && data.types.length > 0) {
+                data.types.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.id;
+                    option.textContent = type.name;
+                    select.appendChild(option);
+                });
+                
+                // Enable type dropdown
+                select.disabled = false;
+                
+                // Preselect type if available
+                if (MODAL_CONTEXT.typeId) {
+                    const typeOption = Array.from(select.options).find(opt => 
+                        opt.value === MODAL_CONTEXT.typeId || opt.value.includes(MODAL_CONTEXT.typeId)
+                    );
+                    
+                    if (typeOption) {
+                        select.value = typeOption.value;
+                        loadModalAreas();
+                    }
+                }
+            } else {
+                select.innerHTML = '<option value="">No types available</option>';
+                select.disabled = true;
+            }
+            
+            // Reset child dropdowns
+            areaSelect.innerHTML = '<option value="">Select Area</option>';
+            areaSelect.disabled = true;
+            checklistSelect.innerHTML = '<option value="">Select Checklist</option>';
+            checklistSelect.disabled = true;
+        })
+        .catch(error => {
+            console.error('Error loading types:', error);
+            Toast.error('Failed to load types');
+            select.innerHTML = '<option value="">Error loading types</option>';
+            select.disabled = true;
+        });
+}
+
+function loadModalAreas() {
+    const tId = document.getElementById('modalType').value;
+    const select = document.getElementById('modalArea');
+    const checklistSelect = document.getElementById('modalChecklist');
+    
+    if (!tId) {
+        select.innerHTML = '<option value="">Select Area</option>';
+        select.disabled = true;
+        checklistSelect.innerHTML = '<option value="">Select Checklist</option>';
+        checklistSelect.disabled = true;
+        return;
+    }
+    
+    fetch(`/dashboard/api/types/${tId}/areas/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            select.innerHTML = '<option value="">Select Area</option>';
+            
+            if (data.areas && data.areas.length > 0) {
+                data.areas.forEach(area => {
+                    const option = document.createElement('option');
+                    option.value = area.id;
+                    option.textContent = area.name;
+                    select.appendChild(option);
+                });
+                
+                // Enable area dropdown
+                select.disabled = false;
+                
+                // Preselect area if available
+                if (MODAL_CONTEXT.areaId) {
+                    const areaOption = Array.from(select.options).find(opt => 
+                        opt.value === MODAL_CONTEXT.areaId || opt.value.includes(MODAL_CONTEXT.areaId)
+                    );
+                    
+                    if (areaOption) {
+                        select.value = areaOption.value;
+                        loadModalChecklists();
+                    }
+                }
+            } else {
+                select.innerHTML = '<option value="">No areas available</option>';
+                select.disabled = true;
+            }
+            
+            // Reset checklist dropdown
+            checklistSelect.innerHTML = '<option value="">Select Checklist</option>';
+            checklistSelect.disabled = true;
+        })
+        .catch(error => {
+            console.error('Error loading areas:', error);
+            Toast.error('Failed to load areas');
+            select.innerHTML = '<option value="">Error loading areas</option>';
+            select.disabled = true;
+        });
+}
+
+function loadModalChecklists() {
+    const aId = document.getElementById('modalArea').value;
+    const select = document.getElementById('modalChecklist');
+    
+    if (!aId) {
+        select.innerHTML = '<option value="">Select Checklist</option>';
+        select.disabled = true;
+        return;
+    }
+    
+    fetch(`/dashboard/api/areas/${aId}/checklists/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            select.innerHTML = '<option value="">Select Checklist</option>';
+            
+            if (data.checklists && data.checklists.length > 0) {
+                data.checklists.forEach(checklist => {
+                    const option = document.createElement('option');
+                    option.value = checklist.id;
+                    option.textContent = checklist.name;
+                    select.appendChild(option);
+                });
+                
+                // Enable checklist dropdown
+                select.disabled = false;
+                
+                // Preselect checklist if available
+                if (MODAL_CONTEXT.checklistId) {
+                    const checklistOption = Array.from(select.options).find(opt => 
+                        opt.value === MODAL_CONTEXT.checklistId || opt.value.includes(MODAL_CONTEXT.checklistId)
+                    );
+                    
+                    if (checklistOption) {
+                        select.value = checklistOption.value;
+                    }
+                }
+            } else {
+                select.innerHTML = '<option value="">No checklists available</option>';
+                select.disabled = true;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading checklists:', error);
+            Toast.error('Failed to load checklists');
+            select.innerHTML = '<option value="">Error loading checklists</option>';
+            select.disabled = true;
+        });
+}
+
+function addRequiredDocumentField() {
+    const container = document.getElementById('requiredDocumentsContainer');
+    const newField = document.createElement('div');
+    newField.className = 'additional-document-item';
+    newField.innerHTML = `
+        <input type="text" name="required_document_names[]" placeholder="Document name" style="margin-bottom: 5px;" required>
+        <input type="file" name="required_documents[]" accept=".doc,.docx" required>
+        <button type="button" class="btn-remove-additional" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    container.appendChild(newField);
+}
+
+function addAdditionalDocumentField() {
+    const container = document.getElementById('additionalDocumentsContainer');
+    const newField = document.createElement('div');
+    newField.className = 'additional-document-item';
+    newField.innerHTML = `
+        <input type="text" name="additional_document_names[]" placeholder="Document name" style="margin-bottom: 5px;">
+        <input type="file" name="additional_documents[]" accept=".doc,.docx,.pdf,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.gif">
+        <button type="button" class="btn-remove-additional" onclick="this.parentElement.remove()">
+            <i class="fas fa-times"></i>
+        </button>
+    `;
+    container.appendChild(newField);
+}
+
+function uploadDocuments() {
+    const form = document.getElementById('documentForm');
+    const formData = new FormData(form);
+    const deptId = document.getElementById('modalDepartment').value;
+    const progId = document.getElementById('modalProgram').value;
+    const tId = document.getElementById('modalType').value;
+    const aId = document.getElementById('modalArea').value;
+    const clId = document.getElementById('modalChecklist').value;
+    
+    if (!deptId || !progId || !tId || !aId || !clId) {
+        Toast.error('Please select all navigation fields');
+        return;
+    }
+    
+    const submitBtn = document.querySelector('.btn-submit');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Uploading...';
+    submitBtn.disabled = true;
+    const csrftoken = getCookie('csrftoken');
+    
+    fetch(`/dashboard/accreditation/department/${deptId}/programs/${progId}/types/${tId}/areas/${aId}/checklists/${clId}/documents/add/`, {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': csrftoken }
+    })
+    .then(response => response.json())
+    .then(data => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        if (data.success) {
+            Toast.success(data.message);
+            closeDocumentModal();
+            // Reload page to show new documents
+            window.location.reload();
+        } else {
+            Toast.error(data.message || 'Failed to upload documents');
+        }
+    })
+    .catch(error => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        Toast.error('An error occurred while uploading');
+        console.error('Error:', error);
+    });
+}
+</script>

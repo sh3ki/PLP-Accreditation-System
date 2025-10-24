@@ -1,6 +1,9 @@
 {% extends 'dashboard_base.html' %}
 
-{% block title %}{{ area.name }} - Checklists{% endblock %}
+{% block title %}{{ area.name }} - Checklists
+
+{% endblock %}
+
 
 {% block content %}
 {% include 'components/toast_notifications.html' %}
@@ -39,6 +42,10 @@
     
     .breadcrumb a:hover {
         text-decoration: underline;
+    }
+    
+    .breadcrumb-separator {
+        color: #999;
     }
     
     .section-header {
@@ -110,6 +117,7 @@
         border-bottom: 1px solid #eee;
         transition: background 0.2s;
         justify-content: space-between;
+        cursor: pointer;
     }
     
     .checklist-item:hover {
@@ -139,6 +147,24 @@
         gap: 8px;
     }
     
+    .btn-navigate {
+        background: none;
+        border: none;
+        color: var(--plp-green);
+        font-size: 20px;
+        cursor: pointer;
+        padding: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+    }
+    
+    .btn-navigate:hover {
+        color: var(--plp-dark-green);
+        transform: translateX(3px);
+    }
+    
     .btn-action {
         padding: 6px 12px;
         border: none;
@@ -163,6 +189,32 @@
     
     .btn-archive:hover {
         background: #e66a00;
+    }
+    
+    .checklist-chevron {
+        color: #999;
+        font-size: 18px;
+        margin-left: 10px;
+    }
+    
+    .btn-back {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+        text-decoration: none;
+    }
+    
+    .btn-back:hover {
+        background: #5a6268;
     }
     
     .no-checklists {
@@ -194,22 +246,208 @@
         color: #ddd;
         margin-bottom: 15px;
     }
-</style>
 
-<div class="settings-header">
-    <h1 class="settings-title">{{ area.name }} - Checklists</h1>
-</div>
+    .btn-action-header {
+        background: var(--plp-green);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-action-header:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        animation: fadeIn 0.3s;
+    }
+    
+    .modal.show {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        color: #333;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-close:hover {
+        color: #333;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .modal-footer {
+        padding: 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="file"],
+    .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group select {
+        cursor: pointer;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--plp-green);
+    }
+    
+    .file-format-note {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .additional-document-item {
+        margin-bottom: 15px;
+        padding: 15px;
+        border: 1px solid #eee;
+        border-radius: 4px;
+        position: relative;
+    }
+    
+    .btn-remove-additional {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .btn-add-additional {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .btn-submit {
+        background: var(--plp-green);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+</style>
 
 <div class="breadcrumb">
     <a href="{% url 'dashboard:accreditation' %}">Accreditation</a>
-    <i class="fas fa-chevron-right"></i>
+    <span class="breadcrumb-separator">/</span>
     <a href="{% url 'dashboard:accreditation_department_programs' dept_id %}">{{ department.name }}</a>
-    <i class="fas fa-chevron-right"></i>
+    <span class="breadcrumb-separator">/</span>
     <a href="{% url 'dashboard:accreditation_program_types' dept_id prog_id %}">{{ program.code }} - {{ program.name }}</a>
-    <i class="fas fa-chevron-right"></i>
+    <span class="breadcrumb-separator">/</span>
     <a href="{% url 'dashboard:accreditation_type_areas' dept_id prog_id type_id %}">{{ accreditation_type.name }}</a>
-    <i class="fas fa-chevron-right"></i>
+    <span class="breadcrumb-separator">/</span>
     <span>{{ area.name }}</span>
+</div>
+
+<div class="settings-header">
+    <h1 class="settings-title">{{ area.name }} - Checklists</h1>
+    <a href="{% url 'dashboard:accreditation_type_areas' dept_id prog_id type_id %}" class="btn-back">
+        <i class="fas fa-arrow-left"></i>
+        Back to Areas
+    </a>
 </div>
 
 <div class="section-header">
@@ -219,6 +457,10 @@
             <input type="text" class="search-input" id="searchChecklists" placeholder="Search checklists..." onkeyup="searchChecklists()">
             <i class="fas fa-search search-icon"></i>
         </div>
+        <button class="btn-action-header" onclick="openAddDocumentModal()">
+            <i class="fas fa-plus"></i>
+            Add Document
+        </button>
     </div>
 </div>
 
@@ -226,7 +468,7 @@
     <div class="checklist-list" id="checklistList">
         {% if checklists %}
             {% for checklist in checklists %}
-            <div class="checklist-item">
+            <div class="checklist-item" onclick="navigateToDocuments('{{ checklist.id }}')">
                 <div class="checklist-info">
                     <span class="checklist-name">{{ checklist.name }}</span>
                 </div>
@@ -234,6 +476,7 @@
                     <button class="btn-action btn-archive" onclick="event.stopPropagation();" title="Archive">
                         <i class="fas fa-archive"></i>
                     </button>
+                    <i class="fas fa-chevron-right checklist-chevron"></i>
                 </div>
             </div>
             {% endfor %}
@@ -251,6 +494,11 @@
 </div>
 
 <script>
+const departmentId = '{{ dept_id }}';
+const programId = '{{ prog_id }}';
+const typeId = '{{ type_id }}';
+const areaId = '{{ area_id }}';
+
 function searchChecklists() {
     const input = document.getElementById('searchChecklists');
     const filter = input.value.toLowerCase();
@@ -278,5 +526,25 @@ function searchChecklists() {
         noResultsMsg.style.display = 'none';
     }
 }
+
+function navigateToDocuments(checklistId) {
+    window.location.href = `/dashboard/accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/`;
+}
 </script>
+
+
+
+<script>
+// Set modal context for preselection
+var MODAL_CONTEXT = {
+    departmentId: '{{ dept_id }}',
+    programId: '{{ prog_id }}',
+    typeId: '{{ type_id }}',
+    areaId: '{{ area_id }}',
+    checklistId: ''
+};
+</script>
+
+{% include 'components/document_upload_modal.html' %}
+
 {% endblock %}

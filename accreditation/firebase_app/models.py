@@ -77,3 +77,35 @@ class Checklist(models.Model):
         
     def __str__(self):
         return f"{self.name}"
+
+
+class Document(models.Model):
+    """
+    Document model stored in Firebase
+    Represents documents uploaded for checklists
+    """
+    id = models.CharField(max_length=50, unique=True, primary_key=True)
+    department_id = models.CharField(max_length=20)  # Foreign key to department
+    program_id = models.CharField(max_length=20)  # Foreign key to program
+    accreditation_type_id = models.CharField(max_length=50)  # Foreign key to accreditation type
+    area_id = models.CharField(max_length=50)  # Foreign key to area
+    checklist_id = models.CharField(max_length=50)  # Foreign key to checklist
+    name = models.CharField(max_length=500)  # Document name/title
+    file_url = models.URLField(max_length=1000)  # Cloudinary URL
+    format = models.CharField(max_length=20)  # File format (doc, docx, pdf, ppt, etc.)
+    uploaded_by = models.CharField(max_length=100)  # User email/ID who uploaded
+    is_required = models.BooleanField(default=False)  # True for main document, False for additional
+    status = models.CharField(max_length=20, default='submitted')  # submitted, approved, disapproved
+    approved_by = models.CharField(max_length=100, blank=True, null=True)  # User who approved/disapproved
+    comment = models.TextField(blank=True, null=True)  # Comments/notes
+    is_active = models.BooleanField(default=True)
+    is_archived = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        db_table = 'documents'
+        managed = False  # Firebase manages this collection
+        
+    def __str__(self):
+        return f"{self.name}"

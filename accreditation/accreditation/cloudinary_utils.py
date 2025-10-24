@@ -161,3 +161,133 @@ def extract_public_id_from_url(url):
     except Exception as e:
         print(f"Error extracting public_id: {str(e)}")
         return None
+
+
+def upload_document_to_cloudinary(file, folder='documents'):
+    """
+    Upload a document file (doc, docx, pdf, ppt, etc.) to Cloudinary
+    
+    Args:
+        file: Django UploadedFile object
+        folder: Cloudinary folder name
+        
+    Returns:
+        str: Cloudinary URL of uploaded document
+    """
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        
+        # Get credentials from environment variables
+        api_key = os.environ.get('CLOUDINARY_API_KEY', '')
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+        
+        # Check if credentials are available
+        if not api_key or not api_secret:
+            raise ValueError(
+                "Cloudinary credentials not found. "
+                "Please set CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in your .env file."
+            )
+        
+        # Configure Cloudinary with your credentials
+        cloudinary.config(
+            cloud_name='dygrh6ztt',
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True
+        )
+        
+        # Determine resource type based on file extension
+        file_name = file.name if hasattr(file, 'name') else str(file)
+        file_ext = file_name.split('.')[-1].lower()
+        
+        # Map file types to Cloudinary resource types
+        if file_ext in ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']:
+            resource_type = 'image'
+        elif file_ext in ['mp4', 'avi', 'mov', 'wmv']:
+            resource_type = 'video'
+        else:
+            # For documents (doc, docx, pdf, ppt, xls, etc.)
+            resource_type = 'raw'
+        
+        # Upload the file
+        upload_result = cloudinary.uploader.upload(
+            file,
+            folder=folder,
+            resource_type=resource_type,
+            # Don't apply transformations to documents
+        )
+        
+        return upload_result.get('secure_url', '')
+        
+    except ImportError:
+        # Cloudinary not installed, return empty string
+        print("Warning: cloudinary package not installed. Please install it: pip install cloudinary")
+        return ''
+    except Exception as e:
+        print(f"Error uploading document to Cloudinary: {str(e)}")
+        raise e
+
+
+def delete_document_from_cloudinary(document_url):
+    """
+    Delete a document from Cloudinary using its URL
+    
+    Args:
+        document_url: Full Cloudinary URL of the document
+        
+    Returns:
+        bool: True if deletion was successful, False otherwise
+    """
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        
+        # Get credentials from environment variables
+        api_key = os.environ.get('CLOUDINARY_API_KEY', '')
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+        
+        # Check if credentials are available
+        if not api_key or not api_secret:
+            print("Cloudinary credentials not found. Skipping deletion.")
+            return False
+        
+        # Configure Cloudinary
+        cloudinary.config(
+            cloud_name='dygrh6ztt',
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True
+        )
+        
+        # Extract public_id from URL
+        public_id = extract_public_id_from_url(document_url)
+        
+        if not public_id:
+            print(f"Could not extract public_id from URL: {document_url}")
+            return False
+        
+        # Determine resource type from URL
+        if '/image/' in document_url:
+            resource_type = 'image'
+        elif '/video/' in document_url:
+            resource_type = 'video'
+        else:
+            resource_type = 'raw'
+        
+        # Delete the document
+        result = cloudinary.uploader.destroy(public_id, resource_type=resource_type)
+        
+        if result.get('result') == 'ok':
+            print(f"Successfully deleted document: {public_id}")
+            return True
+        else:
+            print(f"Failed to delete document: {public_id}. Result: {result}")
+            return False
+        
+    except ImportError:
+        print("Warning: cloudinary package not installed.")
+        return False
+    except Exception as e:
+        print(f"Error deleting document from Cloudinary: {str(e)}")
+        return False

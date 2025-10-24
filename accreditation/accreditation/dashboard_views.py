@@ -2958,6 +2958,7 @@ def archive_api_delete(request, item_type, item_id):
         # Delete the item
         delete_document(collection, item_id)
         
+        
         return JsonResponse({
             'success': True,
             'message': f'"{item_name}" permanently deleted'
@@ -2970,4 +2971,451 @@ def archive_api_delete(request, item_type, item_id):
         }, status=500)
 
 
+# ============================================
+# DOCUMENT MANAGEMENT VIEWS
+# ============================================
+
+@login_required
+def checklist_documents_view(request, dept_id, prog_id, type_id, area_id, checklist_id):
+    """View documents for a specific checklist"""
+    user = get_user_from_session(request)
+    
+    try:
+        # Get breadcrumb data
+        department = get_document('departments', dept_id)
+        program = get_document('programs', prog_id)
+        accreditation_type = get_document('accreditation_types', type_id)
+        area = get_document('areas', area_id)
+        checklist = get_document('checklists', checklist_id)
+        
+        if not all([department, program, accreditation_type, area, checklist]):
+            messages.error(request, 'Data not found.')
+            return redirect('dashboard:accreditation')
+        
+        # Get documents for this checklist
+        all_documents = get_all_documents('documents')
+        documents = [
+            doc for doc in all_documents 
+            if doc.get('checklist_id') == checklist_id 
+            and not doc.get('is_archived', False)
+        ]
+        
+        # Separate required and additional documents
+        required_document = next((doc for doc in documents if doc.get('is_required', False)), None)
+        additional_documents = [doc for doc in documents if not doc.get('is_required', False)]
+        
+        # Sort additional documents by creation date
+        additional_documents.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+    except Exception as e:
+        print(f"Error fetching documents: {str(e)}")
+        messages.error(request, 'Error fetching documents.')
+        return redirect('dashboard:accreditation')
+    
+    context = {
+        'active_page': 'accreditation',
+        'user': user,
+        'department': department,
+        'program': program,
+        'accreditation_type': accreditation_type,
+        'area': area,
+        'checklist': checklist,
+        'required_document': required_document,
+        'additional_documents': additional_documents,
+        'dept_id': dept_id,
+        'prog_id': prog_id,
+        'type_id': type_id,
+        'area_id': area_id,
+        'checklist_id': checklist_id,
+    }
+    return render(request, 'dashboard/checklist_documents.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id):
+    """Add documents to a checklist"""
+    from accreditation.cloudinary_utils import upload_document_to_cloudinary
+    import uuid
+    
+    user = get_user_from_session(request)
+    
+    try:
+        # Get IDs from dropdown selections (they override URL parameters)
+        selected_dept_id = request.POST.get('department_id', dept_id)
+        selected_prog_id = request.POST.get('program_id', prog_id)
+        selected_type_id = request.POST.get('accreditation_type_id', type_id)
+        selected_area_id = request.POST.get('area_id', area_id)
+        selected_checklist_id = request.POST.get('checklist_id', checklist_id)
+        
+        # Handle multiple required documents
+        required_files = request.FILES.getlist('required_documents[]')
+        required_names = request.POST.getlist('required_document_names[]')
+        
+        if not required_files or len(required_files) == 0:
+            return JsonResponse({
+                'success': False,
+                'message': 'At least one required document is required'
+            }, status=400)
+        
+        if len(required_names) != len(required_files):
+            return JsonResponse({
+                'success': False,
+                'message': 'Document names and files count mismatch'
+            }, status=400)
+        
+        # Validate and upload required documents
+        allowed_formats = ['doc', 'docx']
+        uploaded_count = 0
+        
+        for idx, required_file in enumerate(required_files):
+            required_doc_name = required_names[idx].strip() if idx < len(required_names) else ''
+            
+            if not required_doc_name:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Document name is required for file: {required_file.name}'
+                }, status=400)
+            
+            if not required_file.name:
+                continue
+            
+            # Validate required document format
+            file_ext = required_file.name.split('.')[-1].lower()
+            
+            if file_ext not in allowed_formats:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Invalid file format for {required_file.name}. Allowed formats: {", ".join(allowed_formats)}'
+                }, status=400)
+            
+            # Upload required document
+            file_url = upload_document_to_cloudinary(
+                required_file, 
+                folder=f'documents/{selected_dept_id}/{selected_prog_id}/{selected_type_id}/{selected_area_id}/{selected_checklist_id}'
+            )
+            
+            if not file_url:
+                return JsonResponse({
+                    'success': False,
+                    'message': f'Failed to upload document: {required_file.name}'
+                }, status=500)
+            
+            # Create required document record
+            required_doc_data = {
+                'department_id': selected_dept_id,
+                'program_id': selected_prog_id,
+                'accreditation_type_id': selected_type_id,
+                'area_id': selected_area_id,
+                'checklist_id': selected_checklist_id,
+                'name': required_doc_name,
+                'file_url': file_url,
+                'format': file_ext,
+                'uploaded_by': user.get('email', 'Unknown'),
+                'is_required': True,
+                'status': 'submitted',
+                'comment': '',  # Comment will be added by disapprover later
+                'is_active': True,
+                'is_archived': False,
+            }
+            
+            doc_id = str(uuid.uuid4())
+            create_document('documents', required_doc_data, doc_id)
+            uploaded_count += 1
+        
+        # Handle additional documents with individual names
+        additional_files = request.FILES.getlist('additional_documents[]')
+        additional_names = request.POST.getlist('additional_document_names[]')
+        additional_allowed_formats = ['doc', 'docx', 'pdf', 'ppt', 'pptx', 'xls', 'xlsx', 
+                                     'jpg', 'jpeg', 'png', 'gif']
+        
+        for idx, additional_file in enumerate(additional_files):
+            if not additional_file.name:
+                continue
+            
+            add_file_ext = additional_file.name.split('.')[-1].lower()
+            
+            if add_file_ext not in additional_allowed_formats:
+                continue
+            
+            # Get the name for this additional document
+            add_doc_name = additional_names[idx].strip() if idx < len(additional_names) and additional_names[idx].strip() else additional_file.name
+            
+            # Upload additional document
+            add_file_url = upload_document_to_cloudinary(
+                additional_file,
+                folder=f'documents/{selected_dept_id}/{selected_prog_id}/{selected_type_id}/{selected_area_id}/{selected_checklist_id}/additional'
+            )
+            
+            if add_file_url:
+                # Create additional document record
+                additional_doc_data = {
+                    'department_id': selected_dept_id,
+                    'program_id': selected_prog_id,
+                    'accreditation_type_id': selected_type_id,
+                    'area_id': selected_area_id,
+                    'checklist_id': selected_checklist_id,
+                    'name': add_doc_name,
+                    'file_url': add_file_url,
+                    'format': add_file_ext,
+                    'uploaded_by': user.get('email', 'Unknown'),
+                    'is_required': False,
+                    'status': 'submitted',
+                    'comment': '',  # Comment will be added by disapprover later
+                    'is_active': True,
+                    'is_archived': False,
+                }
+                
+                add_doc_id = str(uuid.uuid4())
+                create_document('documents', additional_doc_data, add_doc_id)
+        
+        total_docs = uploaded_count + len([f for f in additional_files if f.name])
+        return JsonResponse({
+            'success': True,
+            'message': f'{total_docs} document(s) uploaded successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error adding documents: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error uploading documents: {str(e)}'
+        }, status=500)
+
+
+@login_required
+def document_view(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
+    """Get document details for viewing"""
+    try:
+        document = get_document('documents', document_id)
+        
+        if not document:
+            return JsonResponse({
+                'success': False,
+                'message': 'Document not found'
+            }, status=404)
+        
+        return JsonResponse({
+            'success': True,
+            'document': document
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error fetching document: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def document_update_status_view(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
+    """Update document status (approve/disapprove)"""
+    user = get_user_from_session(request)
+    
+    # Only QA Head and QA Admin can update status
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Unauthorized'
+        }, status=403)
+    
+    try:
+        import json as json_module
+        data = json_module.loads(request.body)
+        status = data.get('status')
+        
+        if status not in ['approved', 'disapproved']:
+            return JsonResponse({
+                'success': False,
+                'message': 'Invalid status'
+            }, status=400)
+        
+        document = get_document('documents', document_id)
+        
+        if not document:
+            return JsonResponse({
+                'success': False,
+                'message': 'Document not found'
+            }, status=404)
+        
+        # Update document status
+        update_document('documents', document_id, {
+            'status': status,
+            'approved_by': user.get('email', 'Unknown')
+        })
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Document {status} successfully'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error updating status: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def document_delete_view(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
+    """Delete a document"""
+    from accreditation.cloudinary_utils import delete_document_from_cloudinary
+    
+    try:
+        document = get_document('documents', document_id)
+        
+        if not document:
+            return JsonResponse({
+                'success': False,
+                'message': 'Document not found'
+            }, status=404)
+        
+        # Delete file from Cloudinary
+        file_url = document.get('file_url', '')
+        if file_url:
+            delete_document_from_cloudinary(file_url)
+        
+        # Delete document record
+        delete_document('documents', document_id)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Document deleted successfully'
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error deleting document: {str(e)}'
+        }, status=500)
+
+
+# API endpoints for document modal dropdowns
+@login_required
+@require_http_methods(["GET"])
+def api_get_departments(request):
+    """Get all departments for modal dropdown"""
+    try:
+        departments = get_all_documents('departments')
+        active_departments = [
+            {'id': dept['id'], 'name': dept.get('name', 'Unknown')}
+            for dept in departments 
+            if dept.get('is_active', True) and not dept.get('is_archived', False)
+        ]
+        return JsonResponse({'departments': active_departments})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_get_department_programs(request, dept_id):
+    """Get programs for a specific department"""
+    try:
+        # Query by department_id
+        programs = query_documents('programs', 'department_id', '==', dept_id)
+        
+        # Filter for active and non-archived
+        filtered_programs = [
+            prog for prog in programs
+            if prog.get('is_active', True) and not prog.get('is_archived', False)
+        ]
+        
+        program_list = [
+            {
+                'id': prog['id'], 
+                'name': prog.get('name', 'Unknown'),
+                'code': prog.get('code', '')
+            }
+            for prog in filtered_programs
+        ]
+        return JsonResponse({'programs': program_list})
+    except Exception as e:
+        print(f"Error in api_get_department_programs: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e), 'programs': []}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_get_program_types(request, prog_id):
+    """Get accreditation types for a specific program"""
+    try:
+        # Query by program_id
+        types = query_documents('accreditation_types', 'program_id', '==', prog_id)
+        
+        # Filter for active and non-archived
+        filtered_types = [
+            t for t in types
+            if t.get('is_active', True) and not t.get('is_archived', False)
+        ]
+        
+        type_list = [
+            {'id': t['id'], 'name': t.get('name', 'Unknown')}
+            for t in filtered_types
+        ]
+        return JsonResponse({'types': type_list})
+    except Exception as e:
+        print(f"Error in api_get_program_types: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e), 'types': []}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_get_type_areas(request, type_id):
+    """Get areas for a specific accreditation type"""
+    try:
+        # Query by accreditation_type_id
+        areas = query_documents('areas', 'accreditation_type_id', '==', type_id)
+        
+        # Filter for active and non-archived
+        filtered_areas = [
+            area for area in areas
+            if area.get('is_active', True) and not area.get('is_archived', False)
+        ]
+        
+        area_list = [
+            {'id': area['id'], 'name': area.get('name', 'Unknown')}
+            for area in filtered_areas
+        ]
+        return JsonResponse({'areas': area_list})
+    except Exception as e:
+        print(f"Error in api_get_type_areas: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e), 'areas': []}, status=500)
+
+
+@login_required
+@require_http_methods(["GET"])
+def api_get_area_checklists(request, area_id):
+    """Get checklists for a specific area"""
+    try:
+        # Query by area_id
+        checklists = query_documents('checklists', 'area_id', '==', area_id)
+        
+        # Filter for active and non-archived
+        filtered_checklists = [
+            cl for cl in checklists
+            if cl.get('is_active', True) and not cl.get('is_archived', False)
+        ]
+        
+        checklist_list = [
+            {'id': cl['id'], 'name': cl.get('name', 'Unknown')}
+            for cl in filtered_checklists
+        ]
+        return JsonResponse({'checklists': checklist_list})
+    except Exception as e:
+        print(f"Error in api_get_area_checklists: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'error': str(e), 'checklists': []}, status=500)
+        return JsonResponse({'checklists': checklist_list})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
