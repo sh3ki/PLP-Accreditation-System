@@ -152,8 +152,82 @@ def accreditation_view(request):
         print(f"Error fetching areas: {str(e)}")
         areas = []
     
-    # NOTE: Checklists are NOT fetched here to avoid quota issues
-    # They are loaded dynamically when user navigates to a specific area
+    # Calculate progress for each department based on its programs
+    try:
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        for dept in departments:
+            dept_id = dept.get('id')
+            # Get all programs for this department
+            dept_programs = [p for p in programs if p.get('department_id') == dept_id]
+            
+            if not dept_programs:
+                dept['progress'] = 0
+                continue
+            
+            # Calculate progress for each program first
+            program_progresses = []
+            for prog in dept_programs:
+                prog_id = prog.get('id')
+                prog_types = [t for t in types if t.get('program_id') == prog_id]
+                
+                if not prog_types:
+                    program_progresses.append(0)
+                    continue
+                
+                # Calculate progress for each type
+                type_progresses = []
+                for prog_type in prog_types:
+                    type_id = prog_type.get('id')
+                    type_areas = [a for a in areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+                    
+                    if not type_areas:
+                        type_progresses.append(0)
+                        continue
+                    
+                    # Calculate progress for each area
+                    area_progresses = []
+                    for area in type_areas:
+                        area_id = area.get('id')
+                        area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+                        
+                        if not area_checklists:
+                            area_progresses.append(0)
+                            continue
+                        
+                        total_checklists = len(area_checklists)
+                        completed_checklists = 0
+                        
+                        for checklist in area_checklists:
+                            checklist_id = checklist.get('id')
+                            required_docs = [
+                                doc for doc in all_documents 
+                                if doc.get('checklist_id') == checklist_id 
+                                and doc.get('is_required', False)
+                                and not doc.get('is_archived', False)
+                            ]
+                            if len(required_docs) > 0:
+                                completed_checklists += 1
+                        
+                        area_progress = (completed_checklists / total_checklists) * 100 if total_checklists > 0 else 0
+                        area_progresses.append(area_progress)
+                    
+                    # Type progress is average of its areas
+                    type_progress = sum(area_progresses) / len(area_progresses) if area_progresses else 0
+                    type_progresses.append(type_progress)
+                
+                # Program progress is average of its types
+                program_progress = sum(type_progresses) / len(type_progresses) if type_progresses else 0
+                program_progresses.append(program_progress)
+            
+            # Department progress is the average of its programs' progress
+            dept['progress'] = round(sum(program_progresses) / len(program_progresses)) if program_progresses else 0
+            
+    except Exception as e:
+        print(f"Error calculating department progress: {str(e)}")
+        for dept in departments:
+            dept['progress'] = 0
     
     context = {
         'active_page': 'accreditation',
@@ -192,6 +266,66 @@ def accreditation_department_programs_view(request, dept_id):
             and not prog.get('is_archived', False)
         ]
         programs.sort(key=lambda x: x.get('code', ''))
+        
+        # Calculate progress for each program based on its types
+        all_types = get_all_documents('accreditation_types')
+        all_areas = get_all_documents('areas')
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        for prog in programs:
+            prog_id = prog.get('id')
+            # Get all types for this program
+            prog_types = [t for t in all_types if t.get('program_id') == prog_id]
+            
+            if not prog_types:
+                prog['progress'] = 0
+                continue
+            
+            # Calculate progress for each type first
+            type_progresses = []
+            for prog_type in prog_types:
+                type_id = prog_type.get('id')
+                type_areas = [a for a in all_areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+                
+                if not type_areas:
+                    type_progresses.append(0)
+                    continue
+                
+                # Calculate progress for each area
+                area_progresses = []
+                for area in type_areas:
+                    area_id = area.get('id')
+                    area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+                    
+                    if not area_checklists:
+                        area_progresses.append(0)
+                        continue
+                    
+                    total_checklists = len(area_checklists)
+                    completed_checklists = 0
+                    
+                    for checklist in area_checklists:
+                        checklist_id = checklist.get('id')
+                        required_docs = [
+                            doc for doc in all_documents 
+                            if doc.get('checklist_id') == checklist_id 
+                            and doc.get('is_required', False)
+                            and not doc.get('is_archived', False)
+                        ]
+                        if len(required_docs) > 0:
+                            completed_checklists += 1
+                    
+                    area_progress = (completed_checklists / total_checklists) * 100 if total_checklists > 0 else 0
+                    area_progresses.append(area_progress)
+                
+                # Type progress is average of its areas
+                type_progress = sum(area_progresses) / len(area_progresses) if area_progresses else 0
+                type_progresses.append(type_progress)
+            
+            # Program progress is the average of its types' progress
+            prog['progress'] = round(sum(type_progresses) / len(type_progresses)) if type_progresses else 0
+            
     except Exception as e:
         print(f"Error fetching programs: {str(e)}")
         programs = []
@@ -233,6 +367,51 @@ def accreditation_program_types_view(request, dept_id, prog_id):
             and not t.get('is_archived', False)
         ]
         types.sort(key=lambda x: x.get('type', ''))
+        
+        # Calculate progress for each type based on its areas
+        all_areas = get_all_documents('areas')
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        for accred_type in types:
+            type_id = accred_type.get('id')
+            # Get all areas for this type (check both type_id and accreditation_type_id)
+            type_areas = [a for a in all_areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+            
+            if not type_areas:
+                accred_type['progress'] = 0
+                continue
+            
+            # Calculate progress for each area first
+            area_progresses = []
+            for area in type_areas:
+                area_id = area.get('id')
+                area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+                
+                if not area_checklists:
+                    area_progresses.append(0)
+                    continue
+                
+                total_checklists = len(area_checklists)
+                completed_checklists = 0
+                
+                for checklist in area_checklists:
+                    checklist_id = checklist.get('id')
+                    required_docs = [
+                        doc for doc in all_documents 
+                        if doc.get('checklist_id') == checklist_id 
+                        and doc.get('is_required', False)
+                        and not doc.get('is_archived', False)
+                    ]
+                    if len(required_docs) > 0:
+                        completed_checklists += 1
+                
+                area_progress = (completed_checklists / total_checklists) * 100 if total_checklists > 0 else 0
+                area_progresses.append(area_progress)
+            
+            # Type progress is the average of its areas' progress
+            accred_type['progress'] = round(sum(area_progresses) / len(area_progresses)) if area_progresses else 0
+            
     except Exception as e:
         print(f"Error fetching types: {str(e)}")
         types = []
@@ -277,6 +456,37 @@ def accreditation_type_areas_view(request, dept_id, prog_id, type_id):
             and not mod.get('is_archived', False)
         ]
         areas.sort(key=lambda x: x.get('name', ''))
+        
+        # Calculate progress for each area
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        for area in areas:
+            area_id = area.get('id')
+            # Get all checklists for this area
+            area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+            
+            if not area_checklists:
+                area['progress'] = 0
+                continue
+            
+            # Calculate progress based on required documents
+            total_checklists = len(area_checklists)
+            completed_checklists = 0
+            
+            for checklist in area_checklists:
+                checklist_id = checklist.get('id')
+                required_docs = [
+                    doc for doc in all_documents 
+                    if doc.get('checklist_id') == checklist_id 
+                    and doc.get('is_required', False)
+                    and not doc.get('is_archived', False)
+                ]
+                if len(required_docs) > 0:
+                    completed_checklists += 1
+            
+            area['progress'] = round((completed_checklists / total_checklists) * 100) if total_checklists > 0 else 0
+            
     except Exception as e:
         print(f"Error fetching areas: {str(e)}")
         areas = []
@@ -324,6 +534,23 @@ def accreditation_area_checklists_view(request, dept_id, prog_id, type_id, area_
             and not checklist.get('is_archived', False)
         ]
         checklists.sort(key=lambda x: x.get('name', ''))
+        
+        # Get all documents to calculate progress for each checklist
+        all_documents = get_all_documents('documents')
+        
+        # Add progress percentage to each checklist
+        for checklist in checklists:
+            checklist_id = checklist.get('id')
+            # Get required documents for this checklist
+            required_docs = [
+                doc for doc in all_documents 
+                if doc.get('checklist_id') == checklist_id 
+                and doc.get('is_required', False)
+                and not doc.get('is_archived', False)
+            ]
+            # Progress is 100% if there's at least 1 required document, otherwise 0%
+            checklist['progress'] = 100 if len(required_docs) > 0 else 0
+            
     except Exception as e:
         print(f"Error fetching checklists: {str(e)}")
         checklists = []
@@ -2659,12 +2886,26 @@ def area_checklists_view(request, dept_id, prog_id, type_id, area_id):
         all_checklists = get_all_documents('checklists')
         checklists = [c for c in all_checklists if c.get('area_id') == area_id]
         
-        # Set default values if not present
+        # Get all documents to calculate progress for each checklist
+        all_documents = get_all_documents('documents')
+        
+        # Set default values if not present and add progress
         for checklist in checklists:
             if 'is_archived' not in checklist:
                 checklist['is_archived'] = False
             if 'is_active' not in checklist:
                 checklist['is_active'] = True
+            
+            # Calculate progress based on required documents
+            checklist_id = checklist.get('id')
+            required_docs = [
+                doc for doc in all_documents 
+                if doc.get('checklist_id') == checklist_id 
+                and doc.get('is_required', False)
+                and not doc.get('is_archived', False)
+            ]
+            # Progress is 100% if there's at least 1 required document, otherwise 0%
+            checklist['progress'] = 100 if len(required_docs) > 0 else 0
         
         # Sort by checklist number (extract number from "Checklist X")
         def get_checklist_number(checklist):

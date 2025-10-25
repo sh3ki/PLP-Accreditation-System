@@ -112,6 +112,7 @@
     
     .area-item {
         display: flex;
+        gap: 50px;
         align-items: center;
         padding: 20px;
         border-bottom: 1px solid #eee;
@@ -139,6 +140,38 @@
         font-size: 16px;
         font-weight: 500;
         color: #333;
+    }
+    
+    .area-progress {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 0 0 280px;
+    }
+    
+    .progress-container {
+        flex: 1;
+        background: #e9ecef;
+        border-radius: 8px;
+        height: 12px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--plp-green) 0%, #66bb6a 100%);
+        transition: width 0.3s ease;
+        border-radius: 8px;
+    }
+    
+    .progress-percentage {
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        min-width: 42px;
+        text-align: right;
     }
     
     .area-actions {
@@ -451,6 +484,12 @@
             <div class="area-item" onclick="navigateToAreaChecklists('{{ dept_id }}', '{{ prog_id }}', '{{ type_id }}', '{{ area.id }}', event)">
                 <div class="area-info">
                     <span class="area-name">{{ area.name }}</span>
+                </div>
+                <div class="area-progress">
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width: {{ area.progress }}%"></div>
+                    </div>
+                    <span class="progress-percentage">{{ area.progress }}%</span>
                 </div>
                 <div class="area-actions">
                     <button class="btn-action btn-archive" onclick="event.stopPropagation();" title="Archive">
