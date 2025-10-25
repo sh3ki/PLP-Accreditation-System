@@ -44,6 +44,10 @@ def get_user_from_session(request):
         'email': request.session.get('user_email'),
         'role': request.session.get('user_role'),
         'name': request.session.get('user_name'),
+        'first_name': request.session.get('user', {}).get('first_name', ''),
+        'middle_name': request.session.get('user', {}).get('middle_name', ''),
+        'last_name': request.session.get('user', {}).get('last_name', ''),
+        'profile_image_url': request.session.get('user', {}).get('profile_image_url', ''),
     }
 
 
@@ -393,15 +397,326 @@ def archive_view(request):
 @login_required
 def settings_view(request):
     """
-    Settings page - Shows available settings based on user role
+    Profile Settings page - Shows available settings based on user role
     """
     user = get_user_from_session(request)
+    
+    # Fetch complete user data from Firestore
+    from accreditation.firebase_utils import get_document
+    from accreditation.firebase_auth import UserRole
+    from datetime import datetime
+    user_doc = get_document('users', user['id'])
+    
+    if user_doc:
+        # Get department information if user has a department
+        department_name = 'N/A'
+        if user_doc.get('department_id'):
+            dept_doc = get_document('departments', user_doc['department_id'])
+            if dept_doc:
+                department_name = dept_doc.get('name', 'N/A')
+        
+        # Get role display name
+        role_display = UserRole.get_role_display(user.get('role', ''))
+        
+        # Convert Firestore timestamps to datetime objects
+        created_at = user_doc.get('created_at')
+        print(f"DEBUG - created_at raw: {created_at}, type: {type(created_at)}")
+        
+        if created_at:
+            if hasattr(created_at, 'timestamp'):
+                # Firestore timestamp object
+                created_at = datetime.fromtimestamp(created_at.timestamp())
+                print(f"DEBUG - created_at converted (timestamp): {created_at}")
+            elif isinstance(created_at, str):
+                # ISO format string - parse it
+                from datetime import datetime as dt
+                try:
+                    # Try parsing ISO format: 2025-10-25T03:03:01.081234
+                    created_at = dt.fromisoformat(created_at.replace('Z', '+00:00'))
+                    print(f"DEBUG - created_at converted (string): {created_at}")
+                except Exception as e:
+                    print(f"DEBUG - Error parsing created_at: {e}")
+                    created_at = None
+        else:
+            print("DEBUG - created_at is None or empty")
+        
+        last_login = user_doc.get('last_login')
+        if last_login:
+            if hasattr(last_login, 'timestamp'):
+                last_login = datetime.fromtimestamp(last_login.timestamp())
+            elif isinstance(last_login, str):
+                from datetime import datetime as dt
+                try:
+                    last_login = dt.fromisoformat(last_login.replace('Z', '+00:00'))
+                except:
+                    last_login = None
+        
+        last_password_change = user_doc.get('last_password_change')
+        if last_password_change:
+            if hasattr(last_password_change, 'timestamp'):
+                last_password_change = datetime.fromtimestamp(last_password_change.timestamp())
+            elif isinstance(last_password_change, str):
+                from datetime import datetime as dt
+                try:
+                    last_password_change = dt.fromisoformat(last_password_change.replace('Z', '+00:00'))
+                except:
+                    last_password_change = None
+        
+        print(f"DEBUG - Final created_at being sent to template: {created_at}")
+        
+        # Merge session user with complete user data
+        user.update({
+            'first_name': user_doc.get('first_name', ''),
+            'middle_name': user_doc.get('middle_name', ''),
+            'last_name': user_doc.get('last_name', ''),
+            'profile_image_url': user_doc.get('profile_image_url', ''),
+            'department_name': department_name,
+            'role_display': role_display,
+            'is_active': user_doc.get('is_active', True),
+            'created_at': created_at,
+            'last_login': last_login,
+            'last_password_change': last_password_change,
+        })
     
     context = {
         'active_page': 'settings',
         'user': user,
     }
     return render(request, 'dashboard/settings.html', context)
+
+
+@login_required
+def upload_profile_image_view(request):
+    """Upload user profile image"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method'})
+    
+    user = get_user_from_session(request)
+    
+    if 'profile_image' not in request.FILES:
+        return JsonResponse({'success': False, 'message': 'No image provided'})
+    
+    image_file = request.FILES['profile_image']
+    
+    # Validate file size (2MB)
+    if image_file.size > 2 * 1024 * 1024:
+        return JsonResponse({'success': False, 'message': 'File size must be less than 2MB'})
+    
+    # Validate file type
+    allowed_types = ['image/jpeg', 'image/jpg', 'image/png']
+    if image_file.content_type not in allowed_types:
+        return JsonResponse({'success': False, 'message': 'Only JPG and PNG files are allowed'})
+    
+    try:
+        from accreditation.firebase_utils import update_document
+        from accreditation.cloudinary_utils import upload_image_to_cloudinary, delete_image_from_cloudinary
+        from datetime import datetime
+        
+        # Get old profile image URL if exists
+        old_image_url = user.get('profile_image_url', '')
+        
+        # Delete old image from Cloudinary if it exists
+        if old_image_url and 'cloudinary.com' in old_image_url:
+            delete_image_from_cloudinary(old_image_url)
+        
+        # Upload new image to Cloudinary in 'profile' folder
+        image_url = upload_image_to_cloudinary(image_file, folder='profile')
+        
+        if not image_url:
+            return JsonResponse({'success': False, 'message': 'Failed to upload image to Cloudinary'})
+        
+        # Update user document
+        update_data = {
+            'profile_image_url': image_url,
+            'updated_at': datetime.now()
+        }
+        
+        success = update_document('users', user['id'], update_data)
+        
+        if success:
+            # Update session
+            request.session['user']['profile_image_url'] = image_url
+            request.session.modified = True
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Profile picture updated successfully',
+                'image_url': image_url
+            })
+        else:
+            return JsonResponse({'success': False, 'message': 'Failed to update profile picture'})
+            
+    except Exception as e:
+        print(f"Error uploading profile image: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'An error occurred while uploading'})
+
+
+@login_required
+def remove_profile_image_view(request):
+    """Remove user profile image"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method'})
+    
+    user = get_user_from_session(request)
+    
+    try:
+        from accreditation.firebase_utils import update_document
+        from accreditation.cloudinary_utils import delete_image_from_cloudinary
+        from datetime import datetime
+        
+        # Get old profile image URL if exists
+        old_image_url = user.get('profile_image_url', '')
+        
+        # Delete old image from Cloudinary if it exists
+        if old_image_url and 'cloudinary.com' in old_image_url:
+            delete_image_from_cloudinary(old_image_url)
+        
+        # Remove image URL from user document
+        update_data = {
+            'profile_image_url': None,
+            'updated_at': datetime.now()
+        }
+        
+        success = update_document('users', user['id'], update_data)
+        
+        if success:
+            # Update session
+            if 'profile_image_url' in request.session['user']:
+                del request.session['user']['profile_image_url']
+            request.session.modified = True
+            
+            # Generate default avatar URL
+            default_image = f"https://ui-avatars.com/api/?name={user['first_name']}+{user['last_name']}&background=4CAF50&color=fff&size=150"
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Profile picture removed successfully',
+                'default_image': default_image
+            })
+        else:
+            return JsonResponse({'success': False, 'message': 'Failed to remove profile picture'})
+            
+    except Exception as e:
+        print(f"Error removing profile image: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'An error occurred'})
+
+
+@login_required
+def update_personal_info_view(request):
+    """Update user personal information"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method'})
+    
+    user = get_user_from_session(request)
+    
+    try:
+        import json
+        from datetime import datetime
+        data = json.loads(request.body)
+        
+        first_name = data.get('first_name', '').strip()
+        middle_name = data.get('middle_name', '').strip()
+        last_name = data.get('last_name', '').strip()
+        
+        # Validate required fields
+        if not first_name or not last_name:
+            return JsonResponse({'success': False, 'message': 'First name and last name are required'})
+        
+        from accreditation.firebase_utils import update_document
+        
+        update_data = {
+            'first_name': first_name,
+            'middle_name': middle_name,
+            'last_name': last_name,
+            'updated_at': datetime.now()
+        }
+        
+        success = update_document('users', user['id'], update_data)
+        
+        if success:
+            # Update session
+            request.session['user']['first_name'] = first_name
+            request.session['user']['middle_name'] = middle_name
+            request.session['user']['last_name'] = last_name
+            request.session.modified = True
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Personal information updated successfully'
+            })
+        else:
+            return JsonResponse({'success': False, 'message': 'Failed to update information'})
+            
+    except Exception as e:
+        print(f"Error updating personal info: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'An error occurred'})
+
+
+@login_required
+def change_password_view(request):
+    """Change user password"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method'})
+    
+    user = get_user_from_session(request)
+    
+    try:
+        import json
+        from datetime import datetime
+        from accreditation.firebase_utils import get_document, update_document
+        from werkzeug.security import check_password_hash, generate_password_hash
+        
+        data = json.loads(request.body)
+        
+        current_password = data.get('current_password', '')
+        new_password = data.get('new_password', '')
+        confirm_password = data.get('confirm_password', '')
+        
+        # Validate required fields
+        if not current_password or not new_password or not confirm_password:
+            return JsonResponse({'success': False, 'message': 'All fields are required'})
+        
+        # Validate new passwords match
+        if new_password != confirm_password:
+            return JsonResponse({'success': False, 'message': 'New passwords do not match'})
+        
+        # Validate password length
+        if len(new_password) < 8:
+            return JsonResponse({'success': False, 'message': 'Password must be at least 8 characters long'})
+        
+        # Get user from database
+        user_doc = get_document('users', user['id'])
+        
+        if not user_doc:
+            return JsonResponse({'success': False, 'message': 'User not found'})
+        
+        # Verify current password
+        if not check_password_hash(user_doc.get('password', ''), current_password):
+            return JsonResponse({'success': False, 'message': 'Current password is incorrect'})
+        
+        # Hash new password
+        hashed_password = generate_password_hash(new_password)
+        
+        # Update password and last password change timestamp
+        update_data = {
+            'password': hashed_password,
+            'last_password_change': datetime.now(),
+            'updated_at': datetime.now()
+        }
+        
+        success = update_document('users', user['id'], update_data)
+        
+        if success:
+            return JsonResponse({
+                'success': True,
+                'message': 'Password changed successfully'
+            })
+        else:
+            return JsonResponse({'success': False, 'message': 'Failed to change password'})
+            
+    except Exception as e:
+        print(f"Error changing password: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'An error occurred'})
 
 
 @login_required
@@ -413,6 +728,9 @@ def user_management_view(request):
     if user.get('role') != 'qa_head':
         messages.error(request, 'Access denied. Only QA Head can access User Management.')
         return redirect('dashboard:home')
+    
+    # Import UserRole for role display
+    from accreditation.firebase_auth import UserRole
     
     # Get filter parameters
     department_filter = request.GET.get('department', '')
@@ -465,6 +783,10 @@ def user_management_view(request):
             # Add department name
             dept_code = user_item.get('department', '')
             user_item['department_name'] = dept_mapping.get(dept_code, dept_code if dept_code else '—')
+            
+            # Add role display name
+            user_role = user_item.get('role', '')
+            user_item['role_display'] = UserRole.get_role_display(user_role)
         
     except Exception as e:
         messages.error(request, f'Error loading users: {str(e)}')

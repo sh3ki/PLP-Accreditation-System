@@ -421,12 +421,7 @@
                         </div>
                     </td>
                     <td>{{ user_item.department_name|default:"—" }}</td>
-                    <td>
-                        {% if user_item.role == 'qa_head' %}Super Admin
-                        {% elif user_item.role == 'qa_admin' %}Admin
-                        {% elif user_item.role == 'department_user' %}User
-                        {% else %}{{ user_item.role|default:"—" }}{% endif %}
-                    </td>
+                    <td>{{ user_item.role_display|default:"—" }}</td>
                     <td>
                         {% if user_item.is_active %}
                             <span class="status-badge status-active">Active</span>

@@ -305,3 +305,39 @@ def update_document(collection_name: str, document_id: str, update_data: Dict[st
 def delete_document(collection_name: str, document_id: str) -> bool:
     """Delete a document from Firestore"""
     return firestore_helper.delete_document(collection_name, document_id)
+
+
+def upload_profile_image(file, file_path: str) -> str:
+    """
+    Upload a profile image to Firebase Storage (or local storage for now)
+    
+    Args:
+        file: File object to upload
+        file_path: Path where file should be stored
+    
+    Returns:
+        str: URL of uploaded file
+    """
+    # For now, we'll use a simple approach - store file locally and return a path
+    # In production, you'd want to use Firebase Storage or another cloud storage service
+    
+    import os
+    from django.conf import settings
+    
+    # Create media directory if it doesn't exist
+    media_root = os.path.join(settings.BASE_DIR, 'media', 'profile_images')
+    os.makedirs(media_root, exist_ok=True)
+    
+    # Generate unique filename
+    import uuid
+    file_extension = os.path.splitext(file.name)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_full_path = os.path.join(media_root, unique_filename)
+    
+    # Save file
+    with open(file_full_path, 'wb+') as destination:
+        for chunk in file.chunks():
+            destination.write(chunk)
+    
+    # Return relative URL
+    return f"/media/profile_images/{unique_filename}"

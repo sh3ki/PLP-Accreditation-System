@@ -92,6 +92,14 @@
             color: white;
         }
 
+        .header-profile-img {
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            object-fit: cover;
+            border: 2px solid white;
+        }
+
         /* Sidebar */
         .sidebar {
             position: fixed;
@@ -349,8 +357,12 @@
         </div>
         
         <div class="header-right">
-            <a href="#" class="header-icon" title="Profile">
-                <i class="fas fa-user"></i>
+            <a href="{% url 'dashboard:settings' %}" class="header-icon profile-icon" title="Profile">
+                {% if user.profile_image_url %}
+                    <img src="{{ user.profile_image_url }}" alt="Profile" class="header-profile-img">
+                {% else %}
+                    <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User'|urlencode }}+{{ user.last_name|default:''|urlencode }}&background=4CAF50&color=fff&size=40" alt="Profile" class="header-profile-img">
+                {% endif %}
             </a>
             <a href="#" class="header-icon" title="Notifications">
                 <i class="fas fa-bell"></i>
@@ -410,11 +422,11 @@
                 </a>
             </li>
             
-            <!-- Settings (Basic - for all users) -->
+            <!-- Profile Settings (Basic - for all users) -->
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:settings' %}" class="sidebar-link {% if active_page == 'settings' %}active{% endif %}">
-                    <i class="fas fa-cog"></i>
-                    Settings
+                    <i class="fas fa-user-cog"></i>
+                    Profile Settings
                 </a>
             </li>
             

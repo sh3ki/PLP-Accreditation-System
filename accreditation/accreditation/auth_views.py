@@ -34,6 +34,21 @@ def login_view(request):
                 request.session['user_name'] = user.full_name
                 request.session['is_password_changed'] = user.is_password_changed
                 
+                # Store additional user fields for profile
+                from accreditation.firebase_utils import get_document
+                user_doc = get_document('users', user.id)
+                if user_doc:
+                    request.session['user'] = {
+                        'id': user.id,
+                        'email': user.email,
+                        'role': user.role,
+                        'name': user.full_name,
+                        'first_name': user_doc.get('first_name', ''),
+                        'middle_name': user_doc.get('middle_name', ''),
+                        'last_name': user_doc.get('last_name', ''),
+                        'profile_image_url': user_doc.get('profile_image_url', ''),
+                    }
+                
                 # Set session expiry based on remember_me
                 if form.cleaned_data.get('remember_me'):
                     request.session.set_expiry(1209600)  # 2 weeks

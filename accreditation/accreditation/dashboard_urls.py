@@ -26,8 +26,12 @@ urlpatterns = [
     path('audit/', dashboard_views.audit_view, name='audit'),
     path('archive/', dashboard_views.archive_view, name='archive'),
     
-    # Settings and sub-settings
-    path('settings/', dashboard_views.settings_view, name='settings'),
+    # Profile Settings and sub-settings
+    path('profile-settings/', dashboard_views.settings_view, name='settings'),
+    path('profile-settings/upload-image/', dashboard_views.upload_profile_image_view, name='upload_profile_image'),
+    path('profile-settings/remove-image/', dashboard_views.remove_profile_image_view, name='remove_profile_image'),
+    path('profile-settings/update-info/', dashboard_views.update_personal_info_view, name='update_personal_info'),
+    path('profile-settings/change-password/', dashboard_views.change_password_view, name='change_password'),
     path('settings/user-management/', dashboard_views.user_management_view, name='user_management'),
     path('settings/user-management/add/', dashboard_views.user_add_view, name='user_add'),
     path('settings/user-management/edit/<str:user_id>/', dashboard_views.user_edit_view, name='user_edit'),
