@@ -3,20 +3,1372 @@
 {% block title %}Calendar{% endblock %}
 
 {% block content %}
-<h1 class="dashboard-title">Calendar</h1>
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
-<div class="content-section">
-    <h2 class="section-title">
-        <i class="fas fa-calendar-alt me-2"></i>
-        Academic Calendar
-    </h2>
-    <p>Calendar functionality will be implemented here.</p>
-    <p>This will include:</p>
-    <ul>
-        <li>Academic year calendar</li>
-        <li>Accreditation deadlines</li>
-        <li>Review schedules</li>
-        <li>Important dates and events</li>
-    </ul>
+<style>
+    .calendar-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+    
+    .calendar-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .filter-tabs {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+        border-bottom: 2px solid #e0e0e0;
+        padding-bottom: 10px;
+    }
+    
+    .filter-tab {
+        background: transparent;
+        color: #666;
+        padding: 10px 20px;
+        border: none;
+        border-bottom: 3px solid transparent;
+        cursor: pointer;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .filter-tab:hover {
+        color: var(--plp-green);
+    }
+    
+    .filter-tab.active {
+        color: var(--plp-green);
+        border-bottom-color: var(--plp-green);
+    }
+    
+    .tab-icon {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+    
+    .tab-icon.schedules {
+        background: #4CAF50;
+    }
+    
+    .tab-icon.announcements {
+        background: #2196F3;
+    }
+    
+    .tab-icon.updates {
+        background: #FF9800;
+    }
+    
+    .calendar-controls {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .calendar-navigation {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .nav-button {
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        padding: 8px 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+        color: #333;
+        font-size: 14px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .nav-button:hover {
+        background: var(--plp-green);
+        color: white;
+        border-color: var(--plp-green);
+    }
+    
+    .current-month {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        min-width: 200px;
+        text-align: center;
+    }
+    
+    .calendar-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .search-container {
+        position: relative;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        width: 250px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .btn-add-event {
+        background: var(--plp-green);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 10px 20px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-add-event:hover {
+        background: #45a049;
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+    }
+    
+    .calendar-grid-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 20px;
+    }
+    
+    .calendar-grid {
+        display: grid;
+        grid-template-columns: repeat(7, 1fr);
+        gap: 1px;
+        background: #e0e0e0;
+        border: 1px solid #e0e0e0;
+    }
+    
+    .calendar-day-header {
+        background: #f5f5f5;
+        padding: 12px;
+        text-align: center;
+        font-weight: 600;
+        color: #666;
+        font-size: 14px;
+    }
+    
+    .calendar-day {
+        background: white;
+        min-height: 100px;
+        padding: 8px;
+        position: relative;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    
+    .calendar-day:hover {
+        background: #f9f9f9;
+    }
+    
+    .calendar-day.other-month {
+        background: #fafafa;
+        opacity: 0.5;
+    }
+    
+    .calendar-day.today {
+        background: #d6ebd8;
+    }
+    
+    .day-number {
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 5px;
+        font-size: 14px;
+    }
+    
+    .calendar-day.other-month .day-number {
+        color: #999;
+    }
+    
+    .calendar-day.today .day-number {
+        color: var(--plp-green);
+    }
+    
+    .event-list {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        max-height: 65px;
+        overflow: hidden;
+    }
+    
+    .event-item {
+        background: #4CAF50;
+        color: white;
+        padding: 3px 6px;
+        border-radius: 3px;
+        font-size: 11px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    
+    .event-item:hover {
+        opacity: 0.8;
+        transform: scale(1.02);
+    }
+    
+    .event-item.schedules {
+        background: #4CAF50;
+    }
+    
+    .event-item.announcements {
+        background: #2196F3;
+    }
+    
+    .event-item.updates {
+        background: #FF9800;
+    }
+    
+    .event-more {
+        color: #666;
+        font-size: 11px;
+        margin-top: 2px;
+        font-weight: 500;
+    }
+    
+    .no-events {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+    }
+    
+    /* Event Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 12px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #e0e0e0;
+    }
+    
+    .modal-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #999;
+        cursor: pointer;
+        width: 35px;
+        height: 35px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        transition: all 0.2s;
+    }
+    
+    .modal-close:hover {
+        background: #f0f0f0;
+        color: #333;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+        font-size: 14px;
+    }
+    
+    .form-label .required {
+        color: #f44336;
+        margin-left: 3px;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: all 0.3s;
+        font-family: inherit;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    textarea.form-control {
+        resize: vertical;
+        min-height: 100px;
+    }
+    
+    .form-select {
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%23333' d='M6 9L1 4h10z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        padding-right: 35px;
+    }
+    
+    .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        padding: 20px;
+        border-top: 1px solid #e0e0e0;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s;
+        border: none;
+    }
+    
+    .btn-secondary {
+        background: #f5f5f5;
+        color: #666;
+    }
+    
+    .btn-secondary:hover {
+        background: #e0e0e0;
+    }
+    
+    .btn-primary {
+        background: var(--plp-green);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        background: #45a049;
+    }
+    
+    /* Event Details Modal */
+    .event-detail-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 15px;
+    }
+    
+    .event-type-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        color: white;
+        text-transform: capitalize;
+    }
+    
+    .event-type-badge.schedules {
+        background: #4CAF50;
+    }
+    
+    .event-type-badge.announcements {
+        background: #2196F3;
+    }
+    
+    .event-type-badge.updates {
+        background: #FF9800;
+    }
+    
+    .event-detail-section {
+        margin-bottom: 15px;
+    }
+    
+    .detail-label {
+        font-weight: 600;
+        color: #666;
+        font-size: 13px;
+        margin-bottom: 5px;
+    }
+    
+    .detail-value {
+        color: #333;
+        font-size: 14px;
+        line-height: 1.6;
+    }
+    
+    .event-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+    
+    .btn-edit {
+        background: #2196F3;
+        color: white;
+    }
+    
+    .btn-edit:hover {
+        background: #1976D2;
+    }
+    
+    .btn-delete {
+        background: #f44336;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #d32f2f;
+    }
+    
+    .btn-archive {
+        background: #FF9800;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #F57C00;
+    }
+    
+    /* Table View Styles */
+    .view-container {
+        display: none;
+    }
+    
+    .view-container.active {
+        display: block;
+    }
+    
+    .table-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .events-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .events-table thead {
+        background: var(--plp-green);
+    }
+    
+    .events-table th {
+        padding: 15px 20px;
+        text-align: left;
+        font-weight: 600;
+        color: white;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .events-table td {
+        padding: 18px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        color: #333;
+        font-size: 14px;
+        vertical-align: middle;
+    }
+    
+    .events-table tbody tr {
+        transition: background 0.2s;
+        background: white;
+    }
+    
+    .events-table tbody tr:hover {
+        background: #f9f9f9;
+    }
+    
+    .event-type-cell {
+        display: inline-block;
+        padding: 5px 14px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        color: white;
+        text-transform: capitalize;
+    }
+    
+    .event-type-cell.schedules {
+        background: #4CAF50;
+    }
+    
+    .event-type-cell.announcements {
+        background: #2196F3;
+    }
+    
+    .event-type-cell.updates {
+        background: #FF9800;
+    }
+    
+    .event-date-cell {
+        font-weight: 500;
+        color: #555;
+    }
+    
+    .event-title-cell {
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .event-description-cell {
+        color: #666;
+        max-width: 400px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    
+    .event-actions-cell {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .action-btn {
+        width: 36px;
+        height: 36px;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+    }
+    
+    .action-btn.view {
+        background: #2196F3;
+        color: white;
+    }
+    
+    .action-btn.view:hover {
+        background: #1976D2;
+        transform: translateY(-1px);
+    }
+    
+    .action-btn.edit {
+        background: #FFC107;
+        color: white;
+    }
+    
+    .action-btn.edit:hover {
+        background: #FFB300;
+        transform: translateY(-1px);
+    }
+    
+    .action-btn.delete {
+        background: #f44336;
+        color: white;
+    }
+    
+    .action-btn.delete:hover {
+        background: #d32f2f;
+        transform: translateY(-1px);
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+    
+    .empty-state i {
+        font-size: 48px;
+        margin-bottom: 15px;
+        opacity: 0.5;
+    }
+    
+    .empty-state h3 {
+        font-size: 18px;
+        font-weight: 600;
+        margin-bottom: 8px;
+        color: #666;
+    }
+    
+    .empty-state p {
+        font-size: 14px;
+        color: #999;
+    }
+</style>
+
+<div class="calendar-header">
+    <h1 class="calendar-title">Calendar</h1>
 </div>
+
+<!-- Event Type Tabs -->
+<div class="filter-tabs">
+    <button class="filter-tab active" data-type="all" onclick="filterEventType('all')">
+        All Events
+    </button>
+    <button class="filter-tab" data-type="schedules" onclick="filterEventType('schedules')">
+        <span class="tab-icon schedules"></span>
+        Schedules
+    </button>
+    <button class="filter-tab" data-type="announcements" onclick="filterEventType('announcements')">
+        <span class="tab-icon announcements"></span>
+        Announcements
+    </button>
+    <button class="filter-tab" data-type="updates" onclick="filterEventType('updates')">
+        <span class="tab-icon updates"></span>
+        Updates
+    </button>
+</div>
+
+<!-- Calendar Controls -->
+<div class="calendar-controls">
+    <div class="calendar-navigation">
+        <button class="nav-button" onclick="previousMonth()">
+            <i class="fas fa-chevron-left"></i>
+            Previous
+        </button>
+        <div class="current-month" id="currentMonth"></div>
+        <button class="nav-button" onclick="nextMonth()">
+            Next
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+    
+    <div class="calendar-actions">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchInput" placeholder="Search events..." onkeyup="searchEvents()">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+        <button class="btn-add-event" onclick="openAddEventModal()">
+            <i class="fas fa-plus"></i>
+            Add Event
+        </button>
+    </div>
+</div>
+
+<!-- Calendar Grid View (All Events) -->
+<div id="calendarView" class="view-container active">
+    <div class="calendar-grid-container">
+        <div class="calendar-grid" id="calendarGrid">
+            <!-- Day Headers -->
+            <div class="calendar-day-header">Sun</div>
+            <div class="calendar-day-header">Mon</div>
+            <div class="calendar-day-header">Tue</div>
+            <div class="calendar-day-header">Wed</div>
+            <div class="calendar-day-header">Thu</div>
+            <div class="calendar-day-header">Fri</div>
+            <div class="calendar-day-header">Sat</div>
+            
+            <!-- Calendar days will be generated by JavaScript -->
+        </div>
+    </div>
+</div>
+
+<!-- Table View (Schedules) -->
+<div id="schedulesView" class="view-container">
+    <div class="table-container">
+        <table class="events-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%">DATE</th>
+                    <th style="width: 25%">TITLE</th>
+                    <th style="width: 45%">DESCRIPTION</th>
+                    <th style="width: 18%">ACTION</th>
+                </tr>
+            </thead>
+            <tbody id="schedulesTableBody">
+                <!-- Populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Table View (Announcements) -->
+<div id="announcementsView" class="view-container">
+    <div class="table-container">
+        <table class="events-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%">DATE</th>
+                    <th style="width: 25%">TITLE</th>
+                    <th style="width: 45%">DESCRIPTION</th>
+                    <th style="width: 18%">ACTION</th>
+                </tr>
+            </thead>
+            <tbody id="announcementsTableBody">
+                <!-- Populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Table View (Updates) -->
+<div id="updatesView" class="view-container">
+    <div class="table-container">
+        <table class="events-table">
+            <thead>
+                <tr>
+                    <th style="width: 12%">DATE</th>
+                    <th style="width: 25%">TITLE</th>
+                    <th style="width: 45%">DESCRIPTION</th>
+                    <th style="width: 18%">ACTION</th>
+                </tr>
+            </thead>
+            <tbody id="updatesTableBody">
+                <!-- Populated by JavaScript -->
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Add/Edit Event Modal -->
+<div id="eventModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title" id="eventModalTitle">Add Event</h3>
+            <button class="modal-close" onclick="closeEventModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="eventForm" onsubmit="saveEvent(event)">
+                <input type="hidden" id="eventId">
+                
+                <div class="form-group">
+                    <label class="form-label">Event Type<span class="required">*</span></label>
+                    <select class="form-control form-select" id="eventType" required>
+                        <option value="">Select event type</option>
+                        <option value="schedules">Schedules</option>
+                        <option value="announcements">Announcements</option>
+                        <option value="updates">Updates</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Title<span class="required">*</span></label>
+                    <input type="text" class="form-control" id="eventTitle" required placeholder="Enter event title">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Date<span class="required">*</span></label>
+                    <input type="date" class="form-control" id="eventDate" required>
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Description<span class="required">*</span></label>
+                    <textarea class="form-control" id="eventDescription" required placeholder="Enter event description"></textarea>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeEventModal()">Cancel</button>
+            <button class="btn btn-primary" onclick="document.getElementById('eventForm').requestSubmit()">Save Event</button>
+        </div>
+    </div>
+</div>
+
+<!-- Event Details Modal -->
+<div id="eventDetailsModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 class="modal-title">Event Details</h3>
+            <button class="modal-close" onclick="closeEventDetailsModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="event-detail-header">
+                <span class="event-type-badge" id="detailEventType"></span>
+                <h4 id="detailEventTitle" style="margin: 0; flex: 1;"></h4>
+            </div>
+            
+            <div class="event-detail-section">
+                <div class="detail-label">Date</div>
+                <div class="detail-value" id="detailEventDate"></div>
+            </div>
+            
+            <div class="event-detail-section">
+                <div class="detail-label">Description</div>
+                <div class="detail-value" id="detailEventDescription"></div>
+            </div>
+            
+            <div class="event-actions">
+                <button class="btn btn-edit" onclick="editEvent()">
+                    <i class="fas fa-edit"></i> Edit
+                </button>
+                <button class="btn btn-archive" onclick="archiveEvent()">
+                    <i class="fas fa-archive"></i> Archive
+                </button>
+                <button class="btn btn-delete" onclick="deleteEvent()">
+                    <i class="fas fa-trash"></i> Delete
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let currentDate = new Date();
+let currentEventType = 'all';
+let allEvents = [];
+let currentEventId = null;
+
+// Initialize calendar
+document.addEventListener('DOMContentLoaded', function() {
+    renderCalendar();
+    loadEvents();
+});
+
+function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    // Update month display
+    const monthNames = ['January', 'February', 'March', 'April', 'May', 'June',
+                       'July', 'August', 'September', 'October', 'November', 'December'];
+    document.getElementById('currentMonth').textContent = `${monthNames[month]} ${year}`;
+    
+    // Get first day of month and number of days
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    
+    const calendarGrid = document.getElementById('calendarGrid');
+    
+    // Remove existing day cells (keep headers)
+    const existingDays = calendarGrid.querySelectorAll('.calendar-day');
+    existingDays.forEach(day => day.remove());
+    
+    // Calculate total cells needed
+    const totalCells = Math.ceil((firstDay + daysInMonth) / 7) * 7;
+    
+    // Add days
+    for (let i = 0; i < totalCells; i++) {
+        const dayDiv = document.createElement('div');
+        dayDiv.className = 'calendar-day';
+        
+        let dayNumber;
+        let isCurrentMonth = true;
+        let fullDate;
+        
+        if (i < firstDay) {
+            // Previous month days
+            dayNumber = daysInPrevMonth - firstDay + i + 1;
+            isCurrentMonth = false;
+            dayDiv.classList.add('other-month');
+            fullDate = new Date(year, month - 1, dayNumber);
+        } else if (i >= firstDay + daysInMonth) {
+            // Next month days
+            dayNumber = i - firstDay - daysInMonth + 1;
+            isCurrentMonth = false;
+            dayDiv.classList.add('other-month');
+            fullDate = new Date(year, month + 1, dayNumber);
+        } else {
+            // Current month days
+            dayNumber = i - firstDay + 1;
+            fullDate = new Date(year, month, dayNumber);
+            
+            // Check if today
+            const today = new Date();
+            if (year === today.getFullYear() && month === today.getMonth() && dayNumber === today.getDate()) {
+                dayDiv.classList.add('today');
+            }
+        }
+        
+        dayDiv.innerHTML = `<div class="day-number">${dayNumber}</div><div class="event-list" data-date="${fullDate.toISOString().split('T')[0]}"></div>`;
+        dayDiv.onclick = () => openAddEventModal(fullDate.toISOString().split('T')[0]);
+        
+        calendarGrid.appendChild(dayDiv);
+    }
+    
+    // Render events
+    renderEvents();
+}
+
+function renderEvents() {
+    // Clear existing events
+    document.querySelectorAll('.event-list').forEach(list => {
+        list.innerHTML = '';
+    });
+    
+    // Filter events
+    let filteredEvents = allEvents.filter(event => {
+        if (!event.is_archived) {
+            return true;
+        }
+        return false;
+    });
+    
+    // Search filter
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+    if (searchTerm) {
+        filteredEvents = filteredEvents.filter(event => 
+            event.title.toLowerCase().includes(searchTerm) || 
+            event.description.toLowerCase().includes(searchTerm)
+        );
+    }
+    
+    // Render calendar view (only show filtered by type for calendar view)
+    if (currentEventType === 'all') {
+        filteredEvents.forEach(event => {
+            const eventDate = event.date;
+            const eventList = document.querySelector(`.event-list[data-date="${eventDate}"]`);
+            
+            if (eventList) {
+                const eventItem = document.createElement('div');
+                eventItem.className = `event-item ${event.event_type}`;
+                eventItem.textContent = event.title;
+                eventItem.onclick = (e) => {
+                    e.stopPropagation();
+                    showEventDetails(event.id);
+                };
+                eventList.appendChild(eventItem);
+            }
+        });
+    } else {
+        // Render table view for specific event types
+        renderTableView(currentEventType, filteredEvents);
+    }
+}
+
+function renderTableView(eventType, allFilteredEvents) {
+    // Filter by event type
+    const events = allFilteredEvents.filter(event => event.event_type === eventType);
+    
+    // Get the appropriate table body
+    const tableBodyId = `${eventType}TableBody`;
+    const tableBody = document.getElementById(tableBodyId);
+    
+    if (!tableBody) return;
+    
+    // Clear existing rows
+    tableBody.innerHTML = '';
+    
+    if (events.length === 0) {
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="4">
+                    <div class="empty-state">
+                        <i class="fas fa-calendar-times"></i>
+                        <h3>No ${eventType} found</h3>
+                        <p>There are no ${eventType} to display. Click "Add Event" to create one.</p>
+                    </div>
+                </td>
+            </tr>
+        `;
+        return;
+    }
+    
+    // Sort events by date (newest first)
+    events.sort((a, b) => new Date(b.date) - new Date(a.date));
+    
+    // Populate table
+    events.forEach(event => {
+        const row = document.createElement('tr');
+        
+        const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'short',
+            day: 'numeric'
+        });
+        
+        row.innerHTML = `
+            <td class="event-date-cell">${formattedDate}</td>
+            <td class="event-title-cell">${escapeHtml(event.title)}</td>
+            <td class="event-description-cell">${escapeHtml(event.description)}</td>
+            <td>
+                <div class="event-actions-cell">
+                    <button class="action-btn view" onclick="showEventDetails(${event.id})" title="View Details">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    <button class="action-btn edit" onclick="editEventFromTable(${event.id})" title="Edit Event">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="action-btn delete" onclick="deleteEventFromTable(${event.id})" title="Delete Event">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        tableBody.appendChild(row);
+    });
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function previousMonth() {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+}
+
+function nextMonth() {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+}
+
+function filterEventType(type) {
+    currentEventType = type;
+    
+    // Update active tab
+    document.querySelectorAll('.filter-tab').forEach(tab => {
+        tab.classList.remove('active');
+    });
+    document.querySelector(`.filter-tab[data-type="${type}"]`).classList.add('active');
+    
+    // Show/hide appropriate views
+    document.querySelectorAll('.view-container').forEach(view => {
+        view.classList.remove('active');
+    });
+    
+    // Show calendar controls only for "all" view
+    const calendarControls = document.querySelector('.calendar-controls');
+    const navigationDiv = document.querySelector('.calendar-navigation');
+    
+    if (type === 'all') {
+        document.getElementById('calendarView').classList.add('active');
+        if (navigationDiv) navigationDiv.style.display = 'flex';
+        renderCalendar();
+    } else {
+        document.getElementById(`${type}View`).classList.add('active');
+        if (navigationDiv) navigationDiv.style.display = 'none';
+        renderEvents();
+    }
+}
+
+function searchEvents() {
+    renderEvents();
+}
+
+function openAddEventModal(date = null) {
+    document.getElementById('eventModalTitle').textContent = 'Add Event';
+    document.getElementById('eventForm').reset();
+    document.getElementById('eventId').value = '';
+    
+    if (date) {
+        document.getElementById('eventDate').value = date;
+    } else {
+        document.getElementById('eventDate').value = new Date().toISOString().split('T')[0];
+    }
+    
+    document.getElementById('eventModal').classList.add('show');
+}
+
+function closeEventModal() {
+    document.getElementById('eventModal').classList.remove('show');
+}
+
+function closeEventDetailsModal() {
+    document.getElementById('eventDetailsModal').classList.remove('show');
+    currentEventId = null;
+}
+
+function saveEvent(e) {
+    e.preventDefault();
+    
+    const eventId = document.getElementById('eventId').value;
+    const eventData = {
+        event_type: document.getElementById('eventType').value,
+        title: document.getElementById('eventTitle').value,
+        date: document.getElementById('eventDate').value,
+        description: document.getElementById('eventDescription').value,
+        status: 'active',
+        is_archived: false
+    };
+    
+    const url = eventId 
+        ? `/dashboard/calendar/events/${eventId}/update/`
+        : '/dashboard/calendar/events/create/';
+    
+    const method = 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify(eventData)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Toast.success(eventId ? 'Event updated successfully' : 'Event created successfully');
+            closeEventModal();
+            loadEvents();
+        } else {
+            Toast.error(data.message || 'Failed to save event');
+        }
+    })
+    .catch(error => {
+        Toast.error('An error occurred');
+        console.error('Error:', error);
+    });
+}
+
+function loadEvents() {
+    fetch('/dashboard/calendar/events/')
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            allEvents = data.events;
+            renderEvents();
+        }
+    })
+    .catch(error => {
+        console.error('Error loading events:', error);
+    });
+}
+
+function showEventDetails(eventId) {
+    const event = allEvents.find(e => e.id === eventId);
+    if (!event) return;
+    
+    currentEventId = eventId;
+    
+    document.getElementById('detailEventType').textContent = event.event_type;
+    document.getElementById('detailEventType').className = `event-type-badge ${event.event_type}`;
+    document.getElementById('detailEventTitle').textContent = event.title;
+    document.getElementById('detailEventDate').textContent = new Date(event.date).toLocaleDateString('en-US', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+    document.getElementById('detailEventDescription').textContent = event.description;
+    
+    document.getElementById('eventDetailsModal').classList.add('show');
+}
+
+function editEvent() {
+    const event = allEvents.find(e => e.id === currentEventId);
+    if (!event) return;
+    
+    closeEventDetailsModal();
+    
+    document.getElementById('eventModalTitle').textContent = 'Edit Event';
+    document.getElementById('eventId').value = event.id;
+    document.getElementById('eventType').value = event.event_type;
+    document.getElementById('eventTitle').value = event.title;
+    document.getElementById('eventDate').value = event.date;
+    document.getElementById('eventDescription').value = event.description;
+    
+    document.getElementById('eventModal').classList.add('show');
+}
+
+function editEventFromTable(eventId) {
+    const event = allEvents.find(e => e.id === eventId);
+    if (!event) return;
+    
+    document.getElementById('eventModalTitle').textContent = 'Edit Event';
+    document.getElementById('eventId').value = event.id;
+    document.getElementById('eventType').value = event.event_type;
+    document.getElementById('eventTitle').value = event.title;
+    document.getElementById('eventDate').value = event.date;
+    document.getElementById('eventDescription').value = event.description;
+    
+    document.getElementById('eventModal').classList.add('show');
+}
+
+function deleteEventFromTable(eventId) {
+    const event = allEvents.find(e => e.id === eventId);
+    if (!event) return;
+    
+    ConfirmationModal.show({
+        title: 'Delete Event',
+        message: `Are you sure you want to delete "${event.title}"? This action cannot be undone.`,
+        type: 'delete',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            fetch(`/dashboard/calendar/events/${eventId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success('Event deleted successfully');
+                    loadEvents();
+                } else {
+                    Toast.error(data.message || 'Failed to delete event');
+                }
+            })
+            .catch(error => {
+                Toast.error('An error occurred');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function deleteEvent() {
+    const event = allEvents.find(e => e.id === currentEventId);
+    if (!event) return;
+    
+    ConfirmationModal.show({
+        title: 'Delete Event',
+        message: `Are you sure you want to delete "${event.title}"? This action cannot be undone.`,
+        type: 'delete',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            fetch(`/dashboard/calendar/events/${currentEventId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success('Event deleted successfully');
+                    closeEventDetailsModal();
+                    loadEvents();
+                } else {
+                    Toast.error(data.message || 'Failed to delete event');
+                }
+            })
+            .catch(error => {
+                Toast.error('An error occurred');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function archiveEvent() {
+    const event = allEvents.find(e => e.id === currentEventId);
+    if (!event) return;
+    
+    ConfirmationModal.show({
+        title: 'Archive Event',
+        message: `Are you sure you want to archive "${event.title}"?`,
+        type: 'warning',
+        confirmText: 'Archive',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            fetch(`/dashboard/calendar/events/${currentEventId}/archive/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success('Event archived successfully');
+                    closeEventDetailsModal();
+                    loadEvents();
+                } else {
+                    Toast.error(data.message || 'Failed to archive event');
+                }
+            })
+            .catch(error => {
+                Toast.error('An error occurred');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
+
 {% endblock %}
+

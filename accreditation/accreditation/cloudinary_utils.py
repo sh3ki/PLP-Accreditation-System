@@ -210,14 +210,19 @@ def upload_document_to_cloudinary(file, folder='documents'):
             # For documents (doc, docx, pdf, ppt, xls, etc.)
             resource_type = 'raw'
         
-        # Upload the file
-        upload_result = cloudinary.uploader.upload(
-            file,
-            folder=folder,
-            resource_type=resource_type,
-            type='upload',  # Make files publicly accessible (not authenticated)
-            # Don't apply transformations to documents
-        )
+        # Upload the file with public access
+        upload_options = {
+            'folder': folder,
+            'resource_type': resource_type,
+            'access_mode': 'public',  # Ensure public access
+        }
+        
+        # For PDFs, enable page transformations for preview capabilities
+        if file_ext == 'pdf':
+            upload_options['pages'] = True  # Enable multi-page PDFs
+            upload_options['flags'] = 'attachment'  # Force download when accessed
+        
+        upload_result = cloudinary.uploader.upload(file, **upload_options)
         
         return upload_result.get('secure_url', '')
         

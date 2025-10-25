@@ -108,6 +108,13 @@ urlpatterns = [
     # Download template
     path('download-template/', dashboard_views.download_template_view, name='download_template'),
     
+    # Calendar event management
+    path('calendar/events/', dashboard_views.get_calendar_events, name='get_calendar_events'),
+    path('calendar/events/create/', dashboard_views.create_calendar_event, name='create_calendar_event'),
+    path('calendar/events/<str:event_id>/update/', dashboard_views.update_calendar_event, name='update_calendar_event'),
+    path('calendar/events/<str:event_id>/delete/', dashboard_views.delete_calendar_event, name='delete_calendar_event'),
+    path('calendar/events/<str:event_id>/archive/', dashboard_views.archive_calendar_event, name='archive_calendar_event'),
+    
     # Legacy URLs for backward compatibility
     path('qa-head/', dashboard_views.qa_head_dashboard, name='qa_head_dashboard'),
     path('qa-admin/', dashboard_views.qa_admin_dashboard, name='qa_admin_dashboard'),

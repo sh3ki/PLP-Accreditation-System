@@ -793,12 +793,11 @@ function viewDocument(documentId) {
                     imageViewer.src = fileUrl;
                     imageViewer.style.display = 'block';
                 } else if (format === 'pdf') {
-                    // PDF - Use Django proxy to avoid CORS issues
-                    const proxyUrl = `/dashboard/accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/proxy/`;
-                    iframe.src = proxyUrl;
+                    // PDF - Use direct Cloudinary URL (it works!)
+                    iframe.src = fileUrl;
                     iframe.style.display = 'block';
                 } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(format)) {
-                    // Office files - use Office Online Viewer (better than Google Docs)
+                    // Office files - use Office Online Viewer
                     iframe.src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
                     iframe.style.display = 'block';
                 } else {

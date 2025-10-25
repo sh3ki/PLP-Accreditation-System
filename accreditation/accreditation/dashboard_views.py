@@ -3580,3 +3580,219 @@ def download_template_view(request):
     except Exception as e:
         print(f"Error downloading template: {str(e)}")
         raise Http404("Error downloading template file")
+
+
+# =====================================================
+# CALENDAR EVENT VIEWS
+# =====================================================
+
+@login_required
+def calendar_view(request):
+    """Calendar page view"""
+    user = get_user_from_session(request)
+    return render(request, 'dashboard/calendar.html', {
+        'user': user
+    })
+
+
+@login_required
+def get_calendar_events(request):
+    """Get all calendar events"""
+    try:
+        # Get all events
+        events = get_all_documents('calendar_events')
+        
+        # Format events for frontend
+        events_list = []
+        for event_id, event_data in events.items():
+            event_data['id'] = event_id
+            events_list.append(event_data)
+        
+        # Sort by date
+        events_list.sort(key=lambda x: x.get('date', ''))
+        
+        return JsonResponse({
+            'success': True,
+            'events': events_list
+        })
+    except Exception as e:
+        print(f"Error getting calendar events: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def create_calendar_event(request):
+    """Create a new calendar event"""
+    try:
+        user = get_user_from_session(request)
+        data = json.loads(request.body)
+        
+        # Validate required fields
+        required_fields = ['event_type', 'title', 'date', 'description']
+        for field in required_fields:
+            if not data.get(field):
+                return JsonResponse({
+                    'success': False,
+                    'message': f'{field} is required'
+                }, status=400)
+        
+        # Validate event type
+        if data['event_type'] not in ['schedules', 'announcements', 'updates']:
+            return JsonResponse({
+                'success': False,
+                'message': 'Invalid event type'
+            }, status=400)
+        
+        # Create event data
+        from datetime import datetime
+        import uuid
+        
+        event_data = {
+            'event_type': data['event_type'],
+            'title': data['title'],
+            'date': data['date'],
+            'description': data['description'],
+            'status': data.get('status', 'active'),
+            'is_archived': False,
+            'created_by': user.get('email', 'Unknown'),
+            'created_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        # Generate event ID
+        event_id = str(uuid.uuid4())
+        
+        # Save to database
+        create_document('calendar_events', event_data, event_id)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Event created successfully',
+            'event_id': event_id
+        })
+        
+    except Exception as e:
+        print(f"Error creating calendar event: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def update_calendar_event(request, event_id):
+    """Update a calendar event"""
+    try:
+        user = get_user_from_session(request)
+        data = json.loads(request.body)
+        
+        # Get existing event
+        event = get_document('calendar_events', event_id)
+        if not event:
+            return JsonResponse({
+                'success': False,
+                'message': 'Event not found'
+            }, status=404)
+        
+        # Update fields
+        from datetime import datetime
+        
+        update_data = {
+            'event_type': data.get('event_type', event.get('event_type')),
+            'title': data.get('title', event.get('title')),
+            'date': data.get('date', event.get('date')),
+            'description': data.get('description', event.get('description')),
+            'status': data.get('status', event.get('status')),
+            'updated_by': user.get('email', 'Unknown'),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        # Update in database
+        update_document('calendar_events', event_id, update_data)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Event updated successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error updating calendar event: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def delete_calendar_event(request, event_id):
+    """Delete a calendar event"""
+    try:
+        # Check if event exists
+        event = get_document('calendar_events', event_id)
+        if not event:
+            return JsonResponse({
+                'success': False,
+                'message': 'Event not found'
+            }, status=404)
+        
+        # Delete from database
+        delete_document('calendar_events', event_id)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Event deleted successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error deleting calendar event: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def archive_calendar_event(request, event_id):
+    """Archive a calendar event"""
+    try:
+        user = get_user_from_session(request)
+        
+        # Check if event exists
+        event = get_document('calendar_events', event_id)
+        if not event:
+            return JsonResponse({
+                'success': False,
+                'message': 'Event not found'
+            }, status=404)
+        
+        # Update archive status
+        from datetime import datetime
+        
+        update_data = {
+            'is_archived': True,
+            'archived_by': user.get('email', 'Unknown'),
+            'archived_at': datetime.now().isoformat(),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        update_document('calendar_events', event_id, update_data)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Event archived successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error archiving calendar event: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
