@@ -1,15 +1,911 @@
 {% extends 'dashboard_base.html' %}
 
-{% block title %}Reports{% endblock %}
+{% block title %}Report Generation{% endblock %}
 
 {% block content %}
-<h1 class="dashboard-title">Reports</h1>
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
-<div class="content-section">
-    <h2 class="section-title">
-        <i class="fas fa-file-alt me-2"></i>
-        Report Generation
-    </h2>
-    <p>Reporting functionality will be implemented here.</p>
+<style>
+    /* Page Title */
+    .page-title {
+        font-size: 32px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0 0 30px 0;
+    }
+    
+    /* Statistics Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        color: white;
+    }
+    
+    .stat-icon.green { background: linear-gradient(135deg, var(--plp-green) 0%, #66bb6a 100%); }
+    .stat-icon.blue { background: linear-gradient(135deg, #2196F3 0%, #42A5F5 100%); }
+    .stat-icon.orange { background: linear-gradient(135deg, #FF9800 0%, #FFB74D 100%); }
+    .stat-icon.purple { background: linear-gradient(135deg, #9C27B0 0%, #BA68C8 100%); }
+    
+    .stat-content { flex: 1; }
+    .stat-label { font-size: 13px; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #333; line-height: 1; }
+    .stat-subtext { font-size: 12px; color: #999; margin-top: 4px; }
+    
+    /* Report Generation Section */
+    .generation-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 25px;
+        margin-bottom: 30px;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0 0 20px 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .generation-form {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 20px;
+    }
+    
+    .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .form-label {
+        font-size: 13px;
+        font-weight: 600;
+        color: #555;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+    }
+    
+    .form-label i {
+        color: var(--plp-green);
+        font-size: 14px;
+    }
+    
+    .form-input, .form-select {
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        transition: all 0.3s;
+        background: white;
+    }
+    
+    .form-input:focus, .form-select:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .form-actions {
+        grid-column: 1 / -1;
+        display: flex;
+        gap: 10px;
+        margin-top: 10px;
+    }
+    
+    .btn-generate {
+        padding: 12px 30px;
+        background: var(--plp-green);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-generate:hover {
+        background: var(--plp-dark-green);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(76, 175, 80, 0.3);
+    }
+    
+    .btn-generate:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .btn-clear {
+        padding: 12px 30px;
+        background: white;
+        color: #666;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    
+    .btn-clear:hover {
+        background: #f5f5f5;
+        border-color: #999;
+    }
+    
+    /* Reports History Section */
+    .history-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .section-header {
+        padding: 20px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .reports-table-container {
+        overflow-x: auto;
+    }
+    
+    .reports-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .reports-table thead {
+        background: #f8f9fa;
+    }
+    
+    .reports-table th {
+        padding: 12px 15px;
+        text-align: left;
+        font-size: 12px;
+        font-weight: 600;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .reports-table td {
+        padding: 15px;
+        border-bottom: 1px solid #eee;
+        font-size: 14px;
+        color: #333;
+    }
+    
+    .reports-table tbody tr {
+        transition: background 0.2s;
+    }
+    
+    .reports-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .report-type-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .report-type-badge.complete { background: #E8F5E9; color: #2E7D32; }
+    .report-type-badge.results { background: #E3F2FD; color: #1565C0; }
+    .report-type-badge.performance { background: #F3E5F5; color: #6A1B9A; }
+    
+    .format-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 4px;
+        font-size: 11px;
+        font-weight: 600;
+        background: #fff3e0;
+        color: #e65100;
+    }
+    
+    .format-badge.pdf { background: #FFEBEE; color: #C62828; }
+    .format-badge.xlsx { background: #E8F5E9; color: #2E7D32; }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    
+    .status-badge.completed { background: #E8F5E9; color: #2E7D32; }
+    .status-badge.processing { background: #FFF3E0; color: #E65100; }
+    .status-badge.failed { background: #FFEBEE; color: #C62828; }
+    
+    .action-buttons {
+        display: flex;
+        gap: 8px;
+    }
+    
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-download {
+        background: #2196F3;
+        color: white;
+    }
+    
+    .btn-download:hover {
+        background: #1976D2;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(33, 150, 243, 0.3);
+    }
+    
+    .btn-view {
+        background: #9C27B0;
+        color: white;
+    }
+    
+    .btn-view:hover {
+        background: #7B1FA2;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(156, 39, 176, 0.3);
+    }
+    
+    .btn-delete {
+        background: #F44336;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #D32F2F;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(244, 67, 54, 0.3);
+    }
+    
+    /* Document Viewer Modal */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        animation: modalSlideDown 0.3s ease;
+    }
+    
+    @keyframes modalSlideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: #999;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-close:hover {
+        color: #333;
+        background: #f5f5f5;
+        border-radius: 4px;
+    }
+    
+    .modal-body {
+        padding: 0;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+    
+    .no-results i {
+        font-size: 64px;
+        color: #ddd;
+        margin-bottom: 20px;
+    }
+    
+    .no-results p {
+        font-size: 16px;
+        margin: 0;
+    }
+    
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.7);
+        display: none;
+        justify-content: center;
+        align-items: center;
+        z-index: 10001;
+    }
+    
+    .loading-overlay.active {
+        display: flex;
+    }
+    
+    .loading-content {
+        background: white;
+        border-radius: 8px;
+        padding: 30px;
+        text-align: center;
+        max-width: 400px;
+    }
+    
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid var(--plp-green);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin: 0 auto 20px;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .loading-text {
+        font-size: 16px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 8px;
+    }
+    
+    .loading-subtext {
+        font-size: 13px;
+        color: #666;
+    }
+</style>
+
+<h1 class="page-title">Report Generation</h1>
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon green">
+            <i class="fas fa-file-alt"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Total Reports</div>
+            <div class="stat-value">{{ total_reports }}</div>
+            <div class="stat-subtext">Generated reports</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon blue">
+            <i class="fas fa-calendar-alt"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">This Month</div>
+            <div class="stat-value">{{ reports_this_month }}</div>
+            <div class="stat-subtext">Reports generated</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon orange">
+            <i class="fas fa-database"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Storage Used</div>
+            <div class="stat-value">{{ total_storage }}</div>
+            <div class="stat-subtext">MB</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon purple">
+            <i class="fas fa-users"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Active Users</div>
+            <div class="stat-value">{{ active_users }}</div>
+            <div class="stat-subtext">Generating reports</div>
+        </div>
+    </div>
 </div>
+
+<!-- Report Generation Form -->
+<div class="generation-section">
+    <h2 class="section-title">
+        <i class="fas fa-magic"></i>
+        Generate New Report
+    </h2>
+    
+    <form id="reportForm" class="generation-form">
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-file-alt"></i>
+                Report Type *
+            </label>
+            <select id="reportType" class="form-select" required>
+                <option value="">Select Report Type</option>
+                <option value="complete_accreditation">Complete Accreditation Report</option>
+                <option value="results_incentives">Results & Incentives Report</option>
+                <option value="performance_analytics">Performance Analytics Report</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-building"></i>
+                Department
+            </label>
+            <select id="departmentFilter" class="form-select">
+                <option value="">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept.id }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-graduation-cap"></i>
+                Program
+            </label>
+            <select id="programFilter" class="form-select">
+                <option value="">All Programs</option>
+                {% for prog in programs %}
+                <option value="{{ prog.id }}">{{ prog.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-certificate"></i>
+                Accreditation Type
+            </label>
+            <select id="typeFilter" class="form-select">
+                <option value="">All Types</option>
+                {% for type in types %}
+                <option value="{{ type.id }}">{{ type.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-calendar"></i>
+                Date From
+            </label>
+            <input type="date" id="dateFrom" class="form-input">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-calendar"></i>
+                Date To
+            </label>
+            <input type="date" id="dateTo" class="form-input">
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">
+                <i class="fas fa-file-export"></i>
+                Format *
+            </label>
+            <select id="reportFormat" class="form-select" required>
+                <option value="pdf">PDF Document</option>
+                <option value="excel">Excel Spreadsheet</option>
+            </select>
+        </div>
+        
+        <div class="form-actions">
+            <button type="submit" class="btn-generate">
+                <i class="fas fa-file-download"></i>
+                Generate Report
+            </button>
+            <button type="button" class="btn-clear" onclick="clearForm()">
+                <i class="fas fa-times"></i>
+                Clear
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Reports History Table -->
+<div class="history-section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-history"></i>
+            Reports History
+        </h2>
+    </div>
+    
+    <div class="reports-table-container">
+        {% if reports_history %}
+        <table class="reports-table">
+            <thead>
+                <tr>
+                    <th>Report ID</th>
+                    <th>Type</th>
+                    <th>Generated By</th>
+                    <th>Scope</th>
+                    <th>Date & Time</th>
+                    <th>Format</th>
+                    <th>Status</th>
+                    <th>Size</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for report in reports_history %}
+                <tr>
+                    <td>
+                        <span style="font-family: monospace; font-size: 12px; color: #666;">
+                            {{ report.id|slice:":20" }}...
+                        </span>
+                    </td>
+                    <td>
+                        {% if report.type == 'complete_accreditation' %}
+                            <span class="report-type-badge complete">Accreditation</span>
+                        {% elif report.type == 'results_incentives' %}
+                            <span class="report-type-badge results">Results</span>
+                        {% else %}
+                            <span class="report-type-badge performance">Performance</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ report.generated_by_name|default:report.generated_by }}</td>
+                    <td style="max-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="{{ report.scope }}">
+                        {{ report.scope }}
+                    </td>
+                    <td>
+                        <div style="font-size: 13px;">{{ report.created_at|slice:":10" }}</div>
+                        <div style="font-size: 11px; color: #999;">{{ report.created_at|slice:"11:19" }}</div>
+                    </td>
+                    <td>
+                        <span class="format-badge {{ report.format|lower }}">{{ report.format }}</span>
+                    </td>
+                    <td>
+                        <span class="status-badge {{ report.status }}">{{ report.status }}</span>
+                    </td>
+                    <td>{{ report.file_size|filesizeformat }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn-action btn-download" onclick="downloadReport('{{ report.id }}', '{{ report.file_url }}', '{{ report.type }}')" title="Download">
+                                <i class="fas fa-download"></i>
+                            </button>
+                            <button class="btn-action btn-view" onclick="viewReport('{{ report.id }}', '{{ report.file_url }}', '{{ report.type }}', '{{ report.format }}', '{{ report.generated_by_name|default:report.generated_by }}', '{{ report.created_at }}')" title="View">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            <button class="btn-action btn-delete" onclick="confirmDeleteReport('{{ report.id }}', '{{ report.type }}', '{{ report.file_path }}')" title="Delete">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        {% else %}
+        <div class="no-results">
+            <i class="fas fa-file-alt"></i>
+            <p>No reports generated yet</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Document Viewer Modal -->
+<div id="viewerModal" class="modal">
+    <div class="modal-content" style="max-width: 90%; width: 1200px; max-height: 90vh; height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="flex-shrink: 0; padding: 20px;">
+            <div style="flex: 1;">
+                <h3 id="viewerTitle" style="margin: 0 0 12px 0; font-size: 22px; color: #333;">Report Viewer</h3>
+                <div id="viewerInfo" style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 14px; color: #666;">
+                    <span id="viewerFormat"></span>
+                    <span id="viewerGeneratedBy"></span>
+                    <span id="viewerDate"></span>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeViewerModal()" style="font-size: 32px; width: 40px; height: 40px;">&times;</button>
+        </div>
+        <div class="modal-body" style="flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f5f5f5;">
+            <iframe id="reportViewer" style="width: 100%; height: 100%; border: none; display: none;"></iframe>
+            <div id="viewerLoading" style="display: none; text-align: center;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--plp-green);"></i>
+                <p style="margin-top: 15px; color: #666;">Loading report...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Overlay -->
+<div class="loading-overlay" id="loadingOverlay">
+    <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">Generating Report...</div>
+        <div class="loading-subtext">This may take a moment. Please wait.</div>
+    </div>
+</div>
+
+<script>
+    // Form submission
+    document.getElementById('reportForm').addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const reportType = document.getElementById('reportType').value;
+        const reportFormat = document.getElementById('reportFormat').value;
+        
+        if (!reportType) {
+            showToast('Please select a report type', 'error');
+            return;
+        }
+        
+        // Show loading overlay
+        document.getElementById('loadingOverlay').classList.add('active');
+        
+        try {
+            const response = await fetch('{% url "dashboard:generate_report" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    report_type: reportType,
+                    format: reportFormat,
+                    department_id: document.getElementById('departmentFilter').value,
+                    program_id: document.getElementById('programFilter').value,
+                    type_id: document.getElementById('typeFilter').value,
+                    date_from: document.getElementById('dateFrom').value,
+                    date_to: document.getElementById('dateTo').value
+                })
+            });
+            
+            const data = await response.json();
+            
+            // Hide loading overlay
+            document.getElementById('loadingOverlay').classList.remove('active');
+            
+            if (data.success) {
+                showToast('Report generated successfully!', 'success');
+                
+                // Download the report
+                window.open(data.download_url, '_blank');
+                
+                // Reload page to show new report in history
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } else {
+                showToast(data.message || 'Failed to generate report', 'error');
+            }
+        } catch (error) {
+            console.error('Error generating report:', error);
+            document.getElementById('loadingOverlay').classList.remove('active');
+            showToast('Error generating report. Please try again.', 'error');
+        }
+    });
+    
+    function clearForm() {
+        document.getElementById('reportForm').reset();
+    }
+    
+    function downloadReport(reportId, url, reportType) {
+        // Force download instead of opening
+        const typeName = {
+            'complete_accreditation': 'Complete_Accreditation_Report',
+            'results_incentives': 'Results_Incentives_Report',
+            'performance_analytics': 'Performance_Analytics_Report'
+        }[reportType] || 'Report';
+        
+        const timestamp = new Date().toISOString().slice(0, 10);
+        const extension = url.includes('.xlsx') ? '.xlsx' : '.pdf';
+        const filename = `${typeName}_${timestamp}_${reportId.slice(0, 8)}${extension}`;
+        
+        fetch(url)
+            .then(response => response.blob())
+            .then(blob => {
+                const blobUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                window.URL.revokeObjectURL(blobUrl);
+                showToast('Report downloaded successfully', 'success');
+            })
+            .catch(error => {
+                console.error('Download error:', error);
+                showToast('Failed to download report', 'error');
+            });
+    }
+    
+    function viewReport(reportId, url, reportType, format, generatedBy, createdAt) {
+        const iframe = document.getElementById('reportViewer');
+        const loading = document.getElementById('viewerLoading');
+        
+        // Show loading
+        loading.style.display = 'block';
+        iframe.style.display = 'none';
+        
+        // Set title and info
+        const typeName = {
+            'complete_accreditation': 'Complete Accreditation Report',
+            'results_incentives': 'Results & Incentives Report',
+            'performance_analytics': 'Performance Analytics Report'
+        }[reportType] || 'Report';
+        
+        document.getElementById('viewerTitle').textContent = typeName;
+        
+        // Format badge
+        const formatBadge = `<span style="padding: 4px 8px; background: ${format.toLowerCase() === 'pdf' ? '#FFEBEE' : '#E8F5E9'}; color: ${format.toLowerCase() === 'pdf' ? '#C62828' : '#2E7D32'}; border-radius: 3px; font-weight: 500;"><i class="fas fa-file"></i> ${format.toUpperCase()}</span>`;
+        document.getElementById('viewerFormat').innerHTML = formatBadge;
+        
+        // Generated by
+        document.getElementById('viewerGeneratedBy').innerHTML = `<i class="fas fa-user"></i> ${generatedBy}`;
+        
+        // Date
+        let uploadDate = createdAt.slice(0, 10);
+        document.getElementById('viewerDate').innerHTML = `<i class="fas fa-calendar"></i> ${uploadDate}`;
+        
+        // Hide loading and show iframe
+        setTimeout(() => {
+            loading.style.display = 'none';
+            
+            if (format.toLowerCase() === 'pdf') {
+                // PDF - Direct display
+                iframe.src = url;
+                iframe.style.display = 'block';
+            } else if (format.toLowerCase() === 'xlsx' || format.toLowerCase() === 'excel') {
+                // Excel - Use Office Online Viewer
+                iframe.src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(url)}`;
+                iframe.style.display = 'block';
+            } else {
+                // Try direct embed
+                iframe.src = url;
+                iframe.style.display = 'block';
+            }
+            
+            document.getElementById('viewerModal').classList.add('show');
+        }, 500);
+    }
+    
+    function closeViewerModal() {
+        document.getElementById('viewerModal').classList.remove('show');
+        // Clear viewer
+        document.getElementById('reportViewer').src = '';
+        document.getElementById('reportViewer').style.display = 'none';
+    }
+    
+    function confirmDeleteReport(reportId, reportType, filePath) {
+        const typeName = {
+            'complete_accreditation': 'Complete Accreditation Report',
+            'results_incentives': 'Results & Incentives Report',
+            'performance_analytics': 'Performance Analytics Report'
+        }[reportType] || 'Report';
+        
+        ConfirmationModal.show({
+            title: 'Delete Report',
+            message: `Are you sure you want to delete this ${typeName}? This will permanently delete the report from both the database and storage. This action cannot be undone.`,
+            type: 'delete',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            onConfirm: () => deleteReport(reportId, filePath)
+        });
+    }
+    
+    async function deleteReport(reportId, filePath) {
+        try {
+            const response = await fetch(`/dashboard/reports/delete/${reportId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                showToast('Report deleted successfully', 'success');
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1000);
+            } else {
+                showToast(data.message || 'Failed to delete report', 'error');
+            }
+        } catch (error) {
+            console.error('Error deleting report:', error);
+            showToast('Error deleting report. Please try again.', 'error');
+        }
+    }
+</script>
+
 {% endblock %}

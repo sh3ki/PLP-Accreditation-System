@@ -22,6 +22,8 @@ urlpatterns = [
     
     path('performance/', dashboard_views.performance_view, name='performance'),
     path('reports/', dashboard_views.reports_view, name='reports'),
+    path('reports/generate/', dashboard_views.generate_report, name='generate_report'),
+    path('reports/delete/<str:report_id>/', dashboard_views.delete_report, name='delete_report'),
     path('results/', dashboard_views.results_view, name='results'),
     path('results/toggle-certificate/<str:area_id>/', dashboard_views.toggle_certificate_view, name='toggle_certificate'),
     path('audit/', dashboard_views.audit_view, name='audit'),

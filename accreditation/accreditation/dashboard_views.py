@@ -767,12 +767,1055 @@ def performance_view(request):
 
 @login_required
 def reports_view(request):
-    """Reports page"""
+    """Reports page with generation and history"""
+    user = get_user_from_session(request)
+    
+    # Fetch filter options
+    try:
+        departments = get_all_documents('departments')
+        departments = [d for d in departments if d.get('is_active', True) and not d.get('is_archived', False)]
+        departments.sort(key=lambda x: x.get('name', ''))
+        
+        programs = get_all_documents('programs')
+        programs = [p for p in programs if p.get('is_active', True) and not p.get('is_archived', False)]
+        programs.sort(key=lambda x: x.get('code', ''))
+        
+        types = get_all_documents('accreditation_types')
+        types = [t for t in types if t.get('is_active', True) and not t.get('is_archived', False)]
+        types.sort(key=lambda x: x.get('name', ''))
+        
+        # Fetch reports history
+        reports_history = get_all_documents('reports_history')
+        
+        # Enrich reports with user names from users collection
+        users = get_all_documents('users')
+        user_map = {u.get('email'): f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or u.get('email') for u in users}
+        
+        for report in reports_history:
+            generated_by = report.get('generated_by', '')
+            if generated_by in user_map and not report.get('generated_by_name'):
+                report['generated_by_name'] = user_map[generated_by]
+        
+        # Convert Firebase timestamps to ISO format strings for sorting and display
+        from datetime import datetime
+        for report in reports_history:
+            created_at = report.get('created_at')
+            if created_at and not isinstance(created_at, str):
+                # Convert Firebase DatetimeWithNanoseconds to ISO string
+                try:
+                    report['created_at'] = created_at.isoformat()
+                except:
+                    report['created_at'] = str(created_at)
+        
+        reports_history.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+        # Calculate stats
+        total_reports = len(reports_history)
+        
+        # Reports this month
+        current_month = datetime.now().strftime('%Y-%m')
+        reports_this_month = 0
+        for r in reports_history:
+            created_at = r.get('created_at', '')
+            if isinstance(created_at, str) and created_at.startswith(current_month):
+                reports_this_month += 1
+        
+        # Calculate total storage (in MB)
+        total_storage = sum(r.get('file_size', 0) for r in reports_history) / (1024 * 1024)
+        
+        # Active users generating reports
+        active_users = len(set(r.get('generated_by') for r in reports_history if r.get('generated_by')))
+        
+    except Exception as e:
+        print(f"Error fetching reports data: {str(e)}")
+        departments = []
+        programs = []
+        types = []
+        reports_history = []
+        total_reports = 0
+        reports_this_month = 0
+        total_storage = 0
+        active_users = 0
+    
     context = {
         'active_page': 'reports',
-        'user': get_user_from_session(request),
+        'user': user,
+        'departments': departments,
+        'programs': programs,
+        'types': types,
+        'reports_history': reports_history,
+        'total_reports': total_reports,
+        'reports_this_month': reports_this_month,
+        'total_storage': round(total_storage, 2),
+        'active_users': active_users,
     }
     return render(request, 'dashboard/reports.html', context)
+
+
+@login_required
+def generate_report(request):
+    """Generate report based on filters and type"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method'})
+    
+    try:
+        import json
+        from datetime import datetime
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak, Image
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+        import io
+        from .cloudinary_utils import upload_file_to_cloudinary
+        
+        user = get_user_from_session(request)
+        data = json.loads(request.body)
+        
+        report_type = data.get('report_type')
+        report_format = data.get('format', 'pdf')
+        department_id = data.get('department_id', '')
+        program_id = data.get('program_id', '')
+        type_id = data.get('type_id', '')
+        date_from = data.get('date_from', '')
+        date_to = data.get('date_to', '')
+        
+        # Build scope description
+        scope_parts = []
+        if department_id:
+            dept = get_document('departments', department_id)
+            if dept:
+                scope_parts.append(f"Department: {dept.get('name')}")
+        if program_id:
+            prog = get_document('programs', program_id)
+            if prog:
+                scope_parts.append(f"Program: {prog.get('name')}")
+        if type_id:
+            accred_type = get_document('accreditation_types', type_id)
+            if accred_type:
+                scope_parts.append(f"Type: {accred_type.get('name')}")
+        if date_from and date_to:
+            scope_parts.append(f"Period: {date_from} to {date_to}")
+        
+        scope = " | ".join(scope_parts) if scope_parts else "All Data"
+        
+        # Generate report based on format
+        if report_format == 'pdf':
+            file_data = generate_pdf_report(report_type, department_id, program_id, type_id, date_from, date_to, user)
+            file_extension = 'pdf'
+            content_type = 'application/pdf'
+        elif report_format == 'excel':
+            file_data = generate_excel_report(report_type, department_id, program_id, type_id, date_from, date_to, user)
+            file_extension = 'xlsx'
+            content_type = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        else:
+            return JsonResponse({'success': False, 'message': 'Invalid format'})
+        
+        # Upload to Cloudinary
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        filename = f"{report_type}_{timestamp}.{file_extension}"
+        
+        cloudinary_url = upload_file_to_cloudinary(file_data, filename, folder='reports')
+        
+        # Get user details from users collection
+        user_email = user.get('email', 'Unknown')
+        user_name = 'Unknown User'
+        try:
+            # Try to get user from users collection
+            users = get_all_documents('users')
+            user_doc = next((u for u in users if u.get('email') == user_email), None)
+            if user_doc:
+                first_name = user_doc.get('first_name', '')
+                last_name = user_doc.get('last_name', '')
+                user_name = f"{first_name} {last_name}".strip() or user_email
+            else:
+                # Fallback to user object if not found
+                user_name = user.get('displayName', user.get('name', user_email))
+        except Exception as e:
+            print(f"Error fetching user details: {e}")
+            user_name = user.get('displayName', user.get('name', user_email))
+        
+        # Save to reports history
+        report_data = {
+            'id': f"report_{timestamp}_{user.get('uid', 'unknown')}",
+            'type': report_type,
+            'generated_by': user_email,
+            'generated_by_name': user_name,
+            'scope': scope,
+            'created_at': datetime.now().isoformat(),
+            'format': file_extension.upper(),
+            'status': 'completed',
+            'file_size': len(file_data),
+            'file_url': cloudinary_url,
+            'file_path': cloudinary_url,
+        }
+        
+        create_document('reports_history', report_data, report_data['id'])
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Report generated successfully',
+            'report_id': report_data['id'],
+            'download_url': cloudinary_url
+        })
+        
+    except Exception as e:
+        print(f"Error generating report: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': str(e)})
+
+
+def generate_pdf_report(report_type, department_id, program_id, type_id, date_from, date_to, user):
+    """Generate PDF report"""
+    from reportlab.lib import colors
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, PageBreak
+    from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    from datetime import datetime
+    import io
+    
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, topMargin=0.5*inch, bottomMargin=0.5*inch)
+    story = []
+    styles = getSampleStyleSheet()
+    
+    # Custom styles
+    title_style = ParagraphStyle(
+        'CustomTitle',
+        parent=styles['Heading1'],
+        fontSize=24,
+        textColor=colors.HexColor('#2c3e50'),
+        spaceAfter=30,
+        alignment=TA_CENTER,
+        fontName='Helvetica-Bold'
+    )
+    
+    heading_style = ParagraphStyle(
+        'CustomHeading',
+        parent=styles['Heading2'],
+        fontSize=16,
+        textColor=colors.HexColor('#4CAF50'),
+        spaceAfter=12,
+        spaceBefore=12,
+        fontName='Helvetica-Bold'
+    )
+    
+    # Header
+    story.append(Paragraph("PLP Accreditation System", title_style))
+    report_title = {
+        'complete_accreditation': 'Complete Accreditation Report',
+        'results_incentives': 'Results and Incentives Report',
+        'performance_analytics': 'Performance Analytics Report'
+    }.get(report_type, 'System Report')
+    
+    story.append(Paragraph(report_title, heading_style))
+    story.append(Paragraph(f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}", styles['Normal']))
+    story.append(Paragraph(f"Generated by: {user.get('displayName', 'Unknown User')}", styles['Normal']))
+    story.append(Spacer(1, 0.3*inch))
+    
+    # Fetch data based on report type
+    if report_type == 'complete_accreditation':
+        story.extend(generate_complete_accreditation_content(department_id, program_id, type_id, styles, heading_style))
+    elif report_type == 'results_incentives':
+        story.extend(generate_results_incentives_content(department_id, program_id, type_id, styles, heading_style))
+    elif report_type == 'performance_analytics':
+        story.extend(generate_performance_analytics_content(department_id, program_id, type_id, styles, heading_style))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def generate_complete_accreditation_content(department_id, program_id, type_id, styles, heading_style):
+    """Generate content for complete accreditation report"""
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.units import inch
+    
+    content = []
+    content.append(Paragraph("Executive Summary", heading_style))
+    
+    # Fetch all data
+    departments = get_all_documents('departments')
+    programs = get_all_documents('programs')
+    types = get_all_documents('accreditation_types')
+    areas = get_all_documents('areas')
+    checklists = get_all_documents('checklists')
+    documents = get_all_documents('documents')
+    
+    # Filter by selections
+    if department_id:
+        departments = [d for d in departments if d.get('id') == department_id]
+    if program_id:
+        programs = [p for p in programs if p.get('id') == program_id]
+    if type_id:
+        types = [t for t in types if t.get('id') == type_id]
+    
+    departments = [d for d in departments if d.get('is_active', True) and not d.get('is_archived', False)]
+    programs = [p for p in programs if p.get('is_active', True) and not p.get('is_archived', False)]
+    types = [t for t in types if t.get('is_active', True) and not t.get('is_archived', False)]
+    areas = [a for a in areas if a.get('is_active', True) and not a.get('is_archived', False)]
+    
+    # Summary statistics
+    total_areas = len(areas)
+    total_checklists = len(checklists)
+    total_docs = len([d for d in documents if d.get('is_required', False)])
+    approved_docs = len([d for d in documents if d.get('is_required', False) and d.get('status') == 'approved'])
+    
+    summary_data = [
+        ['Metric', 'Count'],
+        ['Departments', str(len(departments))],
+        ['Programs', str(len(programs))],
+        ['Accreditation Types', str(len(types))],
+        ['Areas', str(total_areas)],
+        ['Checklists', str(total_checklists)],
+        ['Required Documents', str(total_docs)],
+        ['Approved Documents', str(approved_docs)],
+        ['Overall Progress', f"{round((approved_docs/total_docs*100) if total_docs > 0 else 0, 1)}%"],
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[4*inch, 2*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 12),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 12),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
+    ]))
+    
+    content.append(summary_table)
+    content.append(Spacer(1, 0.3*inch))
+    
+    # Department details
+    content.append(Paragraph("Department Details", heading_style))
+    
+    for dept in departments:
+        dept_programs = [p for p in programs if p.get('department_id') == dept.get('id')]
+        
+        dept_data = [[f"{dept.get('name')} ({dept.get('code')})"]]
+        dept_table = Table(dept_data, colWidths=[6*inch])
+        dept_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, -1), colors.HexColor('#E8F5E9')),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.HexColor('#2E7D32')),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, -1), 12),
+            ('TOPPADDING', (0, 0), (-1, -1), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 10),
+            ('LEFTPADDING', (0, 0), (-1, -1), 10),
+        ]))
+        content.append(dept_table)
+        content.append(Spacer(1, 0.1*inch))
+        
+        # Programs table
+        if dept_programs:
+            prog_data = [['Program Code', 'Program Name', 'Types', 'Areas', 'Progress']]
+            
+            for prog in dept_programs:
+                prog_types = [t for t in types if t.get('program_id') == prog.get('id')]
+                prog_areas = []
+                for t in prog_types:
+                    prog_areas.extend([a for a in areas if a.get('type_id') == t.get('id') or a.get('accreditation_type_id') == t.get('id')])
+                
+                # Calculate progress
+                prog_checklists = []
+                for area in prog_areas:
+                    prog_checklists.extend([c for c in checklists if c.get('area_id') == area.get('id')])
+                
+                completed = 0
+                for checklist in prog_checklists:
+                    req_docs = [d for d in documents if d.get('checklist_id') == checklist.get('id') and d.get('is_required', False) and d.get('status') == 'approved']
+                    if len(req_docs) > 0:
+                        completed += 1
+                
+                progress = round((completed / len(prog_checklists) * 100) if len(prog_checklists) > 0 else 0, 1)
+                
+                prog_data.append([
+                    prog.get('code', ''),
+                    prog.get('name', ''),
+                    str(len(prog_types)),
+                    str(len(prog_areas)),
+                    f"{progress}%"
+                ])
+            
+            prog_table = Table(prog_data, colWidths=[1*inch, 2.5*inch, 0.8*inch, 0.8*inch, 0.9*inch])
+            prog_table.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
+                ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE', (0, 0), (-1, 0), 10),
+                ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+                ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+                ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+                ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+                ('FONTSIZE', (0, 1), (-1, -1), 9),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')]),
+            ]))
+            content.append(prog_table)
+        
+        content.append(Spacer(1, 0.2*inch))
+    
+    return content
+
+
+def generate_results_incentives_content(department_id, program_id, type_id, styles, heading_style):
+    """Generate content for results and incentives report"""
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.units import inch
+    
+    content = []
+    content.append(Paragraph("Results and Incentives Overview", heading_style))
+    
+    # Fetch all data
+    departments = get_all_documents('departments')
+    programs = get_all_documents('programs')
+    types = get_all_documents('accreditation_types')
+    areas = get_all_documents('areas')
+    checklists = get_all_documents('checklists')
+    documents = get_all_documents('documents')
+    
+    # Filter by selections
+    if department_id:
+        departments = [d for d in departments if d.get('id') == department_id]
+    if program_id:
+        programs = [p for p in programs if p.get('id') == program_id]
+    if type_id:
+        types = [t for t in types if t.get('id') == type_id]
+    
+    departments = [d for d in departments if d.get('is_active', True) and not d.get('is_archived', False)]
+    programs = [p for p in programs if p.get('is_active', True) and not p.get('is_archived', False)]
+    types = [t for t in types if t.get('is_active', True) and not t.get('is_archived', False)]
+    areas = [a for a in areas if a.get('is_active', True) and not a.get('is_archived', False)]
+    
+    # Build results data
+    results_data = [['Department', 'Program', 'Type', 'Area', 'Progress', 'Certificate', 'Incentive']]
+    
+    for area in areas:
+        type_id_val = area.get('type_id') or area.get('accreditation_type_id')
+        accred_type = next((t for t in types if t.get('id') == type_id_val), None)
+        if not accred_type:
+            continue
+        
+        prog_id = accred_type.get('program_id')
+        program = next((p for p in programs if p.get('id') == prog_id), None)
+        if not program:
+            continue
+        
+        dept_id = program.get('department_id')
+        department = next((d for d in departments if d.get('id') == dept_id), None)
+        if not department:
+            continue
+        
+        # Calculate progress
+        area_checklists = [c for c in checklists if c.get('area_id') == area.get('id')]
+        if not area_checklists:
+            progress = 0
+        else:
+            completed = 0
+            for checklist in area_checklists:
+                req_docs = [d for d in documents if d.get('checklist_id') == checklist.get('id') and d.get('is_required', False) and d.get('status') == 'approved']
+                if len(req_docs) > 0:
+                    completed += 1
+            progress = round((completed / len(area_checklists) * 100) if len(area_checklists) > 0 else 0, 1)
+        
+        certificate = "Issued" if area.get('certificate_issued', False) else "Pending"
+        incentive = "Eligible" if progress >= 80 else "Not Eligible"
+        
+        results_data.append([
+            department.get('code', ''),
+            program.get('code', ''),
+            accred_type.get('name', '')[:15],
+            area.get('name', '')[:20],
+            f"{progress}%",
+            certificate,
+            incentive
+        ])
+    
+    if len(results_data) > 1:
+        results_table = Table(results_data, colWidths=[0.8*inch, 0.8*inch, 1.2*inch, 1.5*inch, 0.7*inch, 0.8*inch, 0.9*inch])
+        results_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 9),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 8),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')]),
+        ]))
+        content.append(results_table)
+    else:
+        content.append(Paragraph("No data available for selected filters.", styles['Normal']))
+    
+    content.append(Spacer(1, 0.3*inch))
+    
+    # Summary statistics
+    total_areas = len(results_data) - 1
+    certificates_issued = sum(1 for row in results_data[1:] if row[5] == "Issued")
+    eligible_incentives = sum(1 for row in results_data[1:] if row[6] == "Eligible")
+    
+    summary_data = [
+        ['Metric', 'Value'],
+        ['Total Areas', str(total_areas)],
+        ['Certificates Issued', str(certificates_issued)],
+        ['Incentive Eligible', str(eligible_incentives)],
+    ]
+    
+    summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+    summary_table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+        ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+        ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+        ('FONTSIZE', (0, 0), (-1, 0), 11),
+        ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+        ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+        ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ('FONTSIZE', (0, 1), (-1, -1), 10),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
+    ]))
+    content.append(summary_table)
+    
+    return content
+
+
+def generate_performance_analytics_content(department_id, program_id, type_id, styles, heading_style):
+    """Generate content for performance analytics report"""
+    from reportlab.lib import colors
+    from reportlab.platypus import Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.units import inch
+    
+    content = []
+    content.append(Paragraph("Performance Analytics", heading_style))
+    
+    # Fetch all data
+    departments = get_all_documents('departments')
+    programs = get_all_documents('programs')
+    types = get_all_documents('accreditation_types')
+    areas = get_all_documents('areas')
+    checklists = get_all_documents('checklists')
+    documents = get_all_documents('documents')
+    
+    # Filter by selections
+    if department_id:
+        departments = [d for d in departments if d.get('id') == department_id]
+    if program_id:
+        programs = [p for p in programs if p.get('id') == program_id]
+    if type_id:
+        types = [t for t in types if t.get('id') == type_id]
+    
+    departments = [d for d in departments if d.get('is_active', True) and not d.get('is_archived', False)]
+    programs = [p for p in programs if p.get('is_active', True) and not p.get('is_archived', False)]
+    types = [t for t in types if t.get('is_active', True) and not t.get('is_archived', False)]
+    
+    # Calculate department performance
+    dept_data = [['Rank', 'Department', 'Programs', 'Checklists', 'Documents', 'Progress', 'Status']]
+    dept_performance = []
+    
+    for dept in departments:
+        dept_programs = [p for p in programs if p.get('department_id') == dept.get('id')]
+        dept_types = []
+        dept_areas = []
+        for prog in dept_programs:
+            prog_types = [t for t in types if t.get('program_id') == prog.get('id')]
+            dept_types.extend(prog_types)
+            for t in prog_types:
+                dept_areas.extend([a for a in areas if (a.get('type_id') == t.get('id') or a.get('accreditation_type_id') == t.get('id')) and a.get('is_active', True)])
+        
+        dept_checklists = []
+        for area in dept_areas:
+            dept_checklists.extend([c for c in checklists if c.get('area_id') == area.get('id')])
+        
+        completed_checklists = 0
+        required_docs = 0
+        approved_docs = 0
+        
+        for checklist in dept_checklists:
+            checklist_docs = [d for d in documents if d.get('checklist_id') == checklist.get('id') and d.get('is_required', False)]
+            required_docs += len(checklist_docs)
+            approved = [d for d in checklist_docs if d.get('status') == 'approved']
+            approved_docs += len(approved)
+            if len(approved) > 0:
+                completed_checklists += 1
+        
+        progress = round((approved_docs / required_docs * 100) if required_docs > 0 else 0, 1)
+        
+        if progress >= 80:
+            status = "Excellent"
+        elif progress >= 60:
+            status = "Good"
+        elif progress >= 40:
+            status = "Needs Work"
+        else:
+            status = "Critical"
+        
+        dept_performance.append({
+            'name': dept.get('name', ''),
+            'programs': len(dept_programs),
+            'checklists': f"{completed_checklists}/{len(dept_checklists)}",
+            'documents': f"{approved_docs}/{required_docs}",
+            'progress': progress,
+            'status': status
+        })
+    
+    # Sort by progress
+    dept_performance.sort(key=lambda x: x['progress'], reverse=True)
+    
+    for idx, dept in enumerate(dept_performance, 1):
+        dept_data.append([
+            str(idx),
+            dept['name'],
+            str(dept['programs']),
+            dept['checklists'],
+            dept['documents'],
+            f"{dept['progress']}%",
+            dept['status']
+        ])
+    
+    if len(dept_data) > 1:
+        perf_table = Table(dept_data, colWidths=[0.5*inch, 2*inch, 0.8*inch, 1*inch, 1*inch, 0.8*inch, 1*inch])
+        perf_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 0.5, colors.grey),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 9),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f9f9f9')]),
+        ]))
+        content.append(perf_table)
+    else:
+        content.append(Paragraph("No data available for selected filters.", styles['Normal']))
+    
+    content.append(Spacer(1, 0.3*inch))
+    
+    # Performance summary
+    if dept_performance:
+        avg_progress = sum(d['progress'] for d in dept_performance) / len(dept_performance)
+        excellent = sum(1 for d in dept_performance if d['status'] == 'Excellent')
+        good = sum(1 for d in dept_performance if d['status'] == 'Good')
+        needs_work = sum(1 for d in dept_performance if d['status'] == 'Needs Work')
+        critical = sum(1 for d in dept_performance if d['status'] == 'Critical')
+        
+        summary_data = [
+            ['Metric', 'Value'],
+            ['Average Progress', f"{round(avg_progress, 1)}%"],
+            ['Excellent Departments', str(excellent)],
+            ['Good Departments', str(good)],
+            ['Needs Improvement', str(needs_work)],
+            ['Critical Departments', str(critical)],
+        ]
+        
+        summary_table = Table(summary_data, colWidths=[3*inch, 2*inch])
+        summary_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#4CAF50')),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 11),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 10),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('GRID', (0, 0), (-1, -1), 1, colors.grey),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 1), (-1, -1), 10),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.white, colors.HexColor('#f5f5f5')]),
+        ]))
+        content.append(summary_table)
+    
+    return content
+
+
+def generate_excel_report(report_type, department_id, program_id, type_id, date_from, date_to, user):
+    """Generate Excel report"""
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+    from openpyxl.utils import get_column_letter
+    from datetime import datetime
+    import io
+    
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Report"
+    
+    # Header styling
+    header_font = Font(name='Arial', size=14, bold=True, color='FFFFFF')
+    header_fill = PatternFill(start_color='4CAF50', end_color='4CAF50', fill_type='solid')
+    header_alignment = Alignment(horizontal='center', vertical='center')
+    
+    table_header_font = Font(name='Arial', size=11, bold=True, color='FFFFFF')
+    table_header_fill = PatternFill(start_color='4CAF50', end_color='4CAF50', fill_type='solid')
+    
+    cell_alignment = Alignment(horizontal='left', vertical='center')
+    border = Border(
+        left=Side(style='thin', color='CCCCCC'),
+        right=Side(style='thin', color='CCCCCC'),
+        top=Side(style='thin', color='CCCCCC'),
+        bottom=Side(style='thin', color='CCCCCC')
+    )
+    
+    # Title
+    ws.merge_cells('A1:G1')
+    ws['A1'] = 'PLP Accreditation System'
+    ws['A1'].font = header_font
+    ws['A1'].fill = header_fill
+    ws['A1'].alignment = header_alignment
+    ws.row_dimensions[1].height = 25
+    
+    # Report type
+    ws.merge_cells('A2:G2')
+    report_title = {
+        'complete_accreditation': 'Complete Accreditation Report',
+        'results_incentives': 'Results and Incentives Report',
+        'performance_analytics': 'Performance Analytics Report'
+    }.get(report_type, 'System Report')
+    ws['A2'] = report_title
+    ws['A2'].font = Font(name='Arial', size=12, bold=True)
+    ws['A2'].alignment = Alignment(horizontal='center')
+    
+    # Metadata
+    ws['A3'] = f"Generated: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}"
+    ws['A4'] = f"Generated by: {user.get('displayName', 'Unknown User')}"
+    
+    current_row = 6
+    
+    # Fetch data based on report type
+    if report_type == 'complete_accreditation':
+        current_row = generate_excel_complete_accreditation(ws, department_id, program_id, type_id, current_row, table_header_font, table_header_fill, cell_alignment, border)
+    elif report_type == 'results_incentives':
+        current_row = generate_excel_results_incentives(ws, department_id, program_id, type_id, current_row, table_header_font, table_header_fill, cell_alignment, border)
+    elif report_type == 'performance_analytics':
+        current_row = generate_excel_performance_analytics(ws, department_id, program_id, type_id, current_row, table_header_font, table_header_fill, cell_alignment, border)
+    
+    # Auto-adjust column widths
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        for cell in column:
+            try:
+                if len(str(cell.value)) > max_length:
+                    max_length = len(cell.value)
+            except:
+                pass
+        adjusted_width = min(max_length + 2, 50)
+        ws.column_dimensions[column_letter].width = adjusted_width
+    
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    return buffer.getvalue()
+
+
+def generate_excel_complete_accreditation(ws, department_id, program_id, type_id, start_row, header_font, header_fill, cell_alignment, border):
+    """Generate Excel content for complete accreditation report"""
+    from openpyxl.styles import Alignment
+    
+    # Fetch data
+    departments = get_all_documents('departments')
+    programs = get_all_documents('programs')
+    types = get_all_documents('accreditation_types')
+    areas = get_all_documents('areas')
+    checklists = get_all_documents('checklists')
+    documents = get_all_documents('documents')
+    
+    # Filter
+    if department_id:
+        departments = [d for d in departments if d.get('id') == department_id]
+    if program_id:
+        programs = [p for p in programs if p.get('id') == program_id]
+    if type_id:
+        types = [t for t in types if t.get('id') == type_id]
+    
+    departments = [d for d in departments if d.get('is_active', True)]
+    programs = [p for p in programs if p.get('is_active', True)]
+    types = [t for t in types if t.get('is_active', True)]
+    areas = [a for a in areas if a.get('is_active', True)]
+    
+    # Headers
+    headers = ['Department', 'Program Code', 'Program Name', 'Type', 'Area', 'Checklists', 'Progress']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=start_row, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    current_row = start_row + 1
+    
+    # Data rows
+    for dept in departments:
+        dept_programs = [p for p in programs if p.get('department_id') == dept.get('id')]
+        for prog in dept_programs:
+            prog_types = [t for t in types if t.get('program_id') == prog.get('id')]
+            for ptype in prog_types:
+                type_areas = [a for a in areas if a.get('type_id') == ptype.get('id') or a.get('accreditation_type_id') == ptype.get('id')]
+                for area in type_areas:
+                    area_checklists = [c for c in checklists if c.get('area_id') == area.get('id')]
+                    
+                    completed = 0
+                    for checklist in area_checklists:
+                        req_docs = [d for d in documents if d.get('checklist_id') == checklist.get('id') and d.get('is_required', False) and d.get('status') == 'approved']
+                        if len(req_docs) > 0:
+                            completed += 1
+                    
+                    progress = round((completed / len(area_checklists) * 100) if len(area_checklists) > 0 else 0, 1)
+                    
+                    row_data = [
+                        dept.get('name', ''),
+                        prog.get('code', ''),
+                        prog.get('name', ''),
+                        ptype.get('name', ''),
+                        area.get('name', ''),
+                        f"{completed}/{len(area_checklists)}",
+                        f"{progress}%"
+                    ]
+                    
+                    for col, value in enumerate(row_data, 1):
+                        cell = ws.cell(row=current_row, column=col, value=value)
+                        cell.alignment = cell_alignment
+                        cell.border = border
+                    
+                    current_row += 1
+    
+    return current_row + 2
+
+
+def generate_excel_results_incentives(ws, department_id, program_id, type_id, start_row, header_font, header_fill, cell_alignment, border):
+    """Generate Excel content for results and incentives report"""
+    from openpyxl.styles import Alignment
+    
+    # Fetch data
+    departments = get_all_documents('departments')
+    programs = get_all_documents('programs')
+    types = get_all_documents('accreditation_types')
+    areas = get_all_documents('areas')
+    checklists = get_all_documents('checklists')
+    documents = get_all_documents('documents')
+    
+    # Filter
+    if department_id:
+        departments = [d for d in departments if d.get('id') == department_id]
+    if program_id:
+        programs = [p for p in programs if p.get('id') == program_id]
+    if type_id:
+        types = [t for t in types if t.get('id') == type_id]
+    
+    departments = [d for d in departments if d.get('is_active', True)]
+    programs = [p for p in programs if p.get('is_active', True)]
+    types = [t for t in types if t.get('is_active', True)]
+    areas = [a for a in areas if a.get('is_active', True)]
+    
+    # Headers
+    headers = ['Department', 'Program', 'Type', 'Area', 'Progress', 'Certificate', 'Incentive Eligible']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=start_row, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    current_row = start_row + 1
+    
+    # Data rows
+    for area in areas:
+        type_id_val = area.get('type_id') or area.get('accreditation_type_id')
+        accred_type = next((t for t in types if t.get('id') == type_id_val), None)
+        if not accred_type:
+            continue
+        
+        prog_id = accred_type.get('program_id')
+        program = next((p for p in programs if p.get('id') == prog_id), None)
+        if not program:
+            continue
+        
+        dept_id = program.get('department_id')
+        department = next((d for d in departments if d.get('id') == dept_id), None)
+        if not department:
+            continue
+        
+        # Calculate progress
+        area_checklists = [c for c in checklists if c.get('area_id') == area.get('id')]
+        if not area_checklists:
+            progress = 0
+        else:
+            completed = 0
+            for checklist in area_checklists:
+                req_docs = [d for d in documents if d.get('checklist_id') == checklist.get('id') and d.get('is_required', False) and d.get('status') == 'approved']
+                if len(req_docs) > 0:
+                    completed += 1
+            progress = round((completed / len(area_checklists) * 100) if len(area_checklists) > 0 else 0, 1)
+        
+        certificate = "Issued" if area.get('certificate_issued', False) else "Pending"
+        incentive = "Yes" if progress >= 80 else "No"
+        
+        row_data = [
+            department.get('code', ''),
+            program.get('code', ''),
+            accred_type.get('name', ''),
+            area.get('name', ''),
+            f"{progress}%",
+            certificate,
+            incentive
+        ]
+        
+        for col, value in enumerate(row_data, 1):
+            cell = ws.cell(row=current_row, column=col, value=value)
+            cell.alignment = cell_alignment
+            cell.border = border
+        
+        current_row += 1
+    
+    return current_row + 2
+
+
+def generate_excel_performance_analytics(ws, department_id, program_id, type_id, start_row, header_font, header_fill, cell_alignment, border):
+    """Generate Excel content for performance analytics report"""
+    from openpyxl.styles import Alignment
+    
+    # Fetch data
+    departments = get_all_documents('departments')
+    programs = get_all_documents('programs')
+    types = get_all_documents('accreditation_types')
+    areas = get_all_documents('areas')
+    checklists = get_all_documents('checklists')
+    documents = get_all_documents('documents')
+    
+    # Filter
+    if department_id:
+        departments = [d for d in departments if d.get('id') == department_id]
+    if program_id:
+        programs = [p for p in programs if p.get('id') == program_id]
+    if type_id:
+        types = [t for t in types if t.get('id') == type_id]
+    
+    departments = [d for d in departments if d.get('is_active', True)]
+    programs = [p for p in programs if p.get('is_active', True)]
+    types = [t for t in types if t.get('is_active', True)]
+    
+    # Headers
+    headers = ['Rank', 'Department', 'Programs', 'Checklists', 'Documents', 'Progress', 'Status']
+    for col, header in enumerate(headers, 1):
+        cell = ws.cell(row=start_row, column=col, value=header)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center', vertical='center')
+        cell.border = border
+    
+    # Calculate performance
+    dept_performance = []
+    for dept in departments:
+        dept_programs = [p for p in programs if p.get('department_id') == dept.get('id')]
+        dept_types = []
+        dept_areas = []
+        for prog in dept_programs:
+            prog_types = [t for t in types if t.get('program_id') == prog.get('id')]
+            dept_types.extend(prog_types)
+            for t in prog_types:
+                dept_areas.extend([a for a in areas if (a.get('type_id') == t.get('id') or a.get('accreditation_type_id') == t.get('id')) and a.get('is_active', True)])
+        
+        dept_checklists = []
+        for area in dept_areas:
+            dept_checklists.extend([c for c in checklists if c.get('area_id') == area.get('id')])
+        
+        completed_checklists = 0
+        required_docs = 0
+        approved_docs = 0
+        
+        for checklist in dept_checklists:
+            checklist_docs = [d for d in documents if d.get('checklist_id') == checklist.get('id') and d.get('is_required', False)]
+            required_docs += len(checklist_docs)
+            approved = [d for d in checklist_docs if d.get('status') == 'approved']
+            approved_docs += len(approved)
+            if len(approved) > 0:
+                completed_checklists += 1
+        
+        progress = round((approved_docs / required_docs * 100) if required_docs > 0 else 0, 1)
+        
+        if progress >= 80:
+            status = "Excellent"
+        elif progress >= 60:
+            status = "Good"
+        elif progress >= 40:
+            status = "Needs Work"
+        else:
+            status = "Critical"
+        
+        dept_performance.append({
+            'name': dept.get('name', ''),
+            'programs': len(dept_programs),
+            'checklists': f"{completed_checklists}/{len(dept_checklists)}",
+            'documents': f"{approved_docs}/{required_docs}",
+            'progress': progress,
+            'status': status
+        })
+    
+    # Sort by progress
+    dept_performance.sort(key=lambda x: x['progress'], reverse=True)
+    
+    current_row = start_row + 1
+    for idx, dept in enumerate(dept_performance, 1):
+        row_data = [
+            idx,
+            dept['name'],
+            dept['programs'],
+            dept['checklists'],
+            dept['documents'],
+            f"{dept['progress']}%",
+            dept['status']
+        ]
+        
+        for col, value in enumerate(row_data, 1):
+            cell = ws.cell(row=current_row, column=col, value=value)
+            cell.alignment = cell_alignment
+            cell.border = border
+        
+        current_row += 1
+    
+    return current_row + 2
+
+
+@login_required
+def delete_report(request, report_id):
+    """Delete a report from history"""
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'message': 'Invalid request method'})
+    
+    try:
+        # Get report
+        report = get_document('reports_history', report_id)
+        if not report:
+            return JsonResponse({'success': False, 'message': 'Report not found'})
+        
+        # Delete from Cloudinary (optional - you might want to keep files)
+        # Note: Cloudinary deletion would require additional setup
+        
+        # Delete from database
+        delete_document('reports_history', report_id)
+        
+        return JsonResponse({'success': True, 'message': 'Report deleted successfully'})
+        
+    except Exception as e:
+        print(f"Error deleting report: {str(e)}")
+        return JsonResponse({'success': False, 'message': str(e)})
 
 
 @login_required

@@ -297,3 +297,63 @@ def delete_document_from_cloudinary(document_url):
     except Exception as e:
         print(f"Error deleting document from Cloudinary: {str(e)}")
         return False
+
+
+def upload_file_to_cloudinary(file_data, filename, folder='uploads'):
+    """
+    Upload any file (PDF, Excel, etc.) to Cloudinary
+    
+    Args:
+        file_data: File bytes data
+        filename: Name of the file
+        folder: Cloudinary folder name
+        
+    Returns:
+        str: Cloudinary URL of uploaded file
+    """
+    try:
+        import cloudinary
+        import cloudinary.uploader
+        import io
+        
+        # Get credentials from environment variables
+        api_key = os.environ.get('CLOUDINARY_API_KEY', '')
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+        
+        # Check if credentials are available
+        if not api_key or not api_secret:
+            raise ValueError(
+                "Cloudinary credentials not found. "
+                "Please set CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in your .env file."
+            )
+        
+        # Configure Cloudinary
+        cloudinary.config(
+            cloud_name='dygrh6ztt',
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True
+        )
+        
+        # Convert bytes to file-like object if needed
+        if isinstance(file_data, bytes):
+            file_data = io.BytesIO(file_data)
+        
+        # Upload the file
+        upload_result = cloudinary.uploader.upload(
+            file_data,
+            folder=folder,
+            resource_type='raw',  # Use 'raw' for non-image files like PDF, Excel
+            public_id=filename.rsplit('.', 1)[0],  # Remove extension for public_id
+            format=filename.rsplit('.', 1)[-1] if '.' in filename else None,  # Keep original extension
+            overwrite=True
+        )
+        
+        return upload_result.get('secure_url', '')
+        
+    except ImportError:
+        print("Warning: cloudinary package not installed. Please install it: pip install cloudinary")
+        raise
+    except Exception as e:
+        print(f"Error uploading file to Cloudinary: {str(e)}")
+        raise e
