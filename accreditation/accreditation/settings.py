@@ -189,3 +189,7 @@ except ImportError as e:
     print(f"Firebase packages not available: {e}")
     print("Run: pip install firebase-admin google-cloud-firestore")
     db = None
+
+
+# Security Settings
+X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframes from same origin

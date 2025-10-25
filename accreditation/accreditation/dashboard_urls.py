@@ -82,6 +82,7 @@ urlpatterns = [
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/', dashboard_views.checklist_documents_view, name='checklist_documents'),
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/add/', dashboard_views.document_add_view, name='document_add'),
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/view/', dashboard_views.document_view, name='document_view'),
+    path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/proxy/', dashboard_views.document_proxy_view, name='document_proxy'),
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/update-status/', dashboard_views.document_update_status_view, name='document_update_status'),
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/delete/', dashboard_views.document_delete_view, name='document_delete'),
     
@@ -103,6 +104,9 @@ urlpatterns = [
     path('api/programs/<str:prog_id>/types/', dashboard_views.api_get_program_types, name='api_get_program_types'),
     path('api/types/<str:type_id>/areas/', dashboard_views.api_get_type_areas, name='api_get_type_areas'),
     path('api/areas/<str:area_id>/checklists/', dashboard_views.api_get_area_checklists, name='api_get_area_checklists'),
+    
+    # Download template
+    path('download-template/', dashboard_views.download_template_view, name='download_template'),
     
     # Legacy URLs for backward compatibility
     path('qa-head/', dashboard_views.qa_head_dashboard, name='qa_head_dashboard'),

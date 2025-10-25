@@ -20,6 +20,7 @@ from accreditation.forms import UserManagementForm
 from accreditation.firebase_auth import FirebaseUser
 from accreditation.password_generator import generate_strong_password
 from accreditation.cloudinary_utils import upload_image_to_cloudinary, delete_image_from_cloudinary
+from accreditation.document_validator import validate_document_header
 import json
 import hashlib
 import hashlib
@@ -3089,6 +3090,20 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                     'message': f'Invalid file format for {required_file.name}. Allowed formats: {", ".join(allowed_formats)}'
                 }, status=400)
             
+            # ============================================
+            # VALIDATE DOCUMENT HEADER AGAINST TEMPLATE
+            # ============================================
+            if file_ext in ['doc', 'docx']:
+                is_valid, error_message = validate_document_header(required_file)
+                if not is_valid:
+                    return JsonResponse({
+                        'success': False,
+                        'message': f'Header validation failed for {required_file.name}: {error_message}'
+                    }, status=400)
+                
+                # Reset file pointer after validation
+                required_file.seek(0)
+            
             # Upload required document
             file_url = upload_document_to_cloudinary(
                 required_file, 
@@ -3102,6 +3117,7 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                 }, status=500)
             
             # Create required document record
+            from datetime import datetime
             required_doc_data = {
                 'department_id': selected_dept_id,
                 'program_id': selected_prog_id,
@@ -3112,6 +3128,7 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                 'file_url': file_url,
                 'format': file_ext,
                 'uploaded_by': user.get('email', 'Unknown'),
+                'uploaded_at': datetime.now().isoformat(),
                 'is_required': True,
                 'status': 'submitted',
                 'comment': '',  # Comment will be added by disapprover later
@@ -3159,6 +3176,7 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                     'file_url': add_file_url,
                     'format': add_file_ext,
                     'uploaded_by': user.get('email', 'Unknown'),
+                    'uploaded_at': datetime.now().isoformat(),
                     'is_required': False,
                     'status': 'submitted',
                     'comment': '',  # Comment will be added by disapprover later
@@ -3224,11 +3242,19 @@ def document_update_status_view(request, dept_id, prog_id, type_id, area_id, che
         import json as json_module
         data = json_module.loads(request.body)
         status = data.get('status')
+        comment = data.get('comment', '').strip()
         
         if status not in ['approved', 'disapproved']:
             return JsonResponse({
                 'success': False,
                 'message': 'Invalid status'
+            }, status=400)
+        
+        # Validate comment for disapproval
+        if status == 'disapproved' and not comment:
+            return JsonResponse({
+                'success': False,
+                'message': 'Comment is required for disapproval'
             }, status=400)
         
         document = get_document('documents', document_id)
@@ -3240,10 +3266,16 @@ def document_update_status_view(request, dept_id, prog_id, type_id, area_id, che
             }, status=404)
         
         # Update document status
-        update_document('documents', document_id, {
+        update_data = {
             'status': status,
             'approved_by': user.get('email', 'Unknown')
-        })
+        }
+        
+        # Add comment if provided
+        if comment:
+            update_data['comment'] = comment
+        
+        update_document('documents', document_id, update_data)
         
         return JsonResponse({
             'success': True,
@@ -3290,6 +3322,110 @@ def document_delete_view(request, dept_id, prog_id, type_id, area_id, checklist_
             'success': False,
             'message': f'Error deleting document: {str(e)}'
         }, status=500)
+
+
+@require_http_methods(["GET"])
+def document_proxy_view(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
+    """Proxy view to serve documents from Cloudinary"""
+    import requests
+    from django.http import HttpResponse, StreamingHttpResponse
+    import cloudinary
+    import cloudinary.api
+    import cloudinary.uploader
+    import os
+    
+    try:
+        # Get document details
+        document = get_document('documents', document_id)
+        
+        if not document:
+            return HttpResponse('Document not found', status=404)
+        
+        file_url = document.get('file_url')
+        if not file_url:
+            return HttpResponse('Document file URL not found', status=404)
+        
+        # Configure Cloudinary
+        api_key = os.environ.get('CLOUDINARY_API_KEY', '')
+        api_secret = os.environ.get('CLOUDINARY_API_SECRET', '')
+        
+        cloudinary.config(
+            cloud_name='dygrh6ztt',
+            api_key=api_key,
+            api_secret=api_secret,
+            secure=True
+        )
+        
+        from accreditation.cloudinary_utils import extract_public_id_from_url
+        public_id = extract_public_id_from_url(file_url)
+        
+        if not public_id:
+            return HttpResponse('Invalid Cloudinary URL', status=400)
+        
+        # Use Cloudinary Admin API to get the file directly
+        try:
+            # Use Cloudinary's API to generate a temporary download URL
+            import hashlib
+            import time
+            
+            timestamp = int(time.time())
+            
+            # Create signature for authenticated access
+            to_sign = f"public_id={public_id}&timestamp={timestamp}{api_secret}"
+            signature = hashlib.sha1(to_sign.encode('utf-8')).hexdigest()
+            
+            # Build authenticated download URL
+            auth_url = f"https://api.cloudinary.com/v1_1/dygrh6ztt/raw/download?public_id={public_id}&timestamp={timestamp}&signature={signature}&api_key={api_key}"
+            
+            print(f"Trying authenticated download URL...")
+            response = requests.get(auth_url, stream=True, timeout=30)
+            print(f"Response status: {response.status_code}")
+            
+            if response.status_code == 200:
+                # Success! Stream the file
+                format_lower = (document.get('format') or '').lower()
+                
+                content_type_map = {
+                    'pdf': 'application/pdf',
+                    'doc': 'application/msword',
+                    'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                    'xls': 'application/vnd.ms-excel',
+                    'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                    'ppt': 'application/vnd.ms-powerpoint',
+                    'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+                }
+                
+                content_type = content_type_map.get(format_lower, 'application/pdf')
+                
+                django_response = StreamingHttpResponse(
+                    response.iter_content(chunk_size=8192),
+                    content_type=content_type
+                )
+                django_response['Content-Disposition'] = f'inline; filename="{document.get("name", "document.pdf")}"'
+                django_response['Cache-Control'] = 'no-cache'
+                
+                return django_response
+            
+        except Exception as e:
+            print(f"Authenticated download failed: {str(e)}")
+            import traceback
+            traceback.print_exc()
+        
+        # If everything fails, return error message
+        return HttpResponse(
+            '<html><body style="font-family: Arial; padding: 40px; text-align: center;">'
+            '<h2>Unable to load PDF</h2>'
+            '<p>Please check your Cloudinary settings or contact support.</p>'
+            '</body></html>',
+            content_type='text/html'
+        )
+        
+    except Exception as e:
+        print(f"Error in proxy view: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return HttpResponse(f'Error: {str(e)}', status=500)
+        return HttpResponse(f'Error loading document: {str(e)}', status=500)
 
 
 # API endpoints for document modal dropdowns
@@ -3415,7 +3551,32 @@ def api_get_area_checklists(request, area_id):
         import traceback
         traceback.print_exc()
         return JsonResponse({'error': str(e), 'checklists': []}, status=500)
-        return JsonResponse({'checklists': checklist_list})
-    except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
 
+
+@login_required
+@require_http_methods(["GET"])
+def download_template_view(request):
+    """Download the official document template"""
+    import os
+    from django.http import FileResponse, Http404
+    from django.conf import settings
+    
+    try:
+        # Path to the template file
+        template_path = os.path.join(settings.BASE_DIR, 'Template.docx')
+        
+        if not os.path.exists(template_path):
+            raise Http404("Template file not found")
+        
+        # Open and return the file
+        response = FileResponse(
+            open(template_path, 'rb'),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        response['Content-Disposition'] = 'attachment; filename="Template.docx"'
+        
+        return response
+        
+    except Exception as e:
+        print(f"Error downloading template: {str(e)}")
+        raise Http404("Error downloading template file")

@@ -177,7 +177,7 @@
     }
     
     .document-icon.folder {
-        background: #ffc107;
+        background: var(--plp-green);
     }
     
     .document-details {
@@ -699,13 +699,26 @@ var MODAL_CONTEXT = {
 
 <!-- Document Viewer Modal -->
 <div id="viewerModal" class="modal">
-    <div class="modal-content" style="max-width: 90%; max-height: 95vh;">
-        <div class="modal-header">
-            <h3 id="viewerTitle">Document Viewer</h3>
-            <button class="modal-close" onclick="closeViewerModal()">&times;</button>
+    <div class="modal-content" style="max-width: 90%; width: 1200px; max-height: 90vh; height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="flex-shrink: 0; padding: 20px;">
+            <div style="flex: 1;">
+                <h3 id="viewerTitle" style="margin: 0 0 12px 0; font-size: 22px; color: #333;">Document Viewer</h3>
+                <div id="viewerInfo" style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 14px; color: #666;">
+                    <span id="viewerFormat"></span>
+                    <span id="viewerUploader"></span>
+                    <span id="viewerDate"></span>
+                    <span id="viewerStatus"></span>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeViewerModal()" style="font-size: 32px; width: 40px; height: 40px;">&times;</button>
         </div>
-        <div class="modal-body" style="padding: 0; height: calc(90vh - 80px);">
-            <iframe id="documentViewer" style="width: 100%; height: 100%; border: none;"></iframe>
+        <div class="modal-body" style="padding: 0; flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f5f5f5;">
+            <iframe id="documentViewer" style="width: 100%; height: 100%; border: none; display: none;"></iframe>
+            <img id="imageViewer" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" />
+            <div id="viewerLoading" style="display: none; text-align: center;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--plp-green);"></i>
+                <p style="margin-top: 15px; color: #666;">Loading document...</p>
+            </div>
         </div>
     </div>
 </div>
@@ -719,18 +732,89 @@ const checklistId = '{{ checklist_id }}';
 
 // Document-specific functions (non-modal operations)
 function viewDocument(documentId) {
+    const iframe = document.getElementById('documentViewer');
+    const imageViewer = document.getElementById('imageViewer');
+    const loading = document.getElementById('viewerLoading');
+    
+    // Show loading
+    loading.style.display = 'block';
+    iframe.style.display = 'none';
+    imageViewer.style.display = 'none';
+    
     fetch(`/dashboard/accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/view/`)
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                document.getElementById('viewerTitle').textContent = data.document.name;
-                document.getElementById('documentViewer').src = data.document.file_url;
+                const doc = data.document;
+                const fileUrl = doc.file_url;
+                const format = (doc.format || '').toLowerCase();
+                
+                // Set title and info
+                document.getElementById('viewerTitle').textContent = doc.name;
+                
+                // Format badge
+                const formatBadge = `<span style="padding: 4px 8px; background: #e3f2fd; color: #1976d2; border-radius: 3px; font-weight: 500;"><i class="fas fa-file"></i> ${format.toUpperCase()}</span>`;
+                document.getElementById('viewerFormat').innerHTML = formatBadge;
+                
+                // Uploader
+                document.getElementById('viewerUploader').innerHTML = `<i class="fas fa-user"></i> ${doc.uploaded_by || 'Unknown'}`;
+                
+                // Date - handle different date formats
+                let uploadDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                if (doc.uploaded_at) {
+                    try {
+                        // Try parsing the date
+                        const dateObj = new Date(doc.uploaded_at);
+                        if (!isNaN(dateObj.getTime())) {
+                            uploadDate = dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                        }
+                    } catch (e) {
+                        // Keep default current date if parsing fails
+                    }
+                }
+                document.getElementById('viewerDate').innerHTML = `<i class="fas fa-calendar"></i> ${uploadDate}`;
+                
+                // Status badge
+                const statusColors = {
+                    'submitted': { bg: '#fff3cd', color: '#856404' },
+                    'approved': { bg: '#d4edda', color: '#155724' },
+                    'disapproved': { bg: '#f8d7da', color: '#721c24' }
+                };
+                const statusColor = statusColors[doc.status] || statusColors['submitted'];
+                const statusBadge = `<span style="padding: 4px 8px; background: ${statusColor.bg}; color: ${statusColor.color}; border-radius: 3px; font-weight: 500; text-transform: capitalize;">${doc.status || 'Submitted'}</span>`;
+                document.getElementById('viewerStatus').innerHTML = statusBadge;
+                
+                // Hide loading
+                loading.style.display = 'none';
+                
+                // Handle different file types
+                if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(format)) {
+                    // Images - direct display
+                    imageViewer.src = fileUrl;
+                    imageViewer.style.display = 'block';
+                } else if (format === 'pdf') {
+                    // PDF - Use Django proxy to avoid CORS issues
+                    const proxyUrl = `/dashboard/accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/proxy/`;
+                    iframe.src = proxyUrl;
+                    iframe.style.display = 'block';
+                } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(format)) {
+                    // Office files - use Office Online Viewer (better than Google Docs)
+                    iframe.src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
+                    iframe.style.display = 'block';
+                } else {
+                    // Other formats - try direct embed
+                    iframe.src = fileUrl;
+                    iframe.style.display = 'block';
+                }
+                
                 document.getElementById('viewerModal').classList.add('show');
             } else {
+                loading.style.display = 'none';
                 Toast.error('Failed to load document');
             }
         })
         .catch(error => {
+            loading.style.display = 'none';
             Toast.error('An error occurred');
             console.error('Error:', error);
         });
@@ -738,7 +822,11 @@ function viewDocument(documentId) {
 
 function closeViewerModal() {
     document.getElementById('viewerModal').classList.remove('show');
+    // Clear viewers
     document.getElementById('documentViewer').src = '';
+    document.getElementById('imageViewer').src = '';
+    document.getElementById('documentViewer').style.display = 'none';
+    document.getElementById('imageViewer').style.display = 'none';
 }
 
 function approveDocument(documentId, documentName) {
@@ -757,18 +845,25 @@ function approveDocument(documentId, documentName) {
 function disapproveDocument(documentId, documentName) {
     ConfirmationModal.show({
         title: 'Disapprove Document',
-        message: `Are you sure you want to disapprove "${documentName}"?`,
+        message: `Please provide a reason for disapproving "${documentName}":`,
         type: 'warning',
         confirmText: 'Disapprove',
         cancelText: 'Cancel',
-        onConfirm: () => {
-            updateDocumentStatus(documentId, 'disapproved');
+        requireInput: true,
+        inputPlaceholder: 'Enter reason for disapproval (required)...',
+        onConfirm: (comment) => {
+            updateDocumentStatus(documentId, 'disapproved', comment);
         }
     });
 }
 
-function updateDocumentStatus(documentId, status) {
+function updateDocumentStatus(documentId, status, comment = '') {
     const csrftoken = getCookie('csrftoken');
+    
+    const payload = { status: status };
+    if (comment) {
+        payload.comment = comment;
+    }
     
     fetch(`/dashboard/accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/update-status/`, {
         method: 'POST',
@@ -776,7 +871,7 @@ function updateDocumentStatus(documentId, status) {
             'Content-Type': 'application/json',
             'X-CSRFToken': csrftoken
         },
-        body: JSON.stringify({ status: status })
+        body: JSON.stringify(payload)
     })
     .then(response => response.json())
     .then(data => {

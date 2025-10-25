@@ -215,6 +215,7 @@ def upload_document_to_cloudinary(file, folder='documents'):
             file,
             folder=folder,
             resource_type=resource_type,
+            type='upload',  # Make files publicly accessible (not authenticated)
             # Don't apply transformations to documents
         )
         

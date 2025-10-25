@@ -67,6 +67,11 @@
         background: #f8d7da;
         color: #721c24;
     }
+    
+    .confirmation-modal-icon.warning {
+        background: #fff3cd;
+        color: #856404;
+    }
 
     .confirmation-modal-icon.activate {
         background: #d4edda;
@@ -86,7 +91,33 @@
         font-size: 14px;
         color: #666;
         line-height: 1.6;
-        margin: 0;
+        margin: 0 0 15px 0;
+    }
+    
+    .confirmation-modal-input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        font-family: inherit;
+        resize: vertical;
+        min-height: 80px;
+        margin-top: 10px;
+    }
+    
+    .confirmation-modal-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .confirmation-modal-input-container {
+        display: none;
+    }
+    
+    .confirmation-modal-input-container.show {
+        display: block;
     }
 
     .confirmation-modal-footer {
@@ -141,6 +172,15 @@
     .confirmation-btn-confirm.deactivate:hover {
         background: #5a6268;
     }
+    
+    .confirmation-btn-confirm.warning {
+        background: #ffc107;
+        color: #333;
+    }
+
+    .confirmation-btn-confirm.warning:hover {
+        background: #e0a800;
+    }
 
     @keyframes fadeIn {
         from {
@@ -175,6 +215,13 @@
             <p id="confirmationModalMessage" class="confirmation-modal-message">
                 Are you sure you want to proceed with this action?
             </p>
+            <div id="confirmationModalInputContainer" class="confirmation-modal-input-container">
+                <textarea 
+                    id="confirmationModalInput" 
+                    class="confirmation-modal-input" 
+                    placeholder="Enter reason (required)..."
+                ></textarea>
+            </div>
         </div>
         <div class="confirmation-modal-footer">
             <button type="button" class="confirmation-btn confirmation-btn-cancel" onclick="ConfirmationModal.cancel()">
@@ -195,8 +242,11 @@
             this.title = null;
             this.message = null;
             this.confirmBtn = null;
+            this.inputContainer = null;
+            this.input = null;
             this.callback = null;
             this.initialized = false;
+            this.requireInput = false;
         }
 
         init() {
@@ -207,6 +257,8 @@
             this.title = document.getElementById('confirmationModalTitle');
             this.message = document.getElementById('confirmationModalMessage');
             this.confirmBtn = document.getElementById('confirmationModalConfirmBtn');
+            this.inputContainer = document.getElementById('confirmationModalInputContainer');
+            this.input = document.getElementById('confirmationModalInput');
             
             // Close on overlay click
             this.overlay.addEventListener('click', (e) => {
@@ -230,9 +282,11 @@
          * @param {Object} options - Configuration options
          * @param {string} options.title - Modal title
          * @param {string} options.message - Modal message
-         * @param {string} options.type - Modal type: 'save', 'delete', 'activate', 'deactivate' (default: 'save')
+         * @param {string} options.type - Modal type: 'save', 'delete', 'warning', 'activate', 'deactivate' (default: 'save')
          * @param {string} options.confirmText - Confirm button text (default: 'Confirm')
          * @param {string} options.cancelText - Cancel button text (default: 'Cancel')
+         * @param {boolean} options.requireInput - Show textarea input (default: false)
+         * @param {string} options.inputPlaceholder - Placeholder for input field
          * @param {Function} options.onConfirm - Callback function when confirmed
          * @param {Function} options.onCancel - Callback function when cancelled (optional)
          */
@@ -245,6 +299,8 @@
                 type = 'save',
                 confirmText = 'Confirm',
                 cancelText = 'Cancel',
+                requireInput = false,
+                inputPlaceholder = 'Enter reason (required)...',
                 onConfirm = null,
                 onCancel = null
             } = options;
@@ -253,6 +309,7 @@
             const icons = {
                 save: '<i class="fas fa-check"></i>',
                 delete: '<i class="fas fa-trash"></i>',
+                warning: '<i class="fas fa-exclamation-triangle"></i>',
                 activate: '<i class="fas fa-check-circle"></i>',
                 deactivate: '<i class="fas fa-ban"></i>'
             };
@@ -267,6 +324,16 @@
             
             // Set button style
             this.confirmBtn.className = `confirmation-btn confirmation-btn-confirm ${type}`;
+            
+            // Handle input field
+            this.requireInput = requireInput;
+            if (requireInput) {
+                this.inputContainer.classList.add('show');
+                this.input.value = '';
+                this.input.placeholder = inputPlaceholder;
+            } else {
+                this.inputContainer.classList.remove('show');
+            }
 
             // Set callbacks
             this.callback = onConfirm;
@@ -277,8 +344,23 @@
         }
 
         confirm() {
-            if (this.callback && typeof this.callback === 'function') {
-                this.callback();
+            // Validate input if required
+            if (this.requireInput) {
+                const inputValue = this.input.value.trim();
+                if (!inputValue) {
+                    this.input.focus();
+                    this.input.style.borderColor = '#dc3545';
+                    return;
+                }
+                
+                // Pass input value to callback
+                if (this.callback && typeof this.callback === 'function') {
+                    this.callback(inputValue);
+                }
+            } else {
+                if (this.callback && typeof this.callback === 'function') {
+                    this.callback();
+                }
             }
             this.hide();
         }

@@ -225,6 +225,29 @@
         cursor: not-allowed;
     }
     
+    .btn-download-template {
+        background: #007bff;
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+    }
+    
+    .btn-download-template:hover {
+        background: #0056b3;
+    }
+    
+    .btn-download-template i {
+        font-size: 14px;
+    }
+    
     @keyframes fadeIn {
         from {
             opacity: 0;
@@ -297,6 +320,14 @@
                         </button>
                     </div>
                     <div class="file-format-note">Accepted formats: .doc, .docx</div>
+                    <div style="margin-top: 10px;">
+                        <button type="button" class="btn-download-template" onclick="downloadTemplate()">
+                            <i class="fas fa-download"></i> Download Template
+                        </button>
+                        <div style="font-size: 12px; color: #666; margin-top: 5px;">
+                            <i class="fas fa-info-circle"></i> Required documents must use the official header template
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="form-group">
@@ -689,6 +720,18 @@ function addAdditionalDocumentField() {
     container.appendChild(newField);
 }
 
+function downloadTemplate() {
+    // Create a temporary link element to download the template
+    const link = document.createElement('a');
+    link.href = '/dashboard/download-template/';
+    link.download = 'Template.docx';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    Toast.success('Downloading template...');
+}
+
 function uploadDocuments() {
     const form = document.getElementById('documentForm');
     const formData = new FormData(form);
@@ -724,7 +767,12 @@ function uploadDocuments() {
             // Reload page to show new documents
             window.location.reload();
         } else {
-            Toast.error(data.message || 'Failed to upload documents');
+            // Check if error is related to template validation
+            if (data.message && (data.message.includes('Header validation failed') || data.message.includes('header does not match'))) {
+                Toast.error('Uploaded file uses wrong template. Please download and use the official template for accreditation.');
+            } else {
+                Toast.error(data.message || 'Failed to upload documents');
+            }
         }
     })
     .catch(error => {
