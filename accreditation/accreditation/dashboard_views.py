@@ -5546,7 +5546,8 @@ def calendar_view(request):
     """Calendar page view"""
     user = get_user_from_session(request)
     return render(request, 'dashboard/calendar.html', {
-        'user': user
+        'user': user,
+        'active_page': 'calendar'
     })
 
 

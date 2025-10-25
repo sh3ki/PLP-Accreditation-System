@@ -734,31 +734,16 @@ function removeProfileImage() {
                 if (data.success) {
                     document.getElementById('profileImagePreview').src = data.default_image;
                     document.getElementById('profileImageInput').value = '';
-                    ConfirmationModal.show({
-                        title: 'Success',
-                        message: 'Profile picture removed successfully',
-                        type: 'success',
-                        confirmText: 'OK',
-                        cancelText: null
-                    });
+                    Toast.success('Profile picture removed successfully');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
                 } else {
-                    ConfirmationModal.show({
-                        title: 'Error',
-                        message: data.message || 'Failed to remove image',
-                        type: 'error',
-                        confirmText: 'OK',
-                        cancelText: null
-                    });
+                    Toast.error(data.message || 'Failed to remove image');
                 }
             })
             .catch(error => {
-                ConfirmationModal.show({
-                    title: 'Error',
-                    message: 'An error occurred',
-                    type: 'error',
-                    confirmText: 'OK',
-                    cancelText: null
-                });
+                Toast.error('An error occurred');
                 console.error('Error:', error);
             });
         }
@@ -793,31 +778,16 @@ function updatePersonalInfo(event) {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    ConfirmationModal.show({
-                        title: 'Success',
-                        message: 'Personal information updated successfully',
-                        type: 'success',
-                        confirmText: 'OK',
-                        cancelText: null
-                    });
+                    Toast.success('Personal information updated successfully');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
                 } else {
-                    ConfirmationModal.show({
-                        title: 'Error',
-                        message: data.message || 'Failed to update information',
-                        type: 'error',
-                        confirmText: 'OK',
-                        cancelText: null
-                    });
+                    Toast.error(data.message || 'Failed to update information');
                 }
             })
             .catch(error => {
-                ConfirmationModal.show({
-                    title: 'Error',
-                    message: 'An error occurred',
-                    type: 'error',
-                    confirmText: 'OK',
-                    cancelText: null
-                });
+                Toast.error('An error occurred');
                 console.error('Error:', error);
             });
         }
@@ -881,31 +851,13 @@ function changePassword(event) {
             .then(data => {
                 if (data.success) {
                     resetPasswordForm();
-                    ConfirmationModal.show({
-                        title: 'Success',
-                        message: 'Password changed successfully',
-                        type: 'success',
-                        confirmText: 'OK',
-                        cancelText: null
-                    });
+                    Toast.success('Password changed successfully');
                 } else {
-                    ConfirmationModal.show({
-                        title: 'Error',
-                        message: data.message || 'Failed to change password',
-                        type: 'error',
-                        confirmText: 'OK',
-                        cancelText: null
-                    });
+                    Toast.error(data.message || 'Failed to change password');
                 }
             })
             .catch(error => {
-                ConfirmationModal.show({
-                    title: 'Error',
-                    message: 'An error occurred',
-                    type: 'error',
-                    confirmText: 'OK',
-                    cancelText: null
-                });
+                Toast.error('An error occurred');
                 console.error('Error:', error);
             });
         }
