@@ -3,13 +3,837 @@
 {% block title %}Performance Management{% endblock %}
 
 {% block content %}
-<h1 class="dashboard-title">Performance Management</h1>
+{% include 'components/toast_notifications.html' %}
 
-<div class="content-section">
-    <h2 class="section-title">
-        <i class="fas fa-chart-line me-2"></i>
-        Performance Tracking
-    </h2>
-    <p>Performance management system will be implemented here.</p>
+<style>
+    /* Page Title */
+    .page-title {
+        font-size: 32px;
+        font-weight: 600;
+        color: #2c3e50;
+        margin: 0 0 30px 0;
+    }
+    
+    /* Statistics Cards */
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        margin-bottom: 30px;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 8px;
+        padding: 20px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+    }
+    
+    .stat-icon {
+        width: 60px;
+        height: 60px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 28px;
+        color: white;
+    }
+    
+    .stat-icon.green { background: linear-gradient(135deg, var(--plp-green) 0%, #66bb6a 100%); }
+    .stat-icon.blue { background: linear-gradient(135deg, #2196F3 0%, #42A5F5 100%); }
+    .stat-icon.orange { background: linear-gradient(135deg, #FF9800 0%, #FFB74D 100%); }
+    .stat-icon.purple { background: linear-gradient(135deg, #9C27B0 0%, #BA68C8 100%); }
+    
+    .stat-content { flex: 1; }
+    .stat-label { font-size: 13px; color: #666; margin-bottom: 5px; font-weight: 500; }
+    .stat-value { font-size: 28px; font-weight: 700; color: #333; line-height: 1; }
+    .stat-subtext { font-size: 12px; color: #999; margin-top: 4px; }
+    
+    /* Filters Section - Merged with Rankings */
+    .ranking-section {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .filters-controls {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .filter-label {
+        font-size: 11px;
+        font-weight: 500;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .filter-select {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 13px;
+        background: white;
+        cursor: pointer;
+        transition: all 0.3s;
+        min-width: 160px;
+    }
+    
+    .filter-select:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+
+    
+    .department-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .department-item {
+        display: flex;
+        gap: 20px;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    
+    .department-item:hover { 
+        background: #f8f9fa;
+        transform: translateX(5px);
+    }
+    .department-item:last-child { border-bottom: none; }
+    
+    .department-item.active {
+        background: #e8f5e9;
+        border-left: 4px solid var(--plp-green);
+    }
+    
+    /* Department Stats Modal */
+    .stats-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        animation: fadeIn 0.3s;
+    }
+    
+    .stats-modal.active {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    .stats-modal-content {
+        background: white;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        animation: slideDown 0.3s ease;
+    }
+    
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    .stats-modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .stats-modal-header-title {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    
+    .stats-modal-logo {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+    }
+    
+    .stats-modal-title h3 {
+        margin: 0 0 4px 0;
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+    }
+    
+    .stats-modal-title p {
+        margin: 0;
+        font-size: 13px;
+        color: #666;
+    }
+    
+    .stats-modal-close {
+        background: none;
+        border: none;
+        font-size: 28px;
+        color: #999;
+        cursor: pointer;
+        padding: 0;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: all 0.3s;
+    }
+    
+    .stats-modal-close:hover {
+        background: #f5f5f5;
+        color: #333;
+    }
+    
+    .stats-modal-body {
+        padding: 25px;
+    }
+    
+    .stats-section-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin: 0 0 15px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .stats-grid-modal {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 12px;
+        margin-bottom: 20px;
+    }
+    
+    .stats-item {
+        background: #f8f9fa;
+        border-radius: 6px;
+        padding: 12px;
+        border-left: 3px solid var(--plp-green);
+        transition: all 0.3s;
+        text-align: center;
+    }
+    
+    .stats-item:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .stats-item-label {
+        font-size: 11px;
+        color: #666;
+        margin-bottom: 8px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+    }
+    
+    .stats-item-label i {
+        color: var(--plp-green);
+        font-size: 18px;
+    }
+    
+    .stats-item-value {
+        font-size: 20px;
+        font-weight: 700;
+        color: #333;
+    }
+    
+    .stats-item-value .total {
+        font-size: 14px;
+        color: #999;
+        font-weight: 400;
+    }
+    
+    .overall-progress {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 8px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .overall-progress-label {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 10px;
+        font-weight: 500;
+    }
+    
+    .overall-progress-value {
+        font-size: 48px;
+        font-weight: 700;
+        color: var(--plp-green);
+        line-height: 1;
+        margin-bottom: 10px;
+    }
+    
+    .overall-progress-status {
+        display: inline-block;
+        padding: 6px 16px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .overall-progress-status.excellent { background: #E8F5E9; color: #2E7D32; }
+    .overall-progress-status.good { background: #E3F2FD; color: #1565C0; }
+    .overall-progress-status.needs-improvement { background: #FFF3E0; color: #E65100; }
+    .overall-progress-status.critical { background: #FFEBEE; color: #C62828; }
+    
+    .department-rank {
+        font-size: 20px;
+        font-weight: 700;
+        color: #999;
+        min-width: 40px;
+        text-align: center;
+    }
+    
+    .department-rank.top-1 { color: #FFD700; font-size: 24px; }
+    .department-rank.top-2 { color: #C0C0C0; font-size: 22px; }
+    .department-rank.top-3 { color: #CD7F32; font-size: 22px; }
+    
+    .department-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .department-logo {
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+    }
+    
+    .department-details { flex: 1; }
+    .department-name { font-size: 16px; font-weight: 600; color: #333; margin-bottom: 4px; }
+    
+    .department-meta {
+        font-size: 13px;
+        color: #666;
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .meta-item {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .meta-item i { color: var(--plp-green); font-size: 12px; }
+    
+    .department-progress {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 0 0 320px;
+    }
+    
+    .progress-container {
+        flex: 1;
+        background: #e9ecef;
+        border-radius: 8px;
+        height: 12px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .progress-bar {
+        height: 100%;
+        transition: width 0.3s ease;
+        border-radius: 8px;
+    }
+    
+    .progress-bar.excellent { background: linear-gradient(90deg, #4CAF50 0%, #66bb6a 100%); }
+    .progress-bar.good { background: linear-gradient(90deg, #2196F3 0%, #42A5F5 100%); }
+    .progress-bar.needs-improvement { background: linear-gradient(90deg, #FF9800 0%, #FFB74D 100%); }
+    .progress-bar.critical { background: linear-gradient(90deg, #F44336 0%, #EF5350 100%); }
+    
+    .progress-percentage {
+        font-size: 14px;
+        font-weight: 700;
+        color: #333;
+        min-width: 45px;
+        text-align: right;
+    }
+    
+    .status-badge {
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .status-badge.excellent { background: #E8F5E9; color: #2E7D32; }
+    .status-badge.good { background: #E3F2FD; color: #1565C0; }
+    .status-badge.needs-improvement { background: #FFF3E0; color: #E65100; }
+    .status-badge.critical { background: #FFEBEE; color: #C62828; }
+    
+    .no-results {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+    
+    .no-results i {
+        font-size: 64px;
+        color: #ddd;
+        margin-bottom: 20px;
+    }
+    
+    .no-results p {
+        font-size: 16px;
+        margin: 0;
+    }
+</style>
+
+<h1 class="page-title">Performance Management</h1>
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-icon green">
+            <i class="fas fa-percentage"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Average Completion</div>
+            <div class="stat-value">{{ avg_completion }}%</div>
+            <div class="stat-subtext">Across all departments</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon blue">
+            <i class="fas fa-building"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Total Departments</div>
+            <div class="stat-value">{{ total_departments }}</div>
+            <div class="stat-subtext">{{ total_programs }} programs</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon orange">
+            <i class="fas fa-tasks"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Checklists Progress</div>
+            <div class="stat-value">{{ total_completed_checklists }}/{{ total_checklists }}</div>
+            <div class="stat-subtext">Completed checklists</div>
+        </div>
+    </div>
+    
+    <div class="stat-card">
+        <div class="stat-icon purple">
+            <i class="fas fa-file-alt"></i>
+        </div>
+        <div class="stat-content">
+            <div class="stat-label">Documents Uploaded</div>
+            <div class="stat-value">{{ total_uploaded_docs }}/{{ total_required_docs }}</div>
+            <div class="stat-subtext">Required documents</div>
+        </div>
+    </div>
 </div>
+
+<!-- Department Ranking with Filters -->
+<div class="ranking-section">
+    <div class="section-header">
+        <h2 class="section-title">
+            <i class="fas fa-trophy"></i>
+            Department Rankings
+        </h2>
+        <div class="filters-controls">
+            <div class="filter-group">
+                <label class="filter-label">Status</label>
+                <select class="filter-select" id="filterStatus">
+                    <option value="">All Statuses</option>
+                    <option value="excellent">Excellent (80-100%)</option>
+                    <option value="good">Good (60-79%)</option>
+                    <option value="needs-improvement">Needs Improvement (40-59%)</option>
+                    <option value="critical">Critical (<40%)</option>
+                </select>
+            </div>
+            
+            <div class="filter-group">
+                <label class="filter-label">Sort By</label>
+                <select class="filter-select" id="sortBy">
+                    <option value="progress-desc">Progress (High to Low)</option>
+                    <option value="progress-asc">Progress (Low to High)</option>
+                    <option value="name-asc">Name (A-Z)</option>
+                    <option value="name-desc">Name (Z-A)</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    
+    <div class="department-list" id="departmentList">
+        {% if departments %}
+            {% for dept in departments %}
+            <div class="department-item" 
+                 data-status="{% if dept.progress >= 80 %}excellent{% elif dept.progress >= 60 %}good{% elif dept.progress >= 40 %}needs-improvement{% else %}critical{% endif %}" 
+                 data-name="{{ dept.name|lower }}" 
+                 data-progress="{{ dept.progress }}"
+                 data-dept-id="{{ dept.id }}"
+                 data-dept-name="{{ dept.name }}"
+                 data-dept-logo="{{ dept.logo_url }}"
+                 data-dept-programs="{{ dept.programs_count }}"
+                 data-dept-types="{{ dept.types_count }}"
+                 data-dept-areas="{{ dept.areas_count }}"
+                 data-dept-checklists="{{ dept.checklists_count }}"
+                 data-dept-completed-checklists="{{ dept.completed_checklists }}"
+                 data-dept-docs="{{ dept.required_docs }}"
+                 data-dept-approved-docs="{{ dept.approved_docs }}"
+                 onclick="showDepartmentStats(this)">
+                <div class="department-rank {% if forloop.counter == 1 %}top-1{% elif forloop.counter == 2 %}top-2{% elif forloop.counter == 3 %}top-3{% endif %}">
+                    {% if forloop.counter <= 3 %}
+                        <i class="fas fa-medal"></i>
+                    {% else %}
+                        {{ forloop.counter }}
+                    {% endif %}
+                </div>
+                
+                <div class="department-info">
+                    {% if dept.logo_url %}
+                        <img src="{{ dept.logo_url }}" alt="{{ dept.name }}" class="department-logo" onerror="this.src='https://via.placeholder.com/60?text={{ dept.name|slice:':1' }}'">
+                    {% else %}
+                        <img src="https://via.placeholder.com/60?text={{ dept.name|slice:':1' }}" alt="{{ dept.name }}" class="department-logo">
+                    {% endif %}
+                    
+                    <div class="department-details">
+                        <div class="department-name">{{ dept.name }}</div>
+                        <div class="department-meta">
+                            <span class="meta-item">
+                                <i class="fas fa-graduation-cap"></i>
+                                {{ dept.programs_count }} Programs
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-clipboard-list"></i>
+                                {{ dept.completed_checklists }}/{{ dept.checklists_count }} Checklists
+                            </span>
+                            <span class="meta-item">
+                                <i class="fas fa-file"></i>
+                                {{ dept.approved_docs }}/{{ dept.required_docs }} Docs
+                            </span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="department-progress">
+                    <div class="progress-container">
+                        <div class="progress-bar {% if dept.progress >= 80 %}excellent{% elif dept.progress >= 60 %}good{% elif dept.progress >= 40 %}needs-improvement{% else %}critical{% endif %}" style="width: {{ dept.progress }}%"></div>
+                    </div>
+                    <span class="progress-percentage">{{ dept.progress }}%</span>
+                </div>
+                
+                <span class="status-badge {% if dept.progress >= 80 %}excellent{% elif dept.progress >= 60 %}good{% elif dept.progress >= 40 %}needs-improvement{% else %}critical{% endif %}">
+                    {% if dept.progress >= 80 %}
+                        Excellent
+                    {% elif dept.progress >= 60 %}
+                        Good
+                    {% elif dept.progress >= 40 %}
+                        Needs Work
+                    {% else %}
+                        Critical
+                    {% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-results">
+                <i class="fas fa-inbox"></i>
+                <p>No department data available</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Department Stats Modal -->
+<div class="stats-modal" id="statsModal" onclick="closeStatsModal(event)">
+    <div class="stats-modal-content" onclick="event.stopPropagation()">
+        <div class="stats-modal-header">
+            <div class="stats-modal-header-title">
+                <img id="modalLogo" src="" alt="" class="stats-modal-logo">
+                <div class="stats-modal-title">
+                    <h3 id="modalDeptName">Department Name</h3>
+                    <p>Performance Statistics</p>
+                </div>
+            </div>
+            <button class="stats-modal-close" onclick="closeStatsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        
+        <div class="stats-modal-body">
+            <div class="overall-progress">
+                <div class="overall-progress-label">Overall Progress</div>
+                <div class="overall-progress-value" id="modalProgress">0%</div>
+                <span class="overall-progress-status" id="modalStatus">Status</span>
+            </div>
+            
+            <h4 class="stats-section-title">
+                <i class="fas fa-chart-bar"></i>
+                Detailed Statistics
+            </h4>
+            
+            <div class="stats-grid-modal">
+                <div class="stats-item">
+                    <div class="stats-item-label">
+                        <i class="fas fa-file-check"></i>
+                        <span>Documents</span>
+                    </div>
+                    <div class="stats-item-value">
+                        <span id="modalApprovedDocs">0</span>
+                        <span class="total">/<span id="modalTotalDocs">0</span></span>
+                    </div>
+                </div>
+                
+                <div class="stats-item">
+                    <div class="stats-item-label">
+                        <i class="fas fa-clipboard-check"></i>
+                        <span>Checklists</span>
+                    </div>
+                    <div class="stats-item-value">
+                        <span id="modalCompletedChecklists">0</span>
+                        <span class="total">/<span id="modalTotalChecklists">0</span></span>
+                    </div>
+                </div>
+                
+                <div class="stats-item">
+                    <div class="stats-item-label">
+                        <i class="fas fa-layer-group"></i>
+                        <span>Areas</span>
+                    </div>
+                    <div class="stats-item-value" id="modalAreas">0</div>
+                </div>
+                
+                <div class="stats-item">
+                    <div class="stats-item-label">
+                        <i class="fas fa-certificate"></i>
+                        <span>Types</span>
+                    </div>
+                    <div class="stats-item-value" id="modalTypes">0</div>
+                </div>
+                
+                <div class="stats-item">
+                    <div class="stats-item-label">
+                        <i class="fas fa-graduation-cap"></i>
+                        <span>Programs</span>
+                    </div>
+                    <div class="stats-item-value" id="modalPrograms">0</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function showDepartmentStats(element) {
+        // Get data from clicked element
+        const deptName = element.dataset.deptName;
+        const deptLogo = element.dataset.deptLogo;
+        const progress = element.dataset.progress;
+        const programs = element.dataset.deptPrograms;
+        const types = element.dataset.deptTypes;
+        const areas = element.dataset.deptAreas;
+        const checklists = element.dataset.deptChecklists;
+        const completedChecklists = element.dataset.deptCompletedChecklists;
+        const docs = element.dataset.deptDocs;
+        const approvedDocs = element.dataset.deptApprovedDocs;
+        
+        // Update modal content
+        document.getElementById('modalDeptName').textContent = deptName;
+        document.getElementById('modalLogo').src = deptLogo || `https://via.placeholder.com/60?text=${deptName.charAt(0)}`;
+        document.getElementById('modalProgress').textContent = progress + '%';
+        document.getElementById('modalPrograms').textContent = programs;
+        document.getElementById('modalTypes').textContent = types;
+        document.getElementById('modalAreas').textContent = areas;
+        document.getElementById('modalTotalChecklists').textContent = checklists;
+        document.getElementById('modalCompletedChecklists').textContent = completedChecklists;
+        document.getElementById('modalTotalDocs').textContent = docs;
+        document.getElementById('modalApprovedDocs').textContent = approvedDocs;
+        
+        // Update status badge
+        const statusEl = document.getElementById('modalStatus');
+        const progressNum = parseInt(progress);
+        statusEl.className = 'overall-progress-status';
+        
+        if (progressNum >= 80) {
+            statusEl.classList.add('excellent');
+            statusEl.textContent = 'Excellent';
+        } else if (progressNum >= 60) {
+            statusEl.classList.add('good');
+            statusEl.textContent = 'Good';
+        } else if (progressNum >= 40) {
+            statusEl.classList.add('needs-improvement');
+            statusEl.textContent = 'Needs Improvement';
+        } else {
+            statusEl.classList.add('critical');
+            statusEl.textContent = 'Critical';
+        }
+        
+        // Show modal
+        document.getElementById('statsModal').classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+    
+    function closeStatsModal(event) {
+        if (!event || event.target.id === 'statsModal') {
+            document.getElementById('statsModal').classList.remove('active');
+            document.body.style.overflow = 'auto';
+        }
+    }
+    
+    function filterDepartments() {
+        const statusFilter = document.getElementById('filterStatus').value;
+        const sortBy = document.getElementById('sortBy').value;
+        
+        const departmentList = document.getElementById('departmentList');
+        const items = Array.from(departmentList.getElementsByClassName('department-item'));
+        
+        items.forEach(item => {
+            const status = item.getAttribute('data-status');
+            const matchesStatus = !statusFilter || status === statusFilter;
+            
+            if (matchesStatus) {
+                item.style.display = 'flex';
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        
+        const visibleItems = items.filter(item => item.style.display !== 'none');
+        
+        visibleItems.sort((a, b) => {
+            if (sortBy === 'progress-desc') {
+                return parseFloat(b.getAttribute('data-progress')) - parseFloat(a.getAttribute('data-progress'));
+            } else if (sortBy === 'progress-asc') {
+                return parseFloat(a.getAttribute('data-progress')) - parseFloat(b.getAttribute('data-progress'));
+            } else if (sortBy === 'name-asc') {
+                return a.getAttribute('data-name').localeCompare(b.getAttribute('data-name'));
+            } else if (sortBy === 'name-desc') {
+                return b.getAttribute('data-name').localeCompare(a.getAttribute('data-name'));
+            }
+            return 0;
+        });
+        
+        visibleItems.forEach(item => departmentList.appendChild(item));
+        updateRanks();
+    }
+    
+    function updateRanks() {
+        const items = Array.from(document.querySelectorAll('.department-item[style*="flex"]'));
+        items.forEach((item, index) => {
+            const rankEl = item.querySelector('.department-rank');
+            rankEl.className = 'department-rank';
+            
+            if (index === 0) {
+                rankEl.classList.add('top-1');
+                rankEl.innerHTML = '<i class="fas fa-medal"></i>';
+            } else if (index === 1) {
+                rankEl.classList.add('top-2');
+                rankEl.innerHTML = '<i class="fas fa-medal"></i>';
+            } else if (index === 2) {
+                rankEl.classList.add('top-3');
+                rankEl.innerHTML = '<i class="fas fa-medal"></i>';
+            } else {
+                rankEl.textContent = index + 1;
+            }
+        });
+    }
+    
+    document.getElementById('filterStatus').addEventListener('change', filterDepartments);
+    document.getElementById('sortBy').addEventListener('change', filterDepartments);
+    
+    // Close modal on Escape key
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'Escape') {
+            closeStatsModal({ target: { id: 'statsModal' } });
+        }
+    });
+</script>
+
 {% endblock %}

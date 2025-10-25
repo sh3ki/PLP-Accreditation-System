@@ -206,6 +206,7 @@ def accreditation_view(request):
                                 if doc.get('checklist_id') == checklist_id 
                                 and doc.get('is_required', False)
                                 and not doc.get('is_archived', False)
+                                and doc.get('status') == 'approved'
                             ]
                             if len(required_docs) > 0:
                                 completed_checklists += 1
@@ -312,6 +313,7 @@ def accreditation_department_programs_view(request, dept_id):
                             if doc.get('checklist_id') == checklist_id 
                             and doc.get('is_required', False)
                             and not doc.get('is_archived', False)
+                            and doc.get('status') == 'approved'
                         ]
                         if len(required_docs) > 0:
                             completed_checklists += 1
@@ -402,6 +404,7 @@ def accreditation_program_types_view(request, dept_id, prog_id):
                         if doc.get('checklist_id') == checklist_id 
                         and doc.get('is_required', False)
                         and not doc.get('is_archived', False)
+                        and doc.get('status') == 'approved'
                     ]
                     if len(required_docs) > 0:
                         completed_checklists += 1
@@ -481,6 +484,7 @@ def accreditation_type_areas_view(request, dept_id, prog_id, type_id):
                     if doc.get('checklist_id') == checklist_id 
                     and doc.get('is_required', False)
                     and not doc.get('is_archived', False)
+                    and doc.get('status') == 'approved'
                 ]
                 if len(required_docs) > 0:
                     completed_checklists += 1
@@ -547,6 +551,7 @@ def accreditation_area_checklists_view(request, dept_id, prog_id, type_id, area_
                 if doc.get('checklist_id') == checklist_id 
                 and doc.get('is_required', False)
                 and not doc.get('is_archived', False)
+                and doc.get('status') == 'approved'
             ]
             # Progress is 100% if there's at least 1 required document, otherwise 0%
             checklist['progress'] = 100 if len(required_docs) > 0 else 0
@@ -574,10 +579,189 @@ def accreditation_area_checklists_view(request, dept_id, prog_id, type_id, area_
 @login_required
 def performance_view(request):
     """Performance Management page"""
-    context = {
-        'active_page': 'performance',
-        'user': get_user_from_session(request),
-    }
+    user = get_user_from_session(request)
+    
+    try:
+        # Fetch all data
+        departments = get_all_documents('departments')
+        departments = [d for d in departments if d.get('is_active', True) and not d.get('is_archived', False)]
+        
+        programs = get_all_documents('programs')
+        programs = [p for p in programs if p.get('is_active', True) and not p.get('is_archived', False)]
+        
+        types = get_all_documents('accreditation_types')
+        types = [t for t in types if t.get('is_active', True) and not t.get('is_archived', False)]
+        
+        areas = get_all_documents('areas')
+        areas = [a for a in areas if a.get('is_active', True) and not a.get('is_archived', False)]
+        
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        # Calculate progress for each department
+        department_stats = []
+        total_required_docs = 0
+        total_uploaded_docs = 0
+        total_checklists = 0
+        total_completed_checklists = 0
+        
+        for dept in departments:
+            dept_id = dept.get('id')
+            dept_programs = [p for p in programs if p.get('department_id') == dept_id]
+            
+            dept_required_docs = 0
+            dept_uploaded_docs = 0
+            dept_checklists = 0
+            dept_completed_checklists = 0
+            
+            if not dept_programs:
+                dept_progress = 0
+            else:
+                program_progresses = []
+                for prog in dept_programs:
+                    prog_id = prog.get('id')
+                    prog_types = [t for t in types if t.get('program_id') == prog_id]
+                    
+                    if not prog_types:
+                        program_progresses.append(0)
+                        continue
+                    
+                    type_progresses = []
+                    for prog_type in prog_types:
+                        type_id = prog_type.get('id')
+                        type_areas = [a for a in areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+                        
+                        if not type_areas:
+                            type_progresses.append(0)
+                            continue
+                        
+                        area_progresses = []
+                        for area in type_areas:
+                            area_id = area.get('id')
+                            area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+                            
+                            if not area_checklists:
+                                area_progresses.append(0)
+                                continue
+                            
+                            dept_checklists += len(area_checklists)
+                            total_checklists += len(area_checklists)
+                            
+                            area_completed = 0
+                            for checklist in area_checklists:
+                                checklist_id = checklist.get('id')
+                                required_docs = [
+                                    doc for doc in all_documents 
+                                    if doc.get('checklist_id') == checklist_id 
+                                    and doc.get('is_required', False)
+                                    and not doc.get('is_archived', False)
+                                    and doc.get('status') == 'approved'
+                                ]
+                                
+                                dept_required_docs += len([d for d in required_docs])
+                                total_required_docs += len([d for d in required_docs])
+                                
+                                uploaded_docs = [d for d in required_docs if d.get('file_url')]
+                                dept_uploaded_docs += len(uploaded_docs)
+                                total_uploaded_docs += len(uploaded_docs)
+                                
+                                if len(required_docs) > 0:
+                                    area_completed += 1
+                                    dept_completed_checklists += 1
+                                    total_completed_checklists += 1
+                            
+                            area_progress = (area_completed / len(area_checklists)) * 100 if area_checklists else 0
+                            area_progresses.append(area_progress)
+                        
+                        type_progress = sum(area_progresses) / len(area_progresses) if area_progresses else 0
+                        type_progresses.append(type_progress)
+                    
+                    prog_progress = sum(type_progresses) / len(type_progresses) if type_progresses else 0
+                    program_progresses.append(prog_progress)
+                
+                dept_progress = sum(program_progresses) / len(program_progresses) if program_progresses else 0
+            
+            # Count types and areas for this department
+            dept_types = []
+            dept_areas = []
+            for prog in dept_programs:
+                prog_id = prog.get('id')
+                prog_types = [t for t in types if t.get('program_id') == prog_id]
+                dept_types.extend(prog_types)
+                
+                for prog_type in prog_types:
+                    type_id = prog_type.get('id')
+                    type_areas = [a for a in areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+                    dept_areas.extend(type_areas)
+            
+            department_stats.append({
+                'id': dept_id,
+                'name': dept.get('name', 'Unknown'),
+                'logo_url': dept.get('logo_url', ''),
+                'progress': round(dept_progress),
+                'programs_count': len(dept_programs),
+                'types_count': len(dept_types),
+                'areas_count': len(dept_areas),
+                'checklists_count': dept_checklists,
+                'completed_checklists': dept_completed_checklists,
+                'required_docs': dept_required_docs,
+                'uploaded_docs': dept_uploaded_docs,
+                'approved_docs': dept_uploaded_docs,  # Since we're only counting approved docs
+                'updated_at': dept.get('updated_at', '')
+            })
+        
+        # Sort departments by progress (descending)
+        department_stats.sort(key=lambda x: x['progress'], reverse=True)
+        
+        # Calculate overall statistics
+        avg_completion = sum(d['progress'] for d in department_stats) / len(department_stats) if department_stats else 0
+        
+        # Status distribution
+        excellent_count = len([d for d in department_stats if d['progress'] >= 80])
+        good_count = len([d for d in department_stats if 60 <= d['progress'] < 80])
+        needs_improvement_count = len([d for d in department_stats if 40 <= d['progress'] < 60])
+        critical_count = len([d for d in department_stats if d['progress'] < 40])
+        
+        context = {
+            'active_page': 'performance',
+            'user': user,
+            'departments': department_stats,
+            'total_departments': len(department_stats),
+            'avg_completion': round(avg_completion, 1),
+            'total_programs': len(programs),
+            'total_checklists': total_checklists,
+            'total_completed_checklists': total_completed_checklists,
+            'total_required_docs': total_required_docs,
+            'total_uploaded_docs': total_uploaded_docs,
+            'excellent_count': excellent_count,
+            'good_count': good_count,
+            'needs_improvement_count': needs_improvement_count,
+            'critical_count': critical_count,
+            'all_programs': programs,
+            'all_types': types,
+        }
+        
+    except Exception as e:
+        print(f"Error in performance view: {str(e)}")
+        context = {
+            'active_page': 'performance',
+            'user': user,
+            'departments': [],
+            'total_departments': 0,
+            'avg_completion': 0,
+            'total_programs': 0,
+            'total_checklists': 0,
+            'total_completed_checklists': 0,
+            'total_required_docs': 0,
+            'total_uploaded_docs': 0,
+            'excellent_count': 0,
+            'good_count': 0,
+            'needs_improvement_count': 0,
+            'critical_count': 0,
+            'all_programs': [],
+            'all_types': [],
+        }
+    
     return render(request, 'dashboard/performance.html', context)
 
 
@@ -656,6 +840,7 @@ def results_view(request):
                         if doc.get('checklist_id') == checklist_id 
                         and doc.get('is_required', False)
                         and not doc.get('is_archived', False)
+                        and doc.get('status') == 'approved'
                     ]
                     if len(required_docs) > 0:
                         completed_checklists += 1
@@ -3066,6 +3251,7 @@ def area_checklists_view(request, dept_id, prog_id, type_id, area_id):
                 if doc.get('checklist_id') == checklist_id 
                 and doc.get('is_required', False)
                 and not doc.get('is_archived', False)
+                and doc.get('status') == 'approved'
             ]
             # Progress is 100% if there's at least 1 required document, otherwise 0%
             checklist['progress'] = 100 if len(required_docs) > 0 else 0
