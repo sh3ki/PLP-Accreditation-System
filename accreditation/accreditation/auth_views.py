@@ -12,6 +12,7 @@ from django.urls import reverse
 from accreditation.forms import LoginForm
 from accreditation.firebase_auth import FirebaseUser, AnonymousUser
 from accreditation.decorators import login_required, qa_head_required, qa_admin_required
+from accreditation.audit_utils import log_audit, get_client_ip
 
 
 @never_cache
@@ -57,6 +58,14 @@ def login_view(request):
                 
                 messages.success(request, f'Welcome back, {user.full_name}!')
                 
+                # Log audit event for successful login
+                try:
+                    ip = get_client_ip(request)
+                    user_name = user_doc.get('name') or f"{user_doc.get('first_name', '')} {user_doc.get('last_name', '')}".strip()
+                    log_audit(user_doc, action_type='login', resource_type='session', resource_id=None, details=f"Logged in successfully as {user_name}", status='success', ip=ip)
+                except Exception:
+                    pass
+                
                 # Redirect to unified dashboard home
                 return redirect('dashboard:home')
             else:
@@ -77,6 +86,18 @@ def login_view(request):
 @never_cache
 def logout_view(request):
     """Logout view"""
+    # Log audit event before clearing session
+    try:
+        user_id = request.session.get('user_id')
+        user_email = request.session.get('user_email')
+        if user_id and user_email:
+            user = {'id': user_id, 'email': user_email, 'name': request.session.get('user_name')}
+            ip = get_client_ip(request)
+            user_name = user.get('name') or 'User'
+            log_audit(user, action_type='logout', resource_type='session', resource_id=None, details=f"Logged out successfully - {user_name}", status='success', ip=ip)
+    except Exception:
+        pass
+    
     # Clear session data
     request.session.flush()
     messages.info(request, 'You have been logged out successfully.')

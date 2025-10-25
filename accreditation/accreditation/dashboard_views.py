@@ -16,6 +16,7 @@ from accreditation.firebase_utils import (
     delete_document,
     query_documents
 )
+from accreditation.audit_utils import log_audit, get_client_ip
 from accreditation.forms import UserManagementForm
 from accreditation.firebase_auth import FirebaseUser
 from accreditation.password_generator import generate_strong_password
@@ -952,6 +953,12 @@ def generate_report(request):
         }
         
         create_document('reports_history', report_data, report_data['id'])
+        try:
+            report_desc = f"{report_type.replace('_', ' ').title()} ({file_extension.upper()})"
+            scope_desc = f" - {scope}" if scope != 'all' else ""
+            log_audit(user, action_type='report_generation', resource_type='report', resource_id=report_data['id'], details=f"Generated report: {report_desc}{scope_desc}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -1800,6 +1807,7 @@ def delete_report(request, report_id):
         return JsonResponse({'success': False, 'message': 'Invalid request method'})
     
     try:
+        user = get_user_from_session(request)
         # Get report
         report = get_document('reports_history', report_id)
         if not report:
@@ -1810,6 +1818,12 @@ def delete_report(request, report_id):
         
         # Delete from database
         delete_document('reports_history', report_id)
+        try:
+            report_type = report.get('type', 'Unknown')
+            report_format = report.get('format', 'Unknown')
+            log_audit(user, action_type='delete', resource_type='report', resource_id=report_id, details=f"Deleted report: {report_type} ({report_format})", status='success')
+        except Exception:
+            pass
         
         return JsonResponse({'success': True, 'message': 'Report deleted successfully'})
         
@@ -2152,6 +2166,10 @@ def upload_profile_image_view(request):
         success = update_document('users', user['id'], update_data)
         
         if success:
+            try:
+                log_audit(user, action_type='update', resource_type='user', resource_id=user['id'], details=f"Updated profile image for user: {user.get('name', user.get('email'))}", status='success')
+            except Exception:
+                pass
             # Update session
             request.session['user']['profile_image_url'] = image_url
             request.session.modified = True
@@ -2198,6 +2216,10 @@ def remove_profile_image_view(request):
         success = update_document('users', user['id'], update_data)
         
         if success:
+            try:
+                log_audit(user, action_type='update', resource_type='user', resource_id=user['id'], details=f"Removed profile image for user: {user.get('name', user.get('email'))}", status='success')
+            except Exception:
+                pass
             # Update session
             if 'profile_image_url' in request.session['user']:
                 del request.session['user']['profile_image_url']
@@ -2484,6 +2506,10 @@ def user_add_view(request):
             }
             
             user_id = create_document('users', user_data)
+            try:
+                log_audit(user, action_type='create', resource_type='user', resource_id=user_id, details=f"Created new user: {full_name} ({email})", status='success')
+            except Exception:
+                pass
             
             return JsonResponse({
                 'success': True, 
@@ -2605,6 +2631,11 @@ def user_delete_view(request, user_id):
         
         # Delete the user
         delete_document('users', user_id)
+        try:
+            user_name = user_to_delete.get('name', user_to_delete.get('email', 'Unknown'))
+            log_audit(user, action_type='delete', resource_type='user', resource_id=user_id, details=f"Deleted user: {user_name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True, 
@@ -2935,6 +2966,10 @@ def department_add_view(request):
         }
         
         create_document('departments', dept_data, code)
+        try:
+            log_audit(user, action_type='create', resource_type='department', resource_id=code, details=f"Created department: {name} ({code})", status='success')
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -3139,6 +3174,10 @@ def department_delete_view(request, dept_id):
         
         # Delete department
         delete_document('departments', dept_id)
+        try:
+            log_audit(user, action_type='delete', resource_type='department', resource_id=dept_id, details=f"Deleted department: {dept_name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -3302,6 +3341,10 @@ def program_add_view(request, dept_id):
         }
         
         create_document('programs', prog_data, code)
+        try:
+            log_audit(user, action_type='create', resource_type='program', resource_id=code, details=f"Created program: {name} ({code})", status='success')
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -3471,6 +3514,10 @@ def program_delete_view(request, dept_id, prog_id):
         
         # Delete program
         delete_document('programs', prog_id)
+        try:
+            log_audit(user, action_type='delete', resource_type='program', resource_id=prog_id, details=f"Deleted program: {prog_name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -3650,6 +3697,10 @@ def accreditation_type_add_view(request, dept_id, prog_id):
         }
         
         create_document('accreditation_types', type_data, type_id)
+        try:
+            log_audit(user, action_type='create', resource_type='accreditation_type', resource_id=type_id, details=f"Created accreditation type: {name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -3844,6 +3895,10 @@ def accreditation_type_delete_view(request, dept_id, prog_id, type_id):
         
         # Delete type
         delete_document('accreditation_types', type_id)
+        try:
+            log_audit(user, action_type='delete', resource_type='accreditation_type', resource_id=type_id, details=f"Deleted accreditation type: {type_name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -4015,6 +4070,10 @@ def area_add_view(request, dept_id, prog_id, type_id):
         }
         
         create_document('areas', module_data, area_id)
+        try:
+            log_audit(user, action_type='create', resource_type='area', resource_id=area_id, details=f"Created area: {name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -4179,6 +4238,10 @@ def area_delete_view(request, dept_id, prog_id, type_id, area_id):
         
         # Delete area
         delete_document('areas', area_id)
+        try:
+            log_audit(user, action_type='delete', resource_type='area', resource_id=area_id, details=f"Deleted area: {module_name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -4382,6 +4445,10 @@ def checklist_add_view(request, dept_id, prog_id, type_id, area_id):
         }
         
         create_document('checklists', checklist_data, checklist_id)
+        try:
+            log_audit(user, action_type='create', resource_type='checklist', resource_id=checklist_id, details=f"Created checklist: {name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -4546,6 +4613,10 @@ def checklist_delete_view(request, dept_id, prog_id, type_id, area_id, checklist
         
         # Delete checklist
         delete_document('checklists', checklist_id)
+        try:
+            log_audit(user, action_type='delete', resource_type='checklist', resource_id=checklist_id, details=f"Deleted checklist: {checklist_name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -5093,6 +5164,10 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
             
             doc_id = str(uuid.uuid4())
             create_document('documents', required_doc_data, doc_id)
+            try:
+                log_audit(user, action_type='document_upload', resource_type='document', resource_id=doc_id, details=f"Uploaded required document: {required_doc_name}", status='success', ip=get_client_ip(request))
+            except Exception:
+                pass
             uploaded_count += 1
         
         # Handle additional documents with individual names
@@ -5141,6 +5216,10 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                 
                 add_doc_id = str(uuid.uuid4())
                 create_document('documents', additional_doc_data, add_doc_id)
+                try:
+                    log_audit(user, action_type='document_upload', resource_type='document', resource_id=add_doc_id, details=f"Uploaded additional document: {add_doc_name}", status='success', ip=get_client_ip(request))
+                except Exception:
+                    pass
         
         total_docs = uploaded_count + len([f for f in additional_files if f.name])
         return JsonResponse({
@@ -5231,6 +5310,12 @@ def document_update_status_view(request, dept_id, prog_id, type_id, area_id, che
             update_data['comment'] = comment
         
         update_document('documents', document_id, update_data)
+        try:
+            doc_name = document.get('name', 'Unknown document')
+            action_text = "approved" if status == "approved" else "disapproved"
+            log_audit(user, action_type='update', resource_type='document', resource_id=document_id, details=f"{action_text.capitalize()} document: {doc_name}", status='success')
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -5249,6 +5334,7 @@ def document_update_status_view(request, dept_id, prog_id, type_id, area_id, che
 def document_delete_view(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
     """Delete a document"""
     from accreditation.cloudinary_utils import delete_document_from_cloudinary
+    user = get_user_from_session(request)
     
     try:
         document = get_document('documents', document_id)
@@ -5266,6 +5352,11 @@ def document_delete_view(request, dept_id, prog_id, type_id, area_id, checklist_
         
         # Delete document record
         delete_document('documents', document_id)
+        try:
+            doc_name = document.get('name', 'Unknown document')
+            log_audit(user, action_type='delete', resource_type='document', resource_id=document_id, details=f"Deleted document: {doc_name}", status='success', ip=get_client_ip(request))
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -5620,6 +5711,13 @@ def create_calendar_event(request):
         
         # Save to database
         create_document('calendar_events', event_data, event_id)
+        try:
+            event_title = data['title']
+            event_type = data['event_type']
+            event_date = data['date']
+            log_audit(user, action_type='create', resource_type='calendar_event', resource_id=event_id, details=f"Created calendar event: {event_title} ({event_type}) on {event_date}", status='success')
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -5684,6 +5782,8 @@ def update_calendar_event(request, event_id):
 @require_http_methods(["POST"])
 def delete_calendar_event(request, event_id):
     """Delete a calendar event"""
+    user = get_user_from_session(request)
+    
     try:
         # Check if event exists
         event = get_document('calendar_events', event_id)
@@ -5695,6 +5795,12 @@ def delete_calendar_event(request, event_id):
         
         # Delete from database
         delete_document('calendar_events', event_id)
+        try:
+            event_title = event.get('title', 'Unknown Event')
+            event_type = event.get('event_type', 'Unknown Type')
+            log_audit(user, action_type='delete', resource_type='calendar_event', resource_id=event_id, details=f"Deleted calendar event: {event_title} ({event_type})", status='success')
+        except Exception:
+            pass
         
         return JsonResponse({
             'success': True,
@@ -5747,4 +5853,110 @@ def archive_calendar_event(request, event_id):
             'success': False,
             'message': str(e)
         }, status=500)
+
+
+@login_required
+def audit_trail_view(request):
+    """Audit Trail page - displays all system audit logs"""
+    from datetime import datetime
+    
+    user = get_user_from_session(request)
+    
+    # Only QA Head and QA Admin can view audit trail
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        messages.error(request, 'Access denied.')
+        return redirect('dashboard:home')
+    
+    try:
+        # Fetch all audit logs
+        audit_logs = get_all_documents('audit_trail')
+        
+        print(f"DEBUG: Fetched {len(audit_logs)} audit logs from database")
+        
+        # Sort by timestamp descending (newest first)
+        audit_logs.sort(key=lambda x: x.get('timestamp', ''), reverse=True)
+        
+        # Map old action types to new categorized action types
+        action_category_map = {
+            'login': 'login_history',
+            'logout': 'login_history',
+            'document_upload': 'document_upload',
+            'report_generation': 'report_generation',
+            'report_download': 'report_generation',
+            'create': 'record_modification',
+            'update': 'record_modification',
+            'delete': 'record_modification',
+        }
+        
+        # Readable labels for display
+        action_type_labels = {
+            'login_history': 'Login History',
+            'document_upload': 'Document Upload',
+            'report_generation': 'Report Generation',
+            'record_modification': 'Record Modification',
+        }
+        
+        # Calculate stats
+        today = datetime.now().date().isoformat()
+        document_upload_count = 0
+        record_modification_count = 0
+        today_count = 0
+        
+        for log in audit_logs:
+            # Categorize action type
+            original_action = log.get('action_type', '')
+            categorized_action = action_category_map.get(original_action, 'record_modification')
+            log['action_category'] = categorized_action
+            log['action_type_label'] = action_type_labels.get(categorized_action, 'Unknown')
+            
+            # Count for stats
+            if categorized_action == 'document_upload':
+                document_upload_count += 1
+            elif categorized_action == 'record_modification':
+                record_modification_count += 1
+            
+            # Parse timestamp for better display
+            timestamp_str = log.get('timestamp', '')
+            if timestamp_str:
+                try:
+                    dt = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    log['timestamp_display'] = dt.strftime('%B %d, %Y at %I:%M %p')
+                    # Check if today
+                    if dt.date().isoformat() == today:
+                        today_count += 1
+                except Exception:
+                    log['timestamp_display'] = timestamp_str
+            else:
+                log['timestamp_display'] = 'Unknown'
+            
+            # Get status (success/failed)
+            log['status_value'] = log.get('status', 'success')
+            
+            # Details is already a string from audit_utils
+            if not log.get('details'):
+                log['details'] = 'No details provided'
+        
+    except Exception as e:
+        print(f"Error fetching audit logs: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        audit_logs = []
+        document_upload_count = 0
+        record_modification_count = 0
+        today_count = 0
+    
+    context = {
+        'active_page': 'audit',
+        'user': user,
+        'logs': audit_logs,  # Changed from 'audit_logs' to 'logs' to match template
+        'document_upload_count': document_upload_count,
+        'record_modification_count': record_modification_count,
+        'today_count': today_count,
+    }
+    
+    print(f"DEBUG: Context has {len(audit_logs)} logs")
+    print(f"DEBUG: Stats - Today: {today_count}, Docs: {document_upload_count}, Records: {record_modification_count}")
+    
+    return render(request, 'dashboard/audit.html', context)
+
 

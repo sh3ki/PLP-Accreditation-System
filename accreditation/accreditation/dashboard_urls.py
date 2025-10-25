@@ -26,7 +26,7 @@ urlpatterns = [
     path('reports/delete/<str:report_id>/', dashboard_views.delete_report, name='delete_report'),
     path('results/', dashboard_views.results_view, name='results'),
     path('results/toggle-certificate/<str:area_id>/', dashboard_views.toggle_certificate_view, name='toggle_certificate'),
-    path('audit/', dashboard_views.audit_view, name='audit'),
+    path('audit/', dashboard_views.audit_trail_view, name='audit'),
     path('archive/', dashboard_views.archive_view, name='archive'),
     
     # Profile Settings and sub-settings
