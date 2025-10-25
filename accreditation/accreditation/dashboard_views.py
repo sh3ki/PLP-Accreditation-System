@@ -3599,14 +3599,8 @@ def calendar_view(request):
 def get_calendar_events(request):
     """Get all calendar events"""
     try:
-        # Get all events
-        events = get_all_documents('calendar_events')
-        
-        # Format events for frontend
-        events_list = []
-        for event_id, event_data in events.items():
-            event_data['id'] = event_id
-            events_list.append(event_data)
+        # Get all events (returns a list of dicts with 'id' field already included)
+        events_list = get_all_documents('calendar_events')
         
         # Sort by date
         events_list.sort(key=lambda x: x.get('date', ''))
@@ -3617,6 +3611,8 @@ def get_calendar_events(request):
         })
     except Exception as e:
         print(f"Error getting calendar events: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({
             'success': False,
             'message': str(e)

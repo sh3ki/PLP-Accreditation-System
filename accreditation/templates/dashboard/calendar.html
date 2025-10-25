@@ -200,6 +200,8 @@
         position: relative;
         cursor: pointer;
         transition: background 0.2s;
+        display: flex;
+        flex-direction: column;
     }
     
     .calendar-day:hover {
@@ -220,6 +222,7 @@
         color: #333;
         margin-bottom: 5px;
         font-size: 14px;
+        flex-shrink: 0;
     }
     
     .calendar-day.other-month .day-number {
@@ -234,8 +237,7 @@
         display: flex;
         flex-direction: column;
         gap: 3px;
-        max-height: 65px;
-        overflow: hidden;
+        flex: 1;
     }
     
     .event-item {
@@ -435,14 +437,16 @@
     .event-detail-header {
         display: flex;
         align-items: center;
-        gap: 12px;
-        margin-bottom: 15px;
+        gap: 15px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #e0e0e0;
+        margin-bottom: 20px;
     }
     
     .event-type-badge {
-        padding: 6px 12px;
+        padding: 8px 16px;
         border-radius: 20px;
-        font-size: 12px;
+        font-size: 13px;
         font-weight: 600;
         color: white;
         text-transform: capitalize;
@@ -461,35 +465,54 @@
     }
     
     .event-detail-section {
-        margin-bottom: 15px;
+        margin-bottom: 20px;
     }
     
     .detail-label {
         font-weight: 600;
         color: #666;
-        font-size: 13px;
-        margin-bottom: 5px;
+        font-size: 12px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 8px;
     }
     
     .detail-value {
         color: #333;
-        font-size: 14px;
+        font-size: 15px;
         line-height: 1.6;
+        padding: 10px;
+        background: #f9f9f9;
+        border-radius: 6px;
     }
     
     .event-actions {
         display: flex;
-        gap: 10px;
-        margin-top: 20px;
+        gap: 8px;
+        margin-top: 25px;
+        padding-top: 20px;
+        border-top: 1px solid #e0e0e0;
+        justify-content: flex-end;
+    }
+    
+    .event-actions .btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
     }
     
     .btn-edit {
-        background: #2196F3;
+        background: #FFC107;
         color: white;
     }
     
     .btn-edit:hover {
-        background: #1976D2;
+        background: #FFB300;
+        transform: translateY(-1px);
     }
     
     .btn-delete {
@@ -499,15 +522,17 @@
     
     .btn-delete:hover {
         background: #d32f2f;
+        transform: translateY(-1px);
     }
     
     .btn-archive {
-        background: #FF9800;
+        background: #9E9E9E;
         color: white;
     }
     
     .btn-archive:hover {
-        background: #F57C00;
+        background: #757575;
+        transform: translateY(-1px);
     }
     
     /* Table View Styles */
@@ -855,7 +880,7 @@
         <div class="modal-body">
             <div class="event-detail-header">
                 <span class="event-type-badge" id="detailEventType"></span>
-                <h4 id="detailEventTitle" style="margin: 0; flex: 1;"></h4>
+                <h3 id="detailEventTitle" style="margin: 0; flex: 1; font-size: 20px; color: #333;"></h3>
             </div>
             
             <div class="event-detail-section">
@@ -869,14 +894,14 @@
             </div>
             
             <div class="event-actions">
-                <button class="btn btn-edit" onclick="editEvent()">
-                    <i class="fas fa-edit"></i> Edit
+                <button class="btn btn-edit" onclick="editEvent()" title="Edit Event">
+                    <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn btn-archive" onclick="archiveEvent()">
-                    <i class="fas fa-archive"></i> Archive
+                <button class="btn btn-archive" onclick="archiveEvent()" title="Archive Event">
+                    <i class="fas fa-archive"></i>
                 </button>
-                <button class="btn btn-delete" onclick="deleteEvent()">
-                    <i class="fas fa-trash"></i> Delete
+                <button class="btn btn-delete" onclick="deleteEvent()" title="Delete Event">
+                    <i class="fas fa-trash"></i>
                 </button>
             </div>
         </div>
@@ -951,8 +976,14 @@ function renderCalendar() {
             }
         }
         
-        dayDiv.innerHTML = `<div class="day-number">${dayNumber}</div><div class="event-list" data-date="${fullDate.toISOString().split('T')[0]}"></div>`;
-        dayDiv.onclick = () => openAddEventModal(fullDate.toISOString().split('T')[0]);
+        // Format date as YYYY-MM-DD in local timezone
+        const dateYear = fullDate.getFullYear();
+        const dateMonth = String(fullDate.getMonth() + 1).padStart(2, '0');
+        const dateDay = String(fullDate.getDate()).padStart(2, '0');
+        const dateString = `${dateYear}-${dateMonth}-${dateDay}`;
+        
+        dayDiv.innerHTML = `<div class="day-number">${dayNumber}</div><div class="event-list" data-date="${dateString}"></div>`;
+        dayDiv.onclick = () => openAddEventModal(dateString);
         
         calendarGrid.appendChild(dayDiv);
     }
@@ -987,6 +1018,8 @@ function renderEvents() {
     // Render calendar view (only show filtered by type for calendar view)
     if (currentEventType === 'all') {
         filteredEvents.forEach(event => {
+            // Parse the date string properly to avoid timezone issues
+            // Event date is in YYYY-MM-DD format
             const eventDate = event.date;
             const eventList = document.querySelector(`.event-list[data-date="${eventDate}"]`);
             
@@ -1042,7 +1075,11 @@ function renderTableView(eventType, allFilteredEvents) {
     events.forEach(event => {
         const row = document.createElement('tr');
         
-        const formattedDate = new Date(event.date).toLocaleDateString('en-US', {
+        // Parse date properly to avoid timezone issues
+        const [year, month, day] = event.date.split('-').map(Number);
+        const eventDate = new Date(year, month - 1, day);
+        
+        const formattedDate = eventDate.toLocaleDateString('en-US', {
             year: 'numeric',
             month: 'short',
             day: 'numeric'
@@ -1192,11 +1229,19 @@ function loadEvents() {
     .then(data => {
         if (data.success) {
             allEvents = data.events;
-            renderEvents();
+            if (currentEventType === 'all') {
+                renderCalendar();
+            } else {
+                renderEvents();
+            }
+        } else {
+            console.error('Failed to load events:', data);
+            Toast.error('Failed to load events');
         }
     })
     .catch(error => {
         console.error('Error loading events:', error);
+        Toast.error('Failed to load events');
     });
 }
 
@@ -1209,7 +1254,13 @@ function showEventDetails(eventId) {
     document.getElementById('detailEventType').textContent = event.event_type;
     document.getElementById('detailEventType').className = `event-type-badge ${event.event_type}`;
     document.getElementById('detailEventTitle').textContent = event.title;
-    document.getElementById('detailEventDate').textContent = new Date(event.date).toLocaleDateString('en-US', {
+    
+    // Parse date properly to avoid timezone issues
+    // Split the date string and create date in local timezone
+    const [year, month, day] = event.date.split('-').map(Number);
+    const eventDate = new Date(year, month - 1, day);
+    
+    document.getElementById('detailEventDate').textContent = eventDate.toLocaleDateString('en-US', {
         weekday: 'long',
         year: 'numeric',
         month: 'long',
