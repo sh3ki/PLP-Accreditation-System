@@ -594,11 +594,174 @@ def reports_view(request):
 @login_required
 def results_view(request):
     """Results and Incentives page"""
+    user = get_user_from_session(request)
+    
+    # Fetch all departments, programs, and types for filters
+    try:
+        departments = get_all_documents('departments')
+        departments = [d for d in departments if d.get('is_active', True) and not d.get('is_archived', False)]
+        departments.sort(key=lambda x: x.get('name', ''))
+        
+        programs = get_all_documents('programs')
+        programs = [p for p in programs if p.get('is_active', True) and not p.get('is_archived', False)]
+        programs.sort(key=lambda x: x.get('code', ''))
+        
+        types = get_all_documents('accreditation_types')
+        types = [t for t in types if t.get('is_active', True) and not t.get('is_archived', False)]
+        types.sort(key=lambda x: x.get('name', ''))
+        
+        # Fetch all areas with their complete hierarchy
+        all_areas = get_all_documents('areas')
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        # Build area data with progress and hierarchy info
+        areas_data = []
+        for area in all_areas:
+            if not area.get('is_active', True) or area.get('is_archived', False):
+                continue
+            
+            area_id = area.get('id')
+            type_id = area.get('type_id') or area.get('accreditation_type_id')
+            
+            # Get type info
+            accred_type = next((t for t in types if t.get('id') == type_id), None)
+            if not accred_type:
+                continue
+            
+            # Get program info
+            prog_id = accred_type.get('program_id')
+            program = next((p for p in programs if p.get('id') == prog_id), None)
+            if not program:
+                continue
+            
+            # Get department info
+            dept_id = program.get('department_id')
+            department = next((d for d in departments if d.get('id') == dept_id), None)
+            if not department:
+                continue
+            
+            # Calculate area progress
+            area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+            if not area_checklists:
+                progress = 0
+            else:
+                total_checklists = len(area_checklists)
+                completed_checklists = 0
+                
+                for checklist in area_checklists:
+                    checklist_id = checklist.get('id')
+                    required_docs = [
+                        doc for doc in all_documents 
+                        if doc.get('checklist_id') == checklist_id 
+                        and doc.get('is_required', False)
+                        and not doc.get('is_archived', False)
+                    ]
+                    if len(required_docs) > 0:
+                        completed_checklists += 1
+                
+                progress = round((completed_checklists / total_checklists) * 100) if total_checklists > 0 else 0
+            
+            areas_data.append({
+                'area_id': area_id,
+                'area_name': area.get('name', ''),
+                'dept_code': department.get('code', ''),
+                'dept_name': department.get('name', ''),
+                'prog_code': program.get('code', ''),
+                'prog_name': program.get('name', ''),
+                'type_id': type_id,
+                'type_name': accred_type.get('name', ''),
+                'progress': progress,
+                'certificate_issued': area.get('certificate_issued', False)
+            })
+        
+        # Sort by department, program, type, area
+        areas_data.sort(key=lambda x: (x['dept_code'], x['prog_code'], x['type_name'], x['area_name']))
+        
+    except Exception as e:
+        print(f"Error fetching results data: {str(e)}")
+        departments = []
+        programs = []
+        types = []
+        areas_data = []
+    
     context = {
         'active_page': 'results',
-        'user': get_user_from_session(request),
+        'user': user,
+        'departments': departments,
+        'programs': programs,
+        'types': types,
+        'areas': areas_data,
     }
     return render(request, 'dashboard/results.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def toggle_certificate_view(request, area_id):
+    """Toggle certificate issuance status for an area"""
+    try:
+        import json
+        
+        # Parse request body
+        data = json.loads(request.body)
+        action = data.get('action')  # 'issue' or 'revoke'
+        
+        # Get the area document
+        area = get_document('areas', area_id)
+        if not area:
+            return JsonResponse({
+                'success': False,
+                'message': 'Area not found'
+            }, status=404)
+        
+        # Calculate area progress to validate 100% requirement
+        checklists = [c for c in get_all_documents('checklists') if c.get('area_id') == area_id]
+        documents = get_all_documents('documents')
+        
+        total_checklists = len(checklists)
+        completed_checklists = 0
+        
+        for checklist in checklists:
+            checklist_id = checklist.get('id')
+            # Check if checklist has at least one required document
+            has_required_doc = any(
+                doc.get('checklist_id') == checklist_id and doc.get('is_required', False)
+                for doc in documents
+            )
+            if has_required_doc:
+                completed_checklists += 1
+        
+        area_progress = round((completed_checklists / total_checklists * 100)) if total_checklists > 0 else 0
+        
+        # Validate that area is 100% complete before issuing certificate
+        if action == 'issue' and area_progress < 100:
+            return JsonResponse({
+                'success': False,
+                'message': f'Cannot issue certificate. Area is only {area_progress}% complete.'
+            }, status=400)
+        
+        # Update certificate status
+        new_status = (action == 'issue')
+        update_document('areas', area_id, {'certificate_issued': new_status})
+        
+        # Return success response
+        return JsonResponse({
+            'success': True,
+            'message': f'Certificate {"issued" if new_status else "revoked"} successfully',
+            'certificate_issued': new_status
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'message': 'Invalid request data'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }, status=500)
 
 
 @login_required

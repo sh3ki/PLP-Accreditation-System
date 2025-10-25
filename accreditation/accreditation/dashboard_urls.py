@@ -23,6 +23,7 @@ urlpatterns = [
     path('performance/', dashboard_views.performance_view, name='performance'),
     path('reports/', dashboard_views.reports_view, name='reports'),
     path('results/', dashboard_views.results_view, name='results'),
+    path('results/toggle-certificate/<str:area_id>/', dashboard_views.toggle_certificate_view, name='toggle_certificate'),
     path('audit/', dashboard_views.audit_view, name='audit'),
     path('archive/', dashboard_views.archive_view, name='archive'),
     

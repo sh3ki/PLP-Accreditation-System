@@ -3,13 +3,533 @@
 {% block title %}Results and Incentives{% endblock %}
 
 {% block content %}
-<h1 class="dashboard-title">Results and Incentives</h1>
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
-<div class="content-section">
-    <h2 class="section-title">
-        <i class="fas fa-trophy me-2"></i>
-        Results and Incentives Management
-    </h2>
-    <p>Results and incentives tracking will be implemented here.</p>
+<style>
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .settings-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .search-and-filters {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+    
+    .search-container {
+        position: relative;
+        flex: 1;
+        min-width: 250px;
+        max-width: 400px;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 100%;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .filters-section {
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+        flex-wrap: wrap;
+    }
+    
+    .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    
+    .filter-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: #666;
+        white-space: nowrap;
+    }
+    
+    .filter-select {
+        padding: 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        min-width: 150px;
+        background: white;
+        cursor: pointer;
+    }
+    
+    .filter-select:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .results-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    
+    .results-table thead {
+        background: var(--plp-green);
+        color: white;
+    }
+    
+    .results-table thead th {
+        padding: 15px;
+        text-align: left;
+        font-weight: 600;
+        font-size: 13px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .results-table tbody tr {
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+    }
+    
+    .results-table tbody tr:hover {
+        background: #f8f9fa;
+    }
+    
+    .results-table tbody tr:last-child {
+        border-bottom: none;
+    }
+    
+    .results-table tbody td {
+        padding: 15px;
+        font-size: 14px;
+        color: #333;
+        vertical-align: middle;
+    }
+    
+    .dept-code {
+        font-weight: 600;
+        color: var(--plp-green);
+        font-size: 13px;
+    }
+    
+    .prog-code {
+        font-weight: 600;
+        color: #2196F3;
+        font-size: 13px;
+    }
+    
+    .type-name {
+        font-size: 13px;
+        color: #666;
+    }
+    
+    .area-name {
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .completion-cell {
+        min-width: 200px;
+    }
+    
+    .progress-wrapper {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    
+    .progress-container {
+        flex: 1;
+        background: #e9ecef;
+        border-radius: 8px;
+        height: 10px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--plp-green) 0%, #66bb6a 100%);
+        transition: width 0.3s ease;
+        border-radius: 8px;
+    }
+    
+    .progress-percentage {
+        font-size: 12px;
+        font-weight: 600;
+        color: #333;
+        min-width: 38px;
+        text-align: right;
+    }
+    
+    .status-badge {
+        display: inline-block;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-align: center;
+        min-width: 90px;
+    }
+    
+    .status-not-eligible {
+        background: #ffebee;
+        color: #c62828;
+    }
+    
+    .status-eligible {
+        background: #e8f5e9;
+        color: #2e7d32;
+    }
+    
+    .status-pending {
+        background: #fff3e0;
+        color: #ef6c00;
+    }
+    
+    .status-issued {
+        background: #e3f2fd;
+        color: #1565c0;
+    }
+    
+    .action-cell {
+        text-align: center;
+    }
+    
+    .btn-issue-certificate {
+        background: var(--plp-green);
+        color: white;
+        border: none;
+        border-radius: 4px;
+        padding: 8px 12px;
+        cursor: pointer;
+        font-size: 16px;
+        transition: all 0.3s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .btn-issue-certificate:hover {
+        background: #45a049;
+        transform: translateY(-1px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .btn-issue-certificate:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+        transform: none;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 60px 20px;
+        color: #999;
+    }
+    
+    .no-results i {
+        font-size: 64px;
+        color: #ddd;
+        margin-bottom: 20px;
+    }
+    
+    .no-results p {
+        font-size: 18px;
+        margin: 0;
+    }
+</style>
+
+<div class="settings-header">
+    <h1 class="settings-title">Results and Incentives</h1>
 </div>
+
+<div class="search-and-filters">
+    <div class="search-container">
+        <input type="text" class="search-input" id="searchInput" placeholder="Search by department, program, type or area name..." onkeyup="searchResults()">
+        <i class="fas fa-search search-icon"></i>
+    </div>
+    
+    <div class="filters-section">
+        <div class="filter-group">
+            <label class="filter-label">Department</label>
+            <select class="filter-select" id="filterDepartment" onchange="filterResults()">
+                <option value="">All Departments</option>
+                {% for dept in departments %}
+                <option value="{{ dept.code }}">{{ dept.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label class="filter-label">Program</label>
+            <select class="filter-select" id="filterProgram" onchange="filterResults()">
+                <option value="">All Programs</option>
+                {% for prog in programs %}
+                <option value="{{ prog.code }}">{{ prog.code }} - {{ prog.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label class="filter-label">Incentive Status</label>
+            <select class="filter-select" id="filterIncentive" onchange="filterResults()">
+                <option value="">All Status</option>
+                <option value="eligible">Eligible</option>
+                <option value="not-eligible">Not Eligible</option>
+            </select>
+        </div>
+        
+        <div class="filter-group">
+            <label class="filter-label">Certificate Status</label>
+            <select class="filter-select" id="filterCertificate" onchange="filterResults()">
+                <option value="">All Status</option>
+                <option value="issued">Issued</option>
+                <option value="pending">Pending</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="results-container">
+    <table class="results-table">
+        <thead>
+            <tr>
+                <th>DEPARTMENT CODE</th>
+                <th>PROGRAM CODE</th>
+                <th>ACCREDITATION TYPE</th>
+                <th>AREA NAME</th>
+                <th>COMPLETION</th>
+                <th>INCENTIVE STATUS</th>
+                <th>CERTIFICATE STATUS</th>
+                <th>ACTION</th>
+            </tr>
+        </thead>
+        <tbody id="resultsTableBody">
+            {% if areas %}
+                {% for area_data in areas %}
+                <tr class="result-row" 
+                    data-dept="{{ area_data.dept_code }}" 
+                    data-prog="{{ area_data.prog_code }}" 
+                    data-type="{{ area_data.type_id }}"
+                    data-type-name="{{ area_data.type_name }}"
+                    data-area-name="{{ area_data.area_name }}"
+                    data-incentive="{% if area_data.progress == 100 %}eligible{% else %}not-eligible{% endif %}"
+                    data-certificate="{% if area_data.certificate_issued %}issued{% else %}pending{% endif %}">
+                    <td><span class="dept-code">{{ area_data.dept_code }}</span></td>
+                    <td><span class="prog-code">{{ area_data.prog_code }}</span></td>
+                    <td><span class="type-name">{{ area_data.type_name }}</span></td>
+                    <td><span class="area-name">{{ area_data.area_name }}</span></td>
+                    <td class="completion-cell">
+                        <div class="progress-wrapper">
+                            <div class="progress-container">
+                                <div class="progress-bar" style="width: {{ area_data.progress }}%"></div>
+                            </div>
+                            <span class="progress-percentage">{{ area_data.progress }}%</span>
+                        </div>
+                    </td>
+                    <td>
+                        {% if area_data.progress == 100 %}
+                        <span class="status-badge status-eligible">Eligible</span>
+                        {% else %}
+                        <span class="status-badge status-not-eligible">Not Eligible</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="status-badge {% if area_data.certificate_issued %}status-issued{% else %}status-pending{% endif %}">
+                            {% if area_data.certificate_issued %}Issued{% else %}Pending{% endif %}
+                        </span>
+                    </td>
+                    <td class="action-cell">
+                        <button class="btn-issue-certificate" 
+                                onclick="toggleCertificate('{{ area_data.area_id }}', {{ area_data.certificate_issued|lower }})"
+                                {% if area_data.progress != 100 and not area_data.certificate_issued %}disabled{% endif %}
+                                title="{% if area_data.progress != 100 and not area_data.certificate_issued %}Area must be 100% complete{% elif area_data.certificate_issued %}Click to revoke certificate{% else %}Click to issue certificate{% endif %}">
+                            {% if area_data.certificate_issued %}
+                            <i class="fas fa-times"></i>
+                            {% else %}
+                            <i class="fas fa-certificate"></i>
+                            {% endif %}
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="8">
+                        <div class="no-results">
+                            <i class="fas fa-trophy"></i>
+                            <p>No results found</p>
+                        </div>
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+function searchResults() {
+    filterResults(); // Use the unified filter function
+}
+
+function filterResults() {
+    const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+    const deptFilter = document.getElementById('filterDepartment').value.toLowerCase();
+    const progFilter = document.getElementById('filterProgram').value.toLowerCase();
+    const incentiveFilter = document.getElementById('filterIncentive').value.toLowerCase();
+    const certificateFilter = document.getElementById('filterCertificate').value.toLowerCase();
+    
+    const rows = document.querySelectorAll('.result-row');
+    let visibleCount = 0;
+    
+    rows.forEach(row => {
+        const dept = row.dataset.dept.toLowerCase();
+        const prog = row.dataset.prog.toLowerCase();
+        const typeName = row.dataset.typeName.toLowerCase();
+        const areaName = row.dataset.areaName.toLowerCase();
+        const incentive = row.dataset.incentive.toLowerCase();
+        const certificate = row.dataset.certificate.toLowerCase();
+        
+        // Search match (searches across dept, prog, type, area)
+        const searchMatch = !searchTerm || 
+                           dept.includes(searchTerm) || 
+                           prog.includes(searchTerm) || 
+                           typeName.includes(searchTerm) || 
+                           areaName.includes(searchTerm);
+        
+        // Filter matches
+        const deptMatch = !deptFilter || dept === deptFilter;
+        const progMatch = !progFilter || prog === progFilter;
+        const incentiveMatch = !incentiveFilter || incentive === incentiveFilter;
+        const certificateMatch = !certificateFilter || certificate === certificateFilter;
+        
+        if (searchMatch && deptMatch && progMatch && incentiveMatch && certificateMatch) {
+            row.style.display = '';
+            visibleCount++;
+        } else {
+            row.style.display = 'none';
+        }
+    });
+    
+    // Show/hide no results message
+    const tbody = document.getElementById('resultsTableBody');
+    let noResultsRow = tbody.querySelector('.no-results-row');
+    
+    if (visibleCount === 0 && rows.length > 0) {
+        if (!noResultsRow) {
+            noResultsRow = document.createElement('tr');
+            noResultsRow.className = 'no-results-row';
+            noResultsRow.innerHTML = `
+                <td colspan="8">
+                    <div class="no-results">
+                        <i class="fas fa-search"></i>
+                        <p>No results found</p>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(noResultsRow);
+        }
+        noResultsRow.style.display = '';
+    } else if (noResultsRow) {
+        noResultsRow.style.display = 'none';
+    }
+}
+
+function toggleCertificate(areaId, isIssued) {
+    const action = isIssued ? 'revoke' : 'issue';
+    const actionText = isIssued ? 'Revoke' : 'Issue';
+    
+    ConfirmationModal.show({
+        title: `${actionText} Certificate`,
+        message: `Are you sure you want to ${action} the certificate for this area?`,
+        type: isIssued ? 'warning' : 'info',
+        confirmText: `Yes, ${actionText}`,
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            // Show loading state
+            Toast.info(`${actionText}ing certificate...`);
+            
+            fetch(`/dashboard/results/toggle-certificate/${areaId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                },
+                body: JSON.stringify({ action: action })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message || `Certificate ${action}d successfully`);
+                    // Reload page to update UI
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1500);
+                } else {
+                    Toast.error(data.message || `Failed to ${action} certificate`);
+                }
+            })
+            .catch(error => {
+                Toast.error(`An error occurred while ${action}ing certificate`);
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+</script>
 {% endblock %}
