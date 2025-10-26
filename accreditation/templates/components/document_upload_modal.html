@@ -355,14 +355,30 @@
 </div>
 
 <script>
-// Context variables - to be set by parent page
-var MODAL_CONTEXT = {
-    departmentId: '{{ dept_id|default:"" }}',
-    programId: '{{ prog_id|default:"" }}',
-    typeId: '{{ type_id|default:"" }}',
-    areaId: '{{ area_id|default:"" }}',
-    checklistId: '{{ checklist_id|default:"" }}'
-};
+// Context variables - will be set by parent page, or use defaults if not set
+if (typeof MODAL_CONTEXT === 'undefined') {
+    var MODAL_CONTEXT = {
+        departmentId: '{{ dept_id|default:"" }}',
+        programId: '{{ prog_id|default:"" }}',
+        typeId: '{{ type_id|default:"" }}',
+        areaId: '{{ area_id|default:"" }}',
+        checklistId: '{{ checklist_id|default:"" }}',
+        isDepartmentLocked: false
+    };
+} else {
+    // Merge with any missing default values
+    MODAL_CONTEXT.departmentId = MODAL_CONTEXT.departmentId || '{{ dept_id|default:"" }}';
+    MODAL_CONTEXT.programId = MODAL_CONTEXT.programId || '{{ prog_id|default:"" }}';
+    MODAL_CONTEXT.typeId = MODAL_CONTEXT.typeId || '{{ type_id|default:"" }}';
+    MODAL_CONTEXT.areaId = MODAL_CONTEXT.areaId || '{{ area_id|default:"" }}';
+    MODAL_CONTEXT.checklistId = MODAL_CONTEXT.checklistId || '{{ checklist_id|default:"" }}';
+    if (typeof MODAL_CONTEXT.isDepartmentLocked === 'undefined') {
+        MODAL_CONTEXT.isDepartmentLocked = false;
+    }
+}
+
+console.log('MODAL_CONTEXT:', MODAL_CONTEXT);  // Debug logging
+
 
 function getCookie(name) {
     let cookieValue = null;
@@ -397,6 +413,10 @@ function closeDocumentModal() {
 }
 
 function loadModalDepartments() {
+    console.log('loadModalDepartments called');
+    console.log('MODAL_CONTEXT.departmentId:', MODAL_CONTEXT.departmentId);
+    console.log('MODAL_CONTEXT.isDepartmentLocked:', MODAL_CONTEXT.isDepartmentLocked);
+    
     fetch('/dashboard/api/departments/')
         .then(response => {
             if (!response.ok) {
@@ -416,16 +436,30 @@ function loadModalDepartments() {
                     select.appendChild(option);
                 });
                 
+                console.log('Departments loaded, total:', data.departments.length);
+                
                 // Preselect department if available
                 if (MODAL_CONTEXT.departmentId) {
+                    console.log('Attempting to preselect department:', MODAL_CONTEXT.departmentId);
+                    
                     // Try to find department by ID first, then by name
                     const deptOption = Array.from(select.options).find(opt => 
                         opt.value === MODAL_CONTEXT.departmentId || opt.value.includes(MODAL_CONTEXT.departmentId)
                     );
                     
                     if (deptOption) {
+                        console.log('Department found, preselecting:', deptOption.textContent);
                         select.value = deptOption.value;
                         loadModalPrograms();
+                        
+                        // Lock department field if this is My Accreditation page
+                        if (MODAL_CONTEXT.isDepartmentLocked) {
+                            console.log('Locking department field...');
+                            select.disabled = true;
+                            select.style.backgroundColor = '#e9ecef';
+                            select.style.cursor = 'not-allowed';
+                            select.style.opacity = '0.7';
+                        }
                     }
                 }
             }

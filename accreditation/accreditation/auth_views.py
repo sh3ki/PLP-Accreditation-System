@@ -48,6 +48,8 @@ def login_view(request):
                         'middle_name': user_doc.get('middle_name', ''),
                         'last_name': user_doc.get('last_name', ''),
                         'profile_image_url': user_doc.get('profile_image_url', ''),
+                        'department': user_doc.get('department', ''),  # Store department code
+                        'department_id': user_doc.get('department', ''),  # Same as department for compatibility
                     }
                 
                 # Set session expiry based on remember_me

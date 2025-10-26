@@ -1,0 +1,576 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}{{ program.name }} - Types
+
+{% endblock %}
+
+
+{% block content %}
+{% include 'components/toast_notifications.html' %}
+
+<style>
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .settings-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 20px;
+        flex-wrap: wrap;
+    }
+    
+    .breadcrumb a {
+        color: var(--plp-green);
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .breadcrumb-separator {
+        color: #999;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .action-buttons-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .search-container {
+        position: relative;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 250px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .types-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        overflow: hidden;
+    }
+    
+    .type-list {
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .type-item {
+        display: flex;
+        gap: 50px;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+        justify-content: space-between;
+        cursor: pointer;
+    }
+    
+    .type-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .type-item:last-child {
+        border-bottom: none;
+    }
+    
+    .type-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .type-logo {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        object-fit: cover;
+        border: 2px solid #e0e0e0;
+        flex-shrink: 0;
+    }
+    
+    .type-name {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .type-progress {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 0 0 280px;
+    }
+    
+    .progress-container {
+        flex: 1;
+        background: #e9ecef;
+        border-radius: 8px;
+        height: 12px;
+        overflow: hidden;
+        position: relative;
+        box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    }
+    
+    .progress-bar {
+        height: 100%;
+        background: linear-gradient(90deg, var(--plp-green) 0%, #66bb6a 100%);
+        transition: width 0.3s ease;
+        border-radius: 8px;
+    }
+    
+    .progress-percentage {
+        font-size: 13px;
+        font-weight: 600;
+        color: #333;
+        min-width: 42px;
+        text-align: right;
+    }
+    
+    .type-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+    
+    .btn-action {
+        padding: 6px 12px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 13px;
+        transition: all 0.3s;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+    
+    .btn-action:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+    
+    .btn-archive {
+        background: #fd7e14;
+        color: white;
+    }
+    
+    .btn-archive:hover {
+        background: #e66a00;
+    }
+    
+    .type-chevron {
+        color: #999;
+        font-size: 18px;
+        margin-left: 10px;
+    }
+    
+    .no-types {
+        padding: 60px 20px;
+        text-align: center;
+        color: #999;
+    }
+    
+    .no-types i {
+        font-size: 64px;
+        color: #ddd;
+        margin-bottom: 20px;
+    }
+    
+    .no-types p {
+        font-size: 18px;
+        margin: 0;
+    }
+    
+    .no-results {
+        text-align: center;
+        padding: 40px 20px;
+        color: #999;
+        display: none;
+    }
+    
+    .no-results i {
+        font-size: 48px;
+        color: #ddd;
+        margin-bottom: 15px;
+    }
+    
+    .btn-back {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+        text-decoration: none;
+    }
+    
+    .btn-back:hover {
+        background: #5a6268;
+    }
+
+    .btn-action-header {
+        background: var(--plp-green);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-action-header:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 9999;
+        animation: fadeIn 0.3s;
+    }
+    
+    .modal.show {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        color: #333;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #999;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-close:hover {
+        color: #333;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .modal-footer {
+        padding: 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="file"],
+    .form-group select {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group select {
+        cursor: pointer;
+    }
+    
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: var(--plp-green);
+    }
+    
+    .file-format-note {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+    
+    .additional-document-item {
+        margin-bottom: 15px;
+        padding: 15px;
+        border: 1px solid #eee;
+        border-radius: 4px;
+        position: relative;
+    }
+    
+    .btn-remove-additional {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        background: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 50%;
+        width: 25px;
+        height: 25px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .btn-add-additional {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 16px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .btn-submit {
+        background: var(--plp-green);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+</style>
+
+<div class="breadcrumb">
+    <a href="{% url 'dashboard:my_accreditation' %}">Accreditation</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{% url 'dashboard:my_accreditation_department_programs' dept_id %}">{{ department.name }}</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>{{ program.code }} - {{ program.name }}</span>
+</div>
+
+<div class="settings-header">
+    <h1 class="settings-title">{{ program.name }} - Accreditation Types</h1>
+    <a href="{% url 'dashboard:my_accreditation_department_programs' dept_id %}" class="btn-back">
+        <i class="fas fa-arrow-left"></i>
+        Back to Programs
+    </a>
+</div>
+
+<div class="section-header">
+    <h2 class="section-title">Accreditation Types</h2>
+    <div class="action-buttons-group">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchTypes" placeholder="Search types..." onkeyup="searchTypes()">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+        {% if is_user_department %}
+        <button class="btn-action-header" onclick="openAddDocumentModal()">
+            <i class="fas fa-plus"></i>
+            Add Document
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="types-container">
+    <div class="type-list" id="typeList">
+        {% if types %}
+            {% for type in types %}
+            <div class="type-item" onclick="navigateToTypeAreas('{{ dept_id }}', '{{ prog_id }}', '{{ type.id }}', event)">
+                <div class="type-info">
+                    <img src="{{ type.logo_url|default:'https://via.placeholder.com/50?text=Type' }}" alt="{{ type.name }}" class="type-logo" onerror="this.src='https://via.placeholder.com/50?text=Type'">
+                    <span class="type-name">{{ type.name }}</span>
+                </div>
+                <div class="type-progress">
+                    <div class="progress-container">
+                        <div class="progress-bar" style="width: {{ type.progress }}%"></div>
+                    </div>
+                    <span class="progress-percentage">{{ type.progress }}%</span>
+                </div>
+                <div class="type-actions">
+                    
+                    <i class="fas fa-chevron-right type-chevron"></i>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="no-types">
+                <i class="fas fa-folder-open"></i>
+                <p>No accreditation types found</p>
+            </div>
+        {% endif %}
+        <div class="no-results">
+            <i class="fas fa-search"></i>
+            <p>No results found</p>
+        </div>
+    </div>
+</div>
+
+<script>
+function navigateToTypeAreas(deptId, progId, typeId, event) {
+    if (event && event.target.closest('.btn-action')) {
+        return;
+    }
+    window.location.href = `/dashboard/my-accreditation/department/${deptId}/programs/${progId}/types/${typeId}/areas/`;
+}
+
+function searchTypes() {
+    const input = document.getElementById('searchTypes');
+    const filter = input.value.toLowerCase();
+    const list = document.getElementById('typeList');
+    const items = list.getElementsByClassName('type-item');
+    let hasResults = false;
+    
+    for (let i = 0; i < items.length; i++) {
+        const name = items[i].getElementsByClassName('type-name')[0];
+        if (name) {
+            const nameText = name.textContent || name.innerText;
+            if (nameText.toLowerCase().indexOf(filter) > -1) {
+                items[i].style.display = "";
+                hasResults = true;
+            } else {
+                items[i].style.display = "none";
+            }
+        }
+    }
+    
+    const noResultsMsg = list.querySelector('.no-results');
+    if (!hasResults && filter) {
+        noResultsMsg.style.display = 'block';
+    } else {
+        noResultsMsg.style.display = 'none';
+    }
+}
+</script>
+
+
+
+<script>
+// Set modal context for preselection - department preset and locked for user
+var MODAL_CONTEXT = {
+    departmentId: '{{ user_department_id|default:"" }}',
+    programId: '{{ prog_id }}',
+    typeId: '',
+    areaId: '',
+    checklistId: '',
+    isDepartmentLocked: true  // Department is preset and locked
+};
+</script>
+
+{% include 'components/document_upload_modal.html' %}
+
+{% endblock %}

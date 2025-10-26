@@ -20,6 +20,16 @@ urlpatterns = [
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/', dashboard_views.accreditation_type_areas_view, name='accreditation_type_areas'),
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/', dashboard_views.accreditation_area_checklists_view, name='accreditation_area_checklists'),
     
+    # My Accreditation (user's personal accreditation view)
+    path('my-accreditation/', dashboard_views.my_accreditation_view, name='my_accreditation'),
+    path('my-accreditation/department/<str:dept_id>/programs/', dashboard_views.my_accreditation_department_programs_view, name='my_accreditation_department_programs'),
+    path('my-accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/', dashboard_views.my_accreditation_program_types_view, name='my_accreditation_program_types'),
+    path('my-accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/', dashboard_views.my_accreditation_type_areas_view, name='my_accreditation_type_areas'),
+    path('my-accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/', dashboard_views.my_accreditation_area_checklists_view, name='my_accreditation_area_checklists'),
+    path('my-accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/', dashboard_views.my_accreditation_checklist_documents_view, name='my_accreditation_checklist_documents'),
+    path('my-accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/view/', dashboard_views.my_accreditation_view_document, name='my_accreditation_view_document'),
+    path('my-accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/download/', dashboard_views.my_accreditation_download_document, name='my_accreditation_download_document'),
+    
     path('performance/', dashboard_views.performance_view, name='performance'),
     path('reports/', dashboard_views.reports_view, name='reports'),
     path('reports/generate/', dashboard_views.generate_report, name='generate_report'),

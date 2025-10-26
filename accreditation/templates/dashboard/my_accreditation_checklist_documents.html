@@ -1,0 +1,1011 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}{{ checklist.name }} - Documents{% endblock %}
+
+{% block content %}
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
+
+<style>
+    .settings-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    
+    .settings-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .breadcrumb {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 14px;
+        color: #666;
+        margin-bottom: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .breadcrumb a {
+        color: var(--plp-green);
+        text-decoration: none;
+    }
+    
+    .breadcrumb a:hover {
+        text-decoration: underline;
+    }
+    
+    .breadcrumb-separator {
+        color: #999;
+    }
+    
+    .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .section-title {
+        font-size: 20px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .action-buttons-group {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+    }
+    
+    .search-container {
+        position: relative;
+        margin-right: 10px;
+    }
+    
+    .search-input {
+        padding: 8px 35px 8px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+        width: 250px;
+        transition: all 0.3s;
+    }
+    
+    .search-input:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+    }
+    
+    .search-icon {
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #999;
+        pointer-events: none;
+    }
+    
+    .btn-action-header {
+        background: var(--plp-green);
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-action-header:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .documents-container {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        padding: 20px;
+    }
+    
+    .document-section {
+        margin-bottom: 30px;
+    }
+    
+    .document-section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 15px;
+        padding-bottom: 10px;
+        border-bottom: 2px solid #e0e0e0;
+    }
+    
+    .document-item {
+        background: white;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 15px;
+        margin-bottom: 10px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        transition: all 0.3s;
+    }
+    
+    .document-item:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-color: var(--plp-green);
+    }
+    
+    .document-item.clickable {
+        cursor: pointer;
+    }
+    
+    .document-info {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex: 1;
+    }
+    
+    .document-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--plp-green);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+    }
+    
+    .document-icon.folder {
+        background: var(--plp-green);
+    }
+    
+    .document-details {
+        flex: 1;
+    }
+    
+    .document-name {
+        font-weight: 500;
+        color: #333;
+        font-size: 15px;
+        margin-bottom: 5px;
+    }
+    
+    .document-meta {
+        font-size: 13px;
+        color: #666;
+        display: flex;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .document-badge {
+        padding: 3px 10px;
+        border-radius: 12px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+    
+    .badge-submitted {
+        background: #ffc107;
+        color: #856404;
+    }
+    
+    .badge-approved {
+        background: #28a745;
+        color: white;
+    }
+    
+    .badge-disapproved {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .badge-required {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .badge-optional {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .document-actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+    }
+    
+    .btn-action {
+        width: 32px;
+        height: 32px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.3s;
+        font-size: 14px;
+    }
+    
+    .btn-view {
+        background: #007bff;
+        color: white;
+    }
+    
+    .btn-view:hover {
+        background: #0056b3;
+    }
+    
+    .btn-download {
+        background: #17a2b8;
+        color: white;
+    }
+    
+    .btn-download:hover {
+        background: #138496;
+    }
+    
+    .btn-edit {
+        background: #ffc107;
+        color: #333;
+    }
+    
+    .btn-edit:hover {
+        background: #e0a800;
+    }
+    
+    .btn-delete {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-delete:hover {
+        background: #c82333;
+    }
+    
+    .btn-approve {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-approve:hover {
+        background: #218838;
+    }
+    
+    .btn-disapprove {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-disapprove:hover {
+        background: #5a6268;
+    }
+    
+    .btn-navigate {
+        background: var(--plp-green);
+        color: white;
+    }
+    
+    .btn-navigate:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .no-documents {
+        text-align: center;
+        padding: 60px 20px;
+        color: #666;
+    }
+    
+    .no-documents i {
+        font-size: 48px;
+        color: #ccc;
+        margin-bottom: 15px;
+    }
+    
+    .btn-back {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        font-weight: 500;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        transition: background 0.3s;
+        font-size: 14px;
+        text-decoration: none;
+    }
+    
+    .btn-back:hover {
+        background: #5a6268;
+    }
+    
+    /* Modal Styles */
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        justify-content: center;
+        align-items: center;
+    }
+    
+    .modal.show {
+        display: flex;
+    }
+    
+    .modal-content {
+        background: white;
+        border-radius: 8px;
+        padding: 0;
+        width: 90%;
+        max-width: 600px;
+        max-height: 90vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    
+    .modal-header {
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .modal-header h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #333;
+    }
+    
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 24px;
+        cursor: pointer;
+        color: #666;
+        padding: 0;
+        width: 30px;
+        height: 30px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal-body {
+        padding: 20px;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: #333;
+        font-size: 14px;
+    }
+    
+    .form-group input[type="text"],
+    .form-group input[type="file"],
+    .form-group textarea {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    
+    .form-group input:focus,
+    .form-group textarea:focus {
+        outline: none;
+        border-color: var(--plp-green);
+    }
+    
+    .form-group textarea {
+        resize: vertical;
+        min-height: 80px;
+    }
+    
+    .form-error {
+        color: #dc3545;
+        font-size: 12px;
+        margin-top: 5px;
+        display: block;
+    }
+    
+    .additional-documents {
+        border: 1px dashed #ddd;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+    
+    .additional-document-item {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: flex-start;
+    }
+    
+    .additional-document-item input {
+        flex: 1;
+    }
+    
+    .btn-remove-additional {
+        background: #dc3545;
+        color: white;
+        border: none;
+        padding: 10px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .btn-add-additional {
+        background: var(--plp-green);
+        color: white;
+        border: none;
+        padding: 8px 15px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+        margin-top: 10px;
+    }
+    
+    .modal-footer {
+        padding: 15px 20px;
+        border-top: 1px solid #eee;
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+    }
+    
+    .btn-cancel {
+        background: #6c757d;
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .btn-cancel:hover {
+        background: #5a6268;
+    }
+    
+    .btn-submit {
+        background: var(--plp-green);
+        color: white;
+        padding: 8px 20px;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+    }
+    
+    .btn-submit:hover {
+        background: var(--plp-dark-green);
+    }
+    
+    .file-format-note {
+        font-size: 12px;
+        color: #666;
+        margin-top: 5px;
+    }
+</style>
+
+<!-- Breadcrumb -->
+<div class="breadcrumb">
+    <a href="{% url 'dashboard:my_accreditation' %}">Accreditation</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{% url 'dashboard:my_accreditation_department_programs' dept_id %}">{{ department.name }}</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{% url 'dashboard:my_accreditation_program_types' dept_id prog_id %}">{{ program.code }} - {{ program.name }}</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{% url 'dashboard:my_accreditation_type_areas' dept_id prog_id type_id %}">{{ accreditation_type.name }}</a>
+    <span class="breadcrumb-separator">/</span>
+    <a href="{% url 'dashboard:my_accreditation_area_checklists' dept_id prog_id type_id area_id %}">{{ area.name }}</a>
+    <span class="breadcrumb-separator">/</span>
+    <span>{{ checklist.name }} - Documents</span>
+</div>
+
+<div class="settings-header">
+    <h1 class="settings-title">{{ checklist.name }} - Documents</h1>
+    <a href="{% url 'dashboard:my_accreditation_area_checklists' dept_id prog_id type_id area_id %}" class="btn-back">
+        <i class="fas fa-arrow-left"></i>
+        Back to Checklists
+    </a>
+</div>
+
+<div class="section-header">
+    <h2 class="section-title">Documents</h2>
+    <div class="action-buttons-group">
+        <div class="search-container">
+            <input type="text" class="search-input" id="searchDocuments" placeholder="Search documents..." onkeyup="searchDocuments()">
+            <i class="fas fa-search search-icon"></i>
+        </div>
+        {% if is_user_department %}
+        <button class="btn-action-header" onclick="openAddDocumentModal()">
+            <i class="fas fa-plus"></i>
+            Add Document
+        </button>
+        {% endif %}
+    </div>
+</div>
+
+<div class="documents-container">
+    <!-- Required Document Section -->
+    <div class="document-section">
+        <h3 class="document-section-title">Required Document</h3>
+        {% if required_document %}
+            <div class="document-item clickable" onclick="viewDocument('{{ required_document.id }}')">
+                <div class="document-info">
+                    <div class="document-icon">
+                        <i class="fas fa-file-word"></i>
+                    </div>
+                    <div class="document-details">
+                        <div class="document-name">{{ required_document.name }}</div>
+                        <div class="document-meta">
+                            <span><i class="fas fa-file"></i> {{ required_document.format|upper }}</span>
+                            <span><i class="fas fa-user"></i> {{ required_document.uploaded_by }}</span>
+                            <span><i class="fas fa-clock"></i> {{ required_document.created_at|date:"M d, Y" }}</span>
+                            <span class="document-badge badge-{{ required_document.status }}">{{ required_document.status|title }}</span>
+                            <span class="document-badge badge-required">Required</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="document-actions">
+                    <button class="btn-action btn-view" onclick="event.stopPropagation(); viewDocument('{{ required_document.id }}')" title="View">
+                        <i class="fas fa-eye"></i>
+                    </button>
+                    {% if required_document.status == 'approved' %}
+                        <button class="btn-action btn-download" onclick="event.stopPropagation(); downloadDocument('{{ required_document.id }}', '{{ required_document.name|escapejs }}')" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    {% endif %}
+                    {% if required_document.uploaded_by == user.email and required_document.status == 'submitted' %}
+                        <button class="btn-action btn-delete" onclick="event.stopPropagation(); deleteDocument('{{ required_document.id }}', '{{ required_document.name|escapejs }}')" title="Delete">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <div class="no-documents">
+                <i class="fas fa-file-upload"></i>
+                <p>No required document uploaded yet</p>
+            </div>
+        {% endif %}
+    </div>
+    
+    <!-- Additional Documents Section -->
+    <div class="document-section">
+        <h3 class="document-section-title">Additional Documents</h3>
+        {% if additional_documents %}
+            <div class="document-item clickable" onclick="toggleAdditionalDocuments()">
+                <div class="document-info">
+                    <div class="document-icon folder">
+                        <i class="fas fa-folder"></i>
+                    </div>
+                    <div class="document-details">
+                        <div class="document-name">Additional Documents ({{ additional_documents|length }})</div>
+                        <div class="document-meta">
+                            <span>Click to view all additional documents</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="document-actions">
+                    <button class="btn-action btn-navigate" title="View">
+                        <i class="fas fa-chevron-right" id="additionalToggleIcon"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="additionalDocumentsList" style="display: none; margin-top: 10px; margin-left: 30px;">
+                {% for doc in additional_documents %}
+                    <div class="document-item clickable" onclick="viewDocument('{{ doc.id }}')">
+                        <div class="document-info">
+                            <div class="document-icon">
+                                {% if doc.format == 'pdf' %}
+                                    <i class="fas fa-file-pdf"></i>
+                                {% elif doc.format in 'ppt,pptx' %}
+                                    <i class="fas fa-file-powerpoint"></i>
+                                {% elif doc.format in 'xls,xlsx' %}
+                                    <i class="fas fa-file-excel"></i>
+                                {% elif doc.format in 'jpg,jpeg,png,gif' %}
+                                    <i class="fas fa-file-image"></i>
+                                {% else %}
+                                    <i class="fas fa-file-word"></i>
+                                {% endif %}
+                            </div>
+                            <div class="document-details">
+                                <div class="document-name">{{ doc.name }}</div>
+                                <div class="document-meta">
+                                    <span><i class="fas fa-file"></i> {{ doc.format|upper }}</span>
+                                    <span><i class="fas fa-user"></i> {{ doc.uploaded_by }}</span>
+                                    <span><i class="fas fa-clock"></i> {{ doc.created_at|date:"M d, Y" }}</span>
+                                    <span class="document-badge badge-{{ doc.status }}">{{ doc.status|title }}</span>
+                                    <span class="document-badge badge-optional">Optional</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="document-actions">
+                            <button class="btn-action btn-view" onclick="event.stopPropagation(); viewDocument('{{ doc.id }}')" title="View">
+                                <i class="fas fa-eye"></i>
+                            </button>
+                            {% if doc.status == 'approved' %}
+                                <button class="btn-action btn-download" onclick="event.stopPropagation(); downloadDocument('{{ doc.id }}', '{{ doc.name|escapejs }}')" title="Download">
+                                    <i class="fas fa-download"></i>
+                                </button>
+                            {% endif %}
+                            {% if doc.uploaded_by == user.email and doc.status == 'submitted' %}
+                                <button class="btn-action btn-delete" onclick="event.stopPropagation(); deleteDocument('{{ doc.id }}', '{{ doc.name|escapejs }}')" title="Delete">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="no-documents">
+                <i class="fas fa-folder-open"></i>
+                <p>No additional documents uploaded yet</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Document Upload Modal (Reusable Component) -->
+<script>
+// Context for modal preselection - department preset and locked for user
+var MODAL_CONTEXT = {
+    departmentId: '{{ user_department_id|default:"" }}',
+    programId: '{{ prog_id }}',
+    typeId: '{{ type_id }}',
+    areaId: '{{ area_id }}',
+    checklistId: '{{ checklist_id }}',
+    isDepartmentLocked: true  // Department is preset and locked
+};
+</script>
+{% include 'components/document_upload_modal.html' %}
+
+<!-- Document Viewer Modal -->
+<div id="viewerModal" class="modal">
+    <div class="modal-content" style="max-width: 90%; width: 1200px; max-height: 90vh; height: 85vh; display: flex; flex-direction: column;">
+        <div class="modal-header" style="flex-shrink: 0; padding: 20px;">
+            <div style="flex: 1;">
+                <h3 id="viewerTitle" style="margin: 0 0 12px 0; font-size: 22px; color: #333;">Document Viewer</h3>
+                <div id="viewerInfo" style="display: flex; gap: 20px; flex-wrap: wrap; font-size: 14px; color: #666;">
+                    <span id="viewerFormat"></span>
+                    <span id="viewerUploader"></span>
+                    <span id="viewerDate"></span>
+                    <span id="viewerStatus"></span>
+                </div>
+            </div>
+            <button class="modal-close" onclick="closeViewerModal()" style="font-size: 32px; width: 40px; height: 40px;">&times;</button>
+        </div>
+        <div class="modal-body" style="padding: 0; flex: 1; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #f5f5f5;">
+            <iframe id="documentViewer" style="width: 100%; height: 100%; border: none; display: none;"></iframe>
+            <img id="imageViewer" style="max-width: 100%; max-height: 100%; object-fit: contain; display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.15);" />
+            <div id="viewerLoading" style="display: none; text-align: center;">
+                <i class="fas fa-spinner fa-spin" style="font-size: 48px; color: var(--plp-green);"></i>
+                <p style="margin-top: 15px; color: #666;">Loading document...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const departmentId = '{{ dept_id }}';
+const programId = '{{ prog_id }}';
+const typeId = '{{ type_id }}';
+const areaId = '{{ area_id }}';
+const checklistId = '{{ checklist_id }}';
+
+// Document-specific functions (non-modal operations)
+function viewDocument(documentId) {
+    const iframe = document.getElementById('documentViewer');
+    const imageViewer = document.getElementById('imageViewer');
+    const loading = document.getElementById('viewerLoading');
+    
+    // Show loading
+    loading.style.display = 'block';
+    iframe.style.display = 'none';
+    imageViewer.style.display = 'none';
+    
+    fetch(`/dashboard/my-accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/view/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const doc = data.document;
+                const fileUrl = doc.file_url;
+                const format = (doc.format || '').toLowerCase();
+                
+                // Set title and info
+                document.getElementById('viewerTitle').textContent = doc.name;
+                
+                // Format badge
+                const formatBadge = `<span style="padding: 4px 8px; background: #e3f2fd; color: #1976d2; border-radius: 3px; font-weight: 500;"><i class="fas fa-file"></i> ${format.toUpperCase()}</span>`;
+                document.getElementById('viewerFormat').innerHTML = formatBadge;
+                
+                // Uploader
+                document.getElementById('viewerUploader').innerHTML = `<i class="fas fa-user"></i> ${doc.uploaded_by || 'Unknown'}`;
+                
+                // Date - handle different date formats
+                let uploadDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                if (doc.uploaded_at) {
+                    try {
+                        // Try parsing the date
+                        const dateObj = new Date(doc.uploaded_at);
+                        if (!isNaN(dateObj.getTime())) {
+                            uploadDate = dateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+                        }
+                    } catch (e) {
+                        // Keep default current date if parsing fails
+                    }
+                }
+                document.getElementById('viewerDate').innerHTML = `<i class="fas fa-calendar"></i> ${uploadDate}`;
+                
+                // Status badge
+                const statusColors = {
+                    'submitted': { bg: '#fff3cd', color: '#856404' },
+                    'approved': { bg: '#d4edda', color: '#155724' },
+                    'disapproved': { bg: '#f8d7da', color: '#721c24' }
+                };
+                const statusColor = statusColors[doc.status] || statusColors['submitted'];
+                const statusBadge = `<span style="padding: 4px 8px; background: ${statusColor.bg}; color: ${statusColor.color}; border-radius: 3px; font-weight: 500; text-transform: capitalize;">${doc.status || 'Submitted'}</span>`;
+                document.getElementById('viewerStatus').innerHTML = statusBadge;
+                
+                // Hide loading
+                loading.style.display = 'none';
+                
+                // Handle different file types
+                if (['jpg', 'jpeg', 'png', 'gif', 'svg', 'webp'].includes(format)) {
+                    // Images - direct display
+                    imageViewer.src = fileUrl;
+                    imageViewer.style.display = 'block';
+                } else if (format === 'pdf') {
+                    // PDF - Use direct Cloudinary URL (it works!)
+                    iframe.src = fileUrl;
+                    iframe.style.display = 'block';
+                } else if (['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'].includes(format)) {
+                    // Office files - use Office Online Viewer
+                    iframe.src = `https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(fileUrl)}`;
+                    iframe.style.display = 'block';
+                } else {
+                    // Other formats - try direct embed
+                    iframe.src = fileUrl;
+                    iframe.style.display = 'block';
+                }
+                
+                document.getElementById('viewerModal').classList.add('show');
+            } else {
+                loading.style.display = 'none';
+                Toast.error('Failed to load document');
+            }
+        })
+        .catch(error => {
+            loading.style.display = 'none';
+            Toast.error('An error occurred');
+            console.error('Error:', error);
+        });
+}
+
+function closeViewerModal() {
+    document.getElementById('viewerModal').classList.remove('show');
+    // Clear viewers
+    document.getElementById('documentViewer').src = '';
+    document.getElementById('imageViewer').src = '';
+    document.getElementById('documentViewer').style.display = 'none';
+    document.getElementById('imageViewer').style.display = 'none';
+}
+
+function approveDocument(documentId, documentName) {
+    ConfirmationModal.show({
+        title: 'Approve Document',
+        message: `Are you sure you want to approve "${documentName}"?`,
+        type: 'save',
+        confirmText: 'Approve',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            updateDocumentStatus(documentId, 'approved');
+        }
+    });
+}
+
+function disapproveDocument(documentId, documentName) {
+    ConfirmationModal.show({
+        title: 'Disapprove Document',
+        message: `Please provide a reason for disapproving "${documentName}":`,
+        type: 'warning',
+        confirmText: 'Disapprove',
+        cancelText: 'Cancel',
+        requireInput: true,
+        inputPlaceholder: 'Enter reason for disapproval (required)...',
+        onConfirm: (comment) => {
+            updateDocumentStatus(documentId, 'disapproved', comment);
+        }
+    });
+}
+
+function updateDocumentStatus(documentId, status, comment = '') {
+    const csrftoken = getCookie('csrftoken');
+    
+    const payload = { status: status };
+    if (comment) {
+        payload.comment = comment;
+    }
+    
+    fetch(`/dashboard/my-accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/update-status/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrftoken
+        },
+        body: JSON.stringify(payload)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            Toast.success(data.message);
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            Toast.error(data.message || 'Failed to update status');
+        }
+    })
+    .catch(error => {
+        Toast.error('An error occurred');
+        console.error('Error:', error);
+    });
+}
+
+function deleteDocument(documentId, documentName) {
+    ConfirmationModal.show({
+        title: 'Delete Document',
+        message: `Are you sure you want to delete "${documentName}"? This action cannot be undone.`,
+        type: 'delete',
+        confirmText: 'Delete',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            const csrftoken = getCookie('csrftoken');
+            
+            fetch(`/dashboard/my-accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/delete/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrftoken
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message);
+                    setTimeout(() => location.reload(), 1000);
+                } else {
+                    Toast.error(data.message || 'Failed to delete document');
+                }
+            })
+            .catch(error => {
+                Toast.error('An error occurred');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function toggleAdditionalDocuments() {
+    const list = document.getElementById('additionalDocumentsList');
+    const icon = document.getElementById('additionalToggleIcon');
+    
+    if (list.style.display === 'none') {
+        list.style.display = 'block';
+        icon.classList.remove('fa-chevron-right');
+        icon.classList.add('fa-chevron-down');
+    } else {
+        list.style.display = 'none';
+        icon.classList.remove('fa-chevron-down');
+        icon.classList.add('fa-chevron-right');
+    }
+}
+
+function searchDocuments() {
+    const searchInput = document.getElementById('searchDocuments');
+    const searchTerm = searchInput.value.toLowerCase().trim();
+    const items = document.querySelectorAll('.document-item');
+    
+    items.forEach(item => {
+        const nameElement = item.querySelector('.document-name');
+        if (nameElement) {
+            const name = nameElement.textContent.toLowerCase();
+            item.style.display = name.includes(searchTerm) ? '' : 'none';
+        }
+    });
+}
+
+// Download document with audit logging
+function downloadDocument(documentId, documentName) {
+    console.log('Downloading document:', documentId, documentName);
+    
+    // Show loading state
+    Toast.info('Preparing download...');
+    
+    // Call download API endpoint
+    fetch(`/dashboard/my-accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/download/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Open download URL in new tab/window to trigger download
+            window.open(data.download_url, '_blank');
+            
+            // Show success notification
+            Toast.success(`Document "${documentName}" downloaded successfully!`);
+            
+            console.log('Download successful, audit logged');
+        } else {
+            Toast.error(data.error || 'Failed to download document');
+        }
+    })
+    .catch(error => {
+        console.error('Download error:', error);
+        Toast.error('An error occurred while downloading the document');
+    });
+}
+
+// Helper function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+</script>
+
+{% endblock %}

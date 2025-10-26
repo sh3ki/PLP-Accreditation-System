@@ -6933,3 +6933,699 @@ def get_department_dashboard_data(user):
             'upload_data': '[]',
             'upcoming_deadlines': [],
         }
+
+
+# ============================================================================
+# MY ACCREDITATION VIEWS - Department User's Personal Accreditation View
+# ============================================================================
+
+@login_required
+def my_accreditation_view(request):
+    """My Accreditation page - displays all active items with user's assigned department"""
+    user = get_user_from_session(request)
+    
+    # Get user's assigned department from session
+    user_department_id = request.session.get('user', {}).get('department_id', '')
+    
+    # Fetch all active departments
+    try:
+        departments = get_all_documents('departments')
+        
+        # Filter only active and non-archived departments
+        departments = [
+            dept for dept in departments 
+            if dept.get('is_active', True) and not dept.get('is_archived', False)
+        ]
+        
+        for dept in departments:
+            # Set default values if not present
+            if 'logo_url' not in dept:
+                dept['logo_url'] = ''
+        
+        # Sort by name
+        departments.sort(key=lambda x: x.get('name', ''))
+        
+    except Exception as e:
+        print(f"Error fetching departments: {str(e)}")
+        departments = []
+    
+    # Fetch all active programs
+    try:
+        programs = get_all_documents('programs')
+        
+        # Filter only active and non-archived programs
+        programs = [
+            prog for prog in programs 
+            if prog.get('is_active', True) and not prog.get('is_archived', False)
+        ]
+        
+        # Sort by code
+        programs.sort(key=lambda x: x.get('code', ''))
+        
+    except Exception as e:
+        print(f"Error fetching programs: {str(e)}")
+        programs = []
+    
+    # Fetch all active accreditation types
+    try:
+        types = get_all_documents('accreditation_types')
+        
+        # Filter only active and non-archived types
+        types = [
+            t for t in types 
+            if t.get('is_active', True) and not t.get('is_archived', False)
+        ]
+        
+        # Sort by type name
+        types.sort(key=lambda x: x.get('type', ''))
+        
+    except Exception as e:
+        print(f"Error fetching types: {str(e)}")
+        types = []
+    
+    # Fetch all active areas
+    try:
+        areas = get_all_documents('areas')
+        
+        # Filter only active and non-archived areas
+        areas = [
+            mod for mod in areas 
+            if mod.get('is_active', True) and not mod.get('is_archived', False)
+        ]
+        
+        # Sort by name
+        areas.sort(key=lambda x: x.get('name', ''))
+        
+    except Exception as e:
+        print(f"Error fetching areas: {str(e)}")
+        areas = []
+    
+    # Calculate progress for each department
+    try:
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        for dept in departments:
+            dept_id = dept.get('id')
+            # Get all programs for this department
+            dept_programs = [p for p in programs if p.get('department_id') == dept_id]
+            
+            if not dept_programs:
+                dept['progress'] = 0
+                continue
+            
+            # Calculate progress for each program first
+            program_progresses = []
+            for prog in dept_programs:
+                prog_id = prog.get('id')
+                prog_types = [t for t in types if t.get('program_id') == prog_id]
+                
+                if not prog_types:
+                    program_progresses.append(0)
+                    continue
+                
+                # Calculate progress for each type
+                type_progresses = []
+                for prog_type in prog_types:
+                    type_id = prog_type.get('id')
+                    type_areas = [a for a in areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+                    
+                    if not type_areas:
+                        type_progresses.append(0)
+                        continue
+                    
+                    # Calculate progress for each area
+                    area_progresses = []
+                    for area in type_areas:
+                        area_id = area.get('id')
+                        area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+                        
+                        if not area_checklists:
+                            area_progresses.append(0)
+                            continue
+                        
+                        total_checklists = len(area_checklists)
+                        completed_checklists = 0
+                        
+                        for checklist in area_checklists:
+                            checklist_id = checklist.get('id')
+                            required_docs = [
+                                doc for doc in all_documents 
+                                if doc.get('checklist_id') == checklist_id 
+                                and doc.get('is_required', False)
+                                and not doc.get('is_archived', False)
+                                and doc.get('status') == 'approved'
+                            ]
+                            if len(required_docs) > 0:
+                                completed_checklists += 1
+                        
+                        area_progress = (completed_checklists / total_checklists) * 100 if total_checklists > 0 else 0
+                        area_progresses.append(area_progress)
+                    
+                    # Type progress is average of its areas
+                    type_progress = sum(area_progresses) / len(area_progresses) if area_progresses else 0
+                    type_progresses.append(type_progress)
+                
+                # Program progress is average of its types
+                program_progress = sum(type_progresses) / len(type_progresses) if type_progresses else 0
+                program_progresses.append(program_progress)
+            
+            # Department progress is the average of its programs' progress
+            dept['progress'] = round(sum(program_progresses) / len(program_progresses)) if program_progresses else 0
+            
+    except Exception as e:
+        print(f"Error calculating department progress: {str(e)}")
+        for dept in departments:
+            dept['progress'] = 0
+    
+    # Get user's department object
+    user_department = None
+    if user_department_id:
+        user_department = next((d for d in departments if d.get('id') == user_department_id), None)
+    
+    context = {
+        'active_page': 'my_accreditation',
+        'user': user,
+        'departments': departments,
+        'programs': programs,
+        'types': types,
+        'areas': areas,
+        'user_department': user_department,
+        'user_department_id': user_department_id,
+    }
+    return render(request, 'dashboard/my_accreditation.html', context)
+
+
+@login_required
+def my_accreditation_department_programs_view(request, dept_id):
+    """My Accreditation Programs page - read-only view of programs under a department"""
+    user = get_user_from_session(request)
+    user_department_id = request.session.get('user', {}).get('department_id', '')
+    
+    # Get department info
+    try:
+        department = get_document('departments', dept_id)
+        if not department:
+            messages.error(request, 'Department not found.')
+            return redirect('dashboard:my_accreditation')
+    except Exception as e:
+        print(f"Error fetching department: {str(e)}")
+        messages.error(request, 'Error fetching department.')
+        return redirect('dashboard:my_accreditation')
+    
+    # Get all active programs for this department
+    try:
+        all_programs = get_all_documents('programs')
+        programs = [
+            prog for prog in all_programs 
+            if prog.get('department_id') == dept_id 
+            and prog.get('is_active', True) 
+            and not prog.get('is_archived', False)
+        ]
+        programs.sort(key=lambda x: x.get('code', ''))
+        
+        # Calculate progress for each program based on its types
+        all_types = get_all_documents('accreditation_types')
+        all_areas = get_all_documents('areas')
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        for prog in programs:
+            prog_id = prog.get('id')
+            # Get all types for this program
+            prog_types = [t for t in all_types if t.get('program_id') == prog_id]
+            
+            if not prog_types:
+                prog['progress'] = 0
+                continue
+            
+            # Calculate progress for each type first
+            type_progresses = []
+            for prog_type in prog_types:
+                type_id = prog_type.get('id')
+                type_areas = [a for a in all_areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+                
+                if not type_areas:
+                    type_progresses.append(0)
+                    continue
+                
+                # Calculate progress for each area
+                area_progresses = []
+                for area in type_areas:
+                    area_id = area.get('id')
+                    area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+                    
+                    if not area_checklists:
+                        area_progresses.append(0)
+                        continue
+                    
+                    total_checklists = len(area_checklists)
+                    completed_checklists = 0
+                    
+                    for checklist in area_checklists:
+                        checklist_id = checklist.get('id')
+                        required_docs = [
+                            doc for doc in all_documents 
+                            if doc.get('checklist_id') == checklist_id 
+                            and doc.get('is_required', False)
+                            and not doc.get('is_archived', False)
+                            and doc.get('status') == 'approved'
+                        ]
+                        if len(required_docs) > 0:
+                            completed_checklists += 1
+                    
+                    area_progress = (completed_checklists / total_checklists) * 100 if total_checklists > 0 else 0
+                    area_progresses.append(area_progress)
+                
+                # Type progress is average of its areas
+                type_progress = sum(area_progresses) / len(area_progresses) if area_progresses else 0
+                type_progresses.append(type_progress)
+            
+            # Program progress is the average of its types' progress
+            prog['progress'] = round(sum(type_progresses) / len(type_progresses)) if type_progresses else 0
+            
+    except Exception as e:
+        print(f"Error fetching programs: {str(e)}")
+        programs = []
+    
+    # Check if this is user's assigned department
+    print(f"DEBUG: dept_id = '{dept_id}', user_department_id = '{user_department_id}'")
+    is_user_department = (dept_id == user_department_id)
+    print(f"DEBUG: is_user_department = {is_user_department}")
+    
+    context = {
+        'active_page': 'my_accreditation',
+        'user': user,
+        'department': department,
+        'programs': programs,
+        'dept_id': dept_id,
+        'is_user_department': is_user_department,
+        'user_department_id': user_department_id,
+    }
+    return render(request, 'dashboard/my_accreditation_programs.html', context)
+
+
+@login_required
+def my_accreditation_program_types_view(request, dept_id, prog_id):
+    """My Accreditation Types page - read-only view of types under a program"""
+    user = get_user_from_session(request)
+    user_department_id = request.session.get('user', {}).get('department_id', '')
+    
+    # Get department and program info
+    try:
+        department = get_document('departments', dept_id)
+        program = get_document('programs', prog_id)
+        if not department or not program:
+            messages.error(request, 'Department or Program not found.')
+            return redirect('dashboard:my_accreditation')
+    except Exception as e:
+        print(f"Error fetching data: {str(e)}")
+        messages.error(request, 'Error fetching data.')
+        return redirect('dashboard:my_accreditation')
+    
+    # Get all active types for this program
+    try:
+        all_types = get_all_documents('accreditation_types')
+        types = [
+            t for t in all_types 
+            if t.get('program_id') == prog_id 
+            and t.get('is_active', True) 
+            and not t.get('is_archived', False)
+        ]
+        types.sort(key=lambda x: x.get('type', ''))
+        
+        # Calculate progress for each type based on its areas
+        all_areas = get_all_documents('areas')
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        for accred_type in types:
+            type_id = accred_type.get('id')
+            # Get all areas for this type (check both type_id and accreditation_type_id)
+            type_areas = [a for a in all_areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+            
+            if not type_areas:
+                accred_type['progress'] = 0
+                continue
+            
+            # Calculate progress for each area first
+            area_progresses = []
+            for area in type_areas:
+                area_id = area.get('id')
+                area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+                
+                if not area_checklists:
+                    area_progresses.append(0)
+                    continue
+                
+                total_checklists = len(area_checklists)
+                completed_checklists = 0
+                
+                for checklist in area_checklists:
+                    checklist_id = checklist.get('id')
+                    required_docs = [
+                        doc for doc in all_documents 
+                        if doc.get('checklist_id') == checklist_id 
+                        and doc.get('is_required', False)
+                        and not doc.get('is_archived', False)
+                        and doc.get('status') == 'approved'
+                    ]
+                    if len(required_docs) > 0:
+                        completed_checklists += 1
+                
+                area_progress = (completed_checklists / total_checklists) * 100 if total_checklists > 0 else 0
+                area_progresses.append(area_progress)
+            
+            # Type progress is the average of its areas' progress
+            accred_type['progress'] = round(sum(area_progresses) / len(area_progresses)) if area_progresses else 0
+            
+    except Exception as e:
+        print(f"Error fetching types: {str(e)}")
+        types = []
+    
+    # Check if this is user's assigned department
+    is_user_department = (dept_id == user_department_id)
+    
+    context = {
+        'active_page': 'my_accreditation',
+        'user': user,
+        'department': department,
+        'program': program,
+        'types': types,
+        'dept_id': dept_id,
+        'prog_id': prog_id,
+        'is_user_department': is_user_department,
+        'user_department_id': user_department_id,
+    }
+    return render(request, 'dashboard/my_accreditation_types.html', context)
+
+
+@login_required
+def my_accreditation_type_areas_view(request, dept_id, prog_id, type_id):
+    """My Accreditation Areas page - read-only view of areas under a type"""
+    user = get_user_from_session(request)
+    user_department_id = request.session.get('user', {}).get('department_id', '')
+    
+    # Get breadcrumb info
+    try:
+        department = get_document('departments', dept_id)
+        program = get_document('programs', prog_id)
+        accreditation_type = get_document('accreditation_types', type_id)
+        if not department or not program or not accreditation_type:
+            messages.error(request, 'Data not found.')
+            return redirect('dashboard:my_accreditation')
+    except Exception as e:
+        print(f"Error fetching data: {str(e)}")
+        messages.error(request, 'Error fetching data.')
+        return redirect('dashboard:my_accreditation')
+    
+    # Get all active areas for this type
+    try:
+        all_areas = get_all_documents('areas')
+        areas = [
+            mod for mod in all_areas 
+            if (mod.get('type_id') == type_id or mod.get('accreditation_type_id') == type_id)
+            and mod.get('is_active', True) 
+            and not mod.get('is_archived', False)
+        ]
+        areas.sort(key=lambda x: x.get('name', ''))
+        
+        # Calculate progress for each area
+        all_checklists = get_all_documents('checklists')
+        all_documents = get_all_documents('documents')
+        
+        for area in areas:
+            area_id = area.get('id')
+            # Get all checklists for this area
+            area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+            
+            if not area_checklists:
+                area['progress'] = 0
+                continue
+            
+            # Calculate progress based on required documents
+            total_checklists = len(area_checklists)
+            completed_checklists = 0
+            
+            for checklist in area_checklists:
+                checklist_id = checklist.get('id')
+                required_docs = [
+                    doc for doc in all_documents 
+                    if doc.get('checklist_id') == checklist_id 
+                    and doc.get('is_required', False)
+                    and not doc.get('is_archived', False)
+                    and doc.get('status') == 'approved'
+                ]
+                if len(required_docs) > 0:
+                    completed_checklists += 1
+            
+            area['progress'] = round((completed_checklists / total_checklists) * 100) if total_checklists > 0 else 0
+            
+    except Exception as e:
+        print(f"Error fetching areas: {str(e)}")
+        areas = []
+    
+    # Check if this is user's assigned department
+    is_user_department = (dept_id == user_department_id)
+    
+    context = {
+        'active_page': 'my_accreditation',
+        'user': user,
+        'department': department,
+        'program': program,
+        'accreditation_type': accreditation_type,
+        'areas': areas,
+        'dept_id': dept_id,
+        'prog_id': prog_id,
+        'type_id': type_id,
+        'is_user_department': is_user_department,
+        'user_department_id': user_department_id,
+    }
+    return render(request, 'dashboard/my_accreditation_areas.html', context)
+
+
+@login_required
+def my_accreditation_area_checklists_view(request, dept_id, prog_id, type_id, area_id):
+    """My Accreditation Checklists page - read-only view of checklists under an area"""
+    user = get_user_from_session(request)
+    user_department_id = request.session.get('user', {}).get('department_id', '')
+    
+    # Get breadcrumb info
+    try:
+        department = get_document('departments', dept_id)
+        program = get_document('programs', prog_id)
+        accreditation_type = get_document('accreditation_types', type_id)
+        area = get_document('areas', area_id)
+        if not department or not program or not accreditation_type or not area:
+            messages.error(request, 'Data not found.')
+            return redirect('dashboard:my_accreditation')
+    except Exception as e:
+        print(f"Error fetching data: {str(e)}")
+        messages.error(request, 'Error fetching data.')
+        return redirect('dashboard:my_accreditation')
+    
+    # Get all active checklists for this area
+    try:
+        all_checklists = get_all_documents('checklists')
+        checklists = [
+            checklist for checklist in all_checklists 
+            if checklist.get('area_id') == area_id 
+            and checklist.get('is_active', True) 
+            and not checklist.get('is_archived', False)
+        ]
+        checklists.sort(key=lambda x: x.get('name', ''))
+        
+        # Get all documents to calculate progress for each checklist
+        all_documents = get_all_documents('documents')
+        
+        # Add progress percentage to each checklist
+        for checklist in checklists:
+            checklist_id = checklist.get('id')
+            # Get required documents for this checklist
+            required_docs = [
+                doc for doc in all_documents 
+                if doc.get('checklist_id') == checklist_id 
+                and doc.get('is_required', False)
+                and not doc.get('is_archived', False)
+                and doc.get('status') == 'approved'
+            ]
+            # Progress is 100% if there's at least 1 required document, otherwise 0%
+            checklist['progress'] = 100 if len(required_docs) > 0 else 0
+            
+    except Exception as e:
+        print(f"Error fetching checklists: {str(e)}")
+        checklists = []
+    
+    # Check if this is user's assigned department
+    is_user_department = (dept_id == user_department_id)
+    
+    context = {
+        'active_page': 'my_accreditation',
+        'user': user,
+        'department': department,
+        'program': program,
+        'accreditation_type': accreditation_type,
+        'area': area,
+        'checklists': checklists,
+        'dept_id': dept_id,
+        'prog_id': prog_id,
+        'type_id': type_id,
+        'area_id': area_id,
+        'is_user_department': is_user_department,
+        'user_department_id': user_department_id,
+    }
+    return render(request, 'dashboard/my_accreditation_checklists.html', context)
+
+
+@login_required
+def my_accreditation_checklist_documents_view(request, dept_id, prog_id, type_id, area_id, checklist_id):
+    """View documents for a specific checklist - My Accreditation version (no approve/disapprove buttons)"""
+    user = get_user_from_session(request)
+    user_department_id = request.session.get('user', {}).get('department_id', '')
+    
+    try:
+        # Get breadcrumb data
+        department = get_document('departments', dept_id)
+        program = get_document('programs', prog_id)
+        accreditation_type = get_document('accreditation_types', type_id)
+        area = get_document('areas', area_id)
+        checklist = get_document('checklists', checklist_id)
+        
+        if not all([department, program, accreditation_type, area, checklist]):
+            messages.error(request, 'Data not found.')
+            return redirect('dashboard:my_accreditation')
+        
+        # Get documents for this checklist
+        all_documents = get_all_documents('documents')
+        documents = [
+            doc for doc in all_documents 
+            if doc.get('checklist_id') == checklist_id 
+            and not doc.get('is_archived', False)
+        ]
+        
+        # Separate required and additional documents
+        required_document = next((doc for doc in documents if doc.get('is_required', False)), None)
+        additional_documents = [doc for doc in documents if not doc.get('is_required', False)]
+        
+        # Sort additional documents by creation date
+        additional_documents.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+    except Exception as e:
+        print(f"Error fetching documents: {str(e)}")
+        messages.error(request, 'Error fetching documents.')
+        return redirect('dashboard:my_accreditation')
+    
+    # Check if this is user's assigned department
+    is_user_department = (dept_id == user_department_id)
+    
+    context = {
+        'active_page': 'my_accreditation',
+        'user': user,
+        'department': department,
+        'program': program,
+        'accreditation_type': accreditation_type,
+        'area': area,
+        'checklist': checklist,
+        'required_document': required_document,
+        'additional_documents': additional_documents,
+        'dept_id': dept_id,
+        'prog_id': prog_id,
+        'type_id': type_id,
+        'area_id': area_id,
+        'checklist_id': checklist_id,
+        'is_user_department': is_user_department,
+        'user_department_id': user_department_id,
+    }
+    return render(request, 'dashboard/my_accreditation_checklist_documents.html', context)
+
+
+@login_required
+def my_accreditation_view_document(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
+    """View document details - My Accreditation version"""
+    try:
+        # Get document
+        document = get_document('documents', document_id)
+        if not document:
+            return JsonResponse({'success': False, 'error': 'Document not found'})
+        
+        # Verify document belongs to this checklist
+        if document.get('checklist_id') != checklist_id:
+            return JsonResponse({'success': False, 'error': 'Invalid document'})
+        
+        # Return document data
+        return JsonResponse({
+            'success': True,
+            'document': {
+                'id': document.get('id'),
+                'name': document.get('name'),
+                'format': document.get('format'),
+                'file_url': document.get('file_url'),
+                'uploaded_by': document.get('uploaded_by'),
+                'uploaded_at': document.get('created_at'),
+                'status': document.get('status', 'submitted'),
+                'is_required': document.get('is_required', False)
+            }
+        })
+        
+    except Exception as e:
+        print(f"Error viewing document: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'An error occurred while loading the document'})
+
+
+@login_required
+@require_http_methods(["POST"])
+def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
+
+    """Download document with audit logging - My Accreditation version"""
+    from .audit_utils import log_audit
+    
+    try:
+        user = get_user_from_session(request)
+        
+        # Get document
+        document = get_document('documents', document_id)
+        if not document:
+            return JsonResponse({'success': False, 'error': 'Document not found'})
+        
+        # Verify document belongs to this checklist
+        if document.get('checklist_id') != checklist_id:
+            return JsonResponse({'success': False, 'error': 'Invalid document'})
+        
+        # Only allow download of approved documents
+        if document.get('status') != 'approved':
+            return JsonResponse({'success': False, 'error': 'Only approved documents can be downloaded'})
+        
+        # Get document URL
+        download_url = document.get('file_url', '')
+        if not download_url:
+            return JsonResponse({'success': False, 'error': 'Document file not found'})
+        
+        # Log audit trail
+        log_audit(
+            user_id=user.get('id'),
+            user_email=user.get('email'),
+            action='DOWNLOAD_DOCUMENT',
+            target_type='document',
+            target_id=document_id,
+            details={
+                'document_name': document.get('name'),
+                'document_format': document.get('format'),
+                'department_id': dept_id,
+                'program_id': prog_id,
+                'type_id': type_id,
+                'area_id': area_id,
+                'checklist_id': checklist_id,
+                'page': 'my_accreditation'
+            }
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'download_url': download_url,
+            'document_name': document.get('name')
+        })
+        
+    except Exception as e:
+        print(f"Error downloading document: {str(e)}")
+        return JsonResponse({'success': False, 'error': 'An error occurred while preparing the download'})
+

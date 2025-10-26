@@ -439,6 +439,12 @@
                 </a>
             </li>
             <li class="sidebar-item">
+                <a href="{% url 'dashboard:my_accreditation' %}" class="sidebar-link {% if active_page == 'my_accreditation' %}active{% endif %}">
+                    <i class="fas fa-user-check"></i>
+                    My Accreditation
+                </a>
+            </li>
+            <li class="sidebar-item">
                 <a href="{% url 'dashboard:performance' %}" class="sidebar-link {% if active_page == 'performance' %}active{% endif %}">
                     <i class="fas fa-chart-line"></i>
                     Performance
