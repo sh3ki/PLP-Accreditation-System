@@ -6669,6 +6669,23 @@ def get_qa_admin_dashboard_data(user):
     from datetime import datetime, timedelta
     import json
     
+    def safe_get_datetime(doc, field_name):
+        """Safely convert timestamp to datetime object"""
+        value = doc.get(field_name)
+        if isinstance(value, datetime):
+            return value
+        elif isinstance(value, str):
+            try:
+                # Try ISO format first
+                return datetime.fromisoformat(value.replace('Z', '+00:00'))
+            except:
+                try:
+                    # Try strptime with common formats
+                    return datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
+                except:
+                    return datetime.min
+        return datetime.min
+    
     try:
         # Get all documents
         documents = get_all_documents('documents')
@@ -6685,7 +6702,7 @@ def get_qa_admin_dashboard_data(user):
         today = now.date()
         documents_today = len([
             d for d in documents
-            if d.get('uploaded_at') and isinstance(d.get('uploaded_at'), datetime) and d.get('uploaded_at').date() == today
+            if safe_get_datetime(d, 'uploaded_at').date() == today
         ])
         
         # Get programs
@@ -6695,14 +6712,13 @@ def get_qa_admin_dashboard_data(user):
         # Calculate completion rate
         completion_rate = round((approved_documents / total_documents * 100) if total_documents > 0 else 0, 1)
         
-        # Get recent document uploads
-        documents.sort(key=lambda x: x.get('uploaded_at', datetime.min), reverse=True)
+        # Get recent document uploads - sort safely
+        documents.sort(key=lambda x: safe_get_datetime(x, 'uploaded_at'), reverse=True)
         recent_documents = documents[:10]
         
-        # Format recent documents
+        # Format recent documents - convert timestamps to datetime objects
         for doc in recent_documents:
-            if isinstance(doc.get('uploaded_at'), datetime):
-                doc['uploaded_at'] = doc['uploaded_at']
+            doc['uploaded_at'] = safe_get_datetime(doc, 'uploaded_at')
         
         # Prepare department uploads data
         dept_uploads = {}
@@ -6723,7 +6739,7 @@ def get_qa_admin_dashboard_data(user):
             
             count = len([
                 d for d in documents
-                if d.get('uploaded_at') and isinstance(d.get('uploaded_at'), datetime) and d.get('uploaded_at').date() == day.date()
+                if safe_get_datetime(d, 'uploaded_at').date() == day.date()
             ])
             weekly_data.append(count)
         
@@ -6788,6 +6804,23 @@ def get_department_dashboard_data(user):
     from datetime import datetime, timedelta
     import json
     
+    def safe_get_datetime(doc, field_name):
+        """Safely convert timestamp to datetime object"""
+        value = doc.get(field_name)
+        if isinstance(value, datetime):
+            return value
+        elif isinstance(value, str):
+            try:
+                # Try ISO format first
+                return datetime.fromisoformat(value.replace('Z', '+00:00'))
+            except:
+                try:
+                    # Try strptime with common formats
+                    return datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
+                except:
+                    return datetime.min
+        return datetime.min
+    
     try:
         user_dept_id = user.get('department_id')
         if not user_dept_id:
@@ -6836,8 +6869,8 @@ def get_department_dashboard_data(user):
                     'percentage': percentage
                 })
         
-        # Get recent activities
-        my_documents.sort(key=lambda x: x.get('uploaded_at', datetime.min), reverse=True)
+        # Get recent activities - sort safely
+        my_documents.sort(key=lambda x: safe_get_datetime(x, 'uploaded_at'), reverse=True)
         recent_activities = []
         
         for doc in my_documents[:10]:
@@ -6851,7 +6884,7 @@ def get_department_dashboard_data(user):
                 'type': activity_type,
                 'title': doc.get('title', 'Untitled Document'),
                 'description': f"Area: {doc.get('area_name', 'N/A')}",
-                'timestamp': doc.get('uploaded_at', datetime.now())
+                'timestamp': safe_get_datetime(doc, 'uploaded_at')
             })
         
         # Prepare upload progress chart data (last 30 days)
@@ -6866,7 +6899,7 @@ def get_department_dashboard_data(user):
             
             count = len([
                 d for d in my_documents
-                if d.get('uploaded_at') and isinstance(d.get('uploaded_at'), datetime) and d.get('uploaded_at').date() == day.date()
+                if safe_get_datetime(d, 'uploaded_at').date() == day.date()
             ])
             upload_data.append(count)
         
