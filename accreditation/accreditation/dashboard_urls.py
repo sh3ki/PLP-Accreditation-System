@@ -93,7 +93,16 @@ urlpatterns = [
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/update-status/', dashboard_views.document_update_status_view, name='document_update_status'),
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/delete/', dashboard_views.document_delete_view, name='document_delete'),
     
+    # System Appearance
     path('settings/appearance/', dashboard_views.system_appearance_view, name='system_appearance'),
+    path('settings/appearance/get/', dashboard_views.get_appearance_settings, name='get_appearance_settings'),
+    path('settings/appearance/save-color/', dashboard_views.save_theme_color, name='save_theme_color'),
+    path('settings/appearance/upload-logo/', dashboard_views.upload_logo, name='upload_logo'),
+    path('settings/appearance/remove-logo/', dashboard_views.remove_logo, name='remove_logo'),
+    path('settings/appearance/save-title/', dashboard_views.save_system_title, name='save_system_title'),
+    path('settings/appearance/upload-background/', dashboard_views.upload_background, name='upload_background'),
+    path('settings/appearance/remove-background/', dashboard_views.remove_background, name='remove_background'),
+    
     path('change-password/', dashboard_views.change_password_view, name='change_password'),
     
     # Archive API endpoints

@@ -3,7 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dashboard{% endblock %} - PLP Accreditation System</title>
+    <title>{% block title %}Dashboard{% endblock %} - {{ system_title }}</title>
+    
+    <!-- CRITICAL: Apply theme color IMMEDIATELY to prevent flickering -->
+    <script>
+        // Calculate color variants immediately
+        (function() {
+            const themeColor = '{{ theme_color|default:"#4a9d4f" }}';
+            const r = parseInt(themeColor.substr(1, 2), 16);
+            const g = parseInt(themeColor.substr(3, 2), 16);
+            const b = parseInt(themeColor.substr(5, 2), 16);
+            
+            const lightR = Math.min(255, Math.floor(r * 1.2));
+            const lightG = Math.min(255, Math.floor(g * 1.2));
+            const lightB = Math.min(255, Math.floor(b * 1.2));
+            const lightColor = `rgb(${lightR}, ${lightG}, ${lightB})`;
+            
+            const darkR = Math.floor(r * 0.8);
+            const darkG = Math.floor(g * 0.8);
+            const darkB = Math.floor(b * 0.8);
+            const darkColor = `rgb(${darkR}, ${darkG}, ${darkB})`;
+            
+            // Inject CSS BEFORE page renders
+            const style = document.createElement('style');
+            style.id = 'initial-theme-style';
+            style.textContent = `
+                :root {
+                    --plp-green: ${themeColor} !important;
+                    --plp-light-green: ${lightColor} !important;
+                    --plp-dark-green: ${darkColor} !important;
+                }
+                
+                /* Apply theme to critical elements immediately */
+                .header { background: ${themeColor} !important; }
+                .sidebar { background: ${themeColor} !important; }
+                .btn-primary, .btn-success { background: ${themeColor} !important; border-color: ${themeColor} !important; }
+                .btn-primary:hover, .btn-success:hover { background: ${darkColor} !important; border-color: ${darkColor} !important; }
+            `;
+            document.head.appendChild(style);
+        })();
+    </script>
     
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -17,7 +56,7 @@
     <!-- Custom CSS -->
     <style>
         :root {
-            --plp-green: #4a9d4f;
+            --plp-green: {{ theme_color|default:"#4a9d4f" }};
             --plp-light-green: #66bb6a;
             --plp-dark-green: #2e7d32;
             --sidebar-width: 240px;
@@ -829,6 +868,268 @@
         }
     </script>
     {% endif %}
+
+    <!-- Load and apply appearance settings -->
+    <script>
+        // Theme color is already applied from server-side context to prevent flickering
+        // This script only handles dynamic updates and logo application
+        document.addEventListener('DOMContentLoaded', function() {
+            // Apply logo if available (from context)
+            const logoUrl = '{{ logo_url|default:"" }}';
+            if (logoUrl) {
+                const logoElements = document.querySelectorAll('.logo-section img');
+                logoElements.forEach(el => {
+                    el.src = logoUrl;
+                });
+            }
+            
+            // Apply system title (already in context, but update dynamically if needed)
+            const systemTitle = '{{ system_title|default:"PLP Accreditation System" }}';
+            const brandElements = document.querySelectorAll('.brand-name');
+            brandElements.forEach(el => {
+                if (!el.textContent || el.textContent === 'PLP Accreditation System') {
+                    el.textContent = systemTitle;
+                }
+            });
+            
+            // Apply theme color comprehensively (redundant but ensures all elements are styled)
+            const themeColor = '{{ theme_color|default:"#4a9d4f" }}';
+            applyThemeColor(themeColor);
+        });
+        
+        // Function to apply theme color GLOBALLY to ALL pages
+        function applyThemeColor(color) {
+            // Convert hex to RGB for calculations
+            const r = parseInt(color.substr(1, 2), 16);
+            const g = parseInt(color.substr(3, 2), 16);
+            const b = parseInt(color.substr(5, 2), 16);
+            
+            // Calculate lighter and darker variants
+            const lightR = Math.min(255, Math.floor(r * 1.2));
+            const lightG = Math.min(255, Math.floor(g * 1.2));
+            const lightB = Math.min(255, Math.floor(b * 1.2));
+            const lightColor = `rgb(${lightR}, ${lightG}, ${lightB})`;
+            
+            const darkR = Math.floor(r * 0.8);
+            const darkG = Math.floor(g * 0.8);
+            const darkB = Math.floor(b * 0.8);
+            const darkColor = `rgb(${darkR}, ${darkG}, ${darkB})`;
+            
+            // Update CSS variables - This affects EVERYTHING using var(--plp-green)
+            document.documentElement.style.setProperty('--plp-green', color);
+            document.documentElement.style.setProperty('--plp-light-green', lightColor);
+            document.documentElement.style.setProperty('--plp-dark-green', darkColor);
+            
+            // Create or update global style tag for consistent theming
+            let styleTag = document.getElementById('dynamic-theme-style');
+            if (!styleTag) {
+                styleTag = document.createElement('style');
+                styleTag.id = 'dynamic-theme-style';
+                document.head.appendChild(styleTag);
+            }
+            
+            // Apply comprehensive CSS rules to override ALL green colors throughout the system
+            styleTag.textContent = `
+                /* Override CSS Variables */
+                :root {
+                    --plp-green: ${color} !important;
+                    --plp-light-green: ${lightColor} !important;
+                    --plp-dark-green: ${darkColor} !important;
+                }
+                
+                /* Header */
+                .header {
+                    background: ${color} !important;
+                }
+                
+                /* Sidebar */
+                .sidebar {
+                    background: ${color} !important;
+                }
+                
+                /* All Primary Buttons */
+                .btn-primary,
+                .btn-success,
+                .btn-primary-appearance,
+                button.btn-success,
+                a.btn-success,
+                .action-btn,
+                .add-btn,
+                .save-btn {
+                    background: ${color} !important;
+                    border-color: ${color} !important;
+                }
+                
+                .btn-primary:hover,
+                .btn-success:hover,
+                .btn-primary-appearance:hover,
+                button.btn-success:hover,
+                a.btn-success:hover,
+                .action-btn:hover,
+                .add-btn:hover,
+                .save-btn:hover {
+                    background: ${darkColor} !important;
+                    border-color: ${darkColor} !important;
+                }
+                
+                /* Stat Cards - ONLY for overview/dashboard, NOT for performance/reports/audit */
+                .overview-cards .stat-card,
+                .dashboard-stats .stat-card,
+                .stats-row .stat-card {
+                    background: linear-gradient(135deg, ${lightColor}, ${color}) !important;
+                }
+                
+                /* Keep performance, report, and audit cards WHITE */
+                .performance-stats .stat-card,
+                .report-stats .stat-card,
+                .audit-stats .stat-card {
+                    background: white !important;
+                }
+                
+                /* Apply theme color to icons/text in white cards */
+                .performance-stats .stat-card .stat-icon,
+                .report-stats .stat-card .stat-icon,
+                .audit-stats .stat-card .stat-icon,
+                .performance-stats .stat-card h3,
+                .report-stats .stat-card h3,
+                .audit-stats .stat-card h3 {
+                    color: ${color} !important;
+                }
+                
+                /* Card Header Icons */
+                .card-header-icon {
+                    background: ${color} !important;
+                }
+                
+                /* Upload Icons and Highlights */
+                .upload-icon i,
+                .upload-dropzone:hover {
+                    color: ${color} !important;
+                    border-color: ${color} !important;
+                }
+                
+                /* Forms - Focus States */
+                .form-control:focus,
+                .form-control-appearance:focus,
+                input[type="text"]:focus,
+                input[type="email"]:focus,
+                input[type="password"]:focus,
+                textarea:focus,
+                select:focus {
+                    border-color: ${color} !important;
+                    box-shadow: 0 0 0 3px ${color}33 !important;
+                }
+                
+                /* Links and Highlights */
+                a.text-primary,
+                .text-primary {
+                    color: ${color} !important;
+                }
+                
+                /* Badges */
+                .badge-success,
+                .badge-primary {
+                    background: ${color} !important;
+                }
+                
+                /* Progress Bars */
+                .progress-bar {
+                    background: ${color} !important;
+                }
+                
+                /* Checkboxes and Radio Buttons (checked state) */
+                input[type="checkbox"]:checked,
+                input[type="radio"]:checked {
+                    background-color: ${color} !important;
+                    border-color: ${color} !important;
+                }
+                
+                /* Tabs Active State */
+                .nav-tabs .nav-link.active {
+                    color: ${color} !important;
+                    border-bottom-color: ${color} !important;
+                }
+                
+                /* Table Highlights */
+                .table-hover tbody tr:hover {
+                    background-color: ${color}11 !important;
+                }
+                
+                /* Action Icons */
+                .action-icon.edit,
+                .action-icon.view {
+                    color: ${color} !important;
+                }
+                
+                /* Color Swatch Border */
+                .color-swatch:hover {
+                    border-color: ${color} !important;
+                }
+                
+                /* New Preview Sections */
+                .new-preview {
+                    background: ${color}22 !important;
+                }
+                
+                .new-preview-image {
+                    border-color: ${color} !important;
+                    box-shadow: 0 4px 12px ${color}55 !important;
+                }
+                
+                /* Dropzone Hover */
+                .upload-dropzone:hover {
+                    background: ${color}11 !important;
+                }
+                
+                /* Active States */
+                .active-badge,
+                .status-active {
+                    background: ${color} !important;
+                }
+                
+                /* Icon Badges */
+                .icon-badge.success {
+                    background: ${color} !important;
+                }
+                
+                /* Loading Spinners */
+                .spinner-border.text-primary {
+                    color: ${color} !important;
+                }
+                
+                /* Alerts */
+                .alert-success {
+                    background-color: ${color}22 !important;
+                    border-color: ${color} !important;
+                    color: ${darkColor} !important;
+                }
+                
+                /* Custom Buttons in Modals */
+                .modal .btn-primary,
+                .confirmation-btn-confirm {
+                    background: ${color} !important;
+                }
+                
+                .confirmation-btn-confirm:hover {
+                    background: ${darkColor} !important;
+                }
+                
+                /* Info Alerts with Green Theme */
+                .info-alert i {
+                    color: #2196F3 !important;
+                }
+                
+                /* Toast Success */
+                .toast.success {
+                    border-left-color: ${color} !important;
+                }
+                
+                .toast.success .toast-icon {
+                    color: ${color} !important;
+                }
+            `;
+        }
+    </script>
 
     <!-- Bootstrap 5 JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

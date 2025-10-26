@@ -378,6 +378,63 @@
                 alert('Please fill in all required fields.');
             }
         });
+
+        // Load and apply appearance settings
+        document.addEventListener('DOMContentLoaded', async function() {
+            try {
+                const response = await fetch('/dashboard/settings/appearance/get/', {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success && data.settings) {
+                    const settings = data.settings;
+                    
+                    // Apply background image
+                    if (settings.login_bg_url) {
+                        const loginContainer = document.querySelector('.login-container');
+                        if (loginContainer) {
+                            loginContainer.style.backgroundImage = `url('${settings.login_bg_url}')`;
+                        }
+                    }
+                    
+                    // Apply logo
+                    if (settings.logo_url) {
+                        const logoImg = document.querySelector('.logo-img');
+                        if (logoImg) {
+                            logoImg.src = settings.logo_url;
+                        }
+                    }
+                    
+                    // Apply theme color to overlay
+                    if (settings.theme_color) {
+                        const loginContainer = document.querySelector('.login-container');
+                        if (loginContainer) {
+                            // Convert hex to RGB
+                            const r = parseInt(settings.theme_color.substr(1, 2), 16);
+                            const g = parseInt(settings.theme_color.substr(3, 2), 16);
+                            const b = parseInt(settings.theme_color.substr(5, 2), 16);
+                            
+                            // Update overlay color
+                            const style = document.createElement('style');
+                            style.textContent = `
+                                .login-container::before {
+                                    background: rgba(${r}, ${g}, ${b}, 0.7) !important;
+                                }
+                            `;
+                            document.head.appendChild(style);
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading appearance settings:', error);
+                // Use default settings if fetch fails
+            }
+        });
     </script>
 </body>
 </html>

@@ -24,8 +24,8 @@ from accreditation.cloudinary_utils import upload_image_to_cloudinary, delete_im
 from accreditation.document_validator import validate_document_header
 import json
 import hashlib
-import hashlib
 import secrets
+from datetime import datetime
 
 
 def hash_password(raw_password):
@@ -2786,6 +2786,570 @@ def system_appearance_view(request):
         'user': user,
     }
     return render(request, 'dashboard/system_appearance.html', context)
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_appearance_settings(request):
+    """Get current appearance settings"""
+    try:
+        # Get settings from Firestore
+        settings_docs = get_all_documents('system_settings')
+        
+        # Find appearance settings document
+        appearance_settings = None
+        for doc in settings_docs:
+            if doc.get('setting_type') == 'appearance':
+                appearance_settings = doc
+                break
+        
+        # Default settings if not found
+        if not appearance_settings:
+            appearance_settings = {
+                'theme_color': '#4a9d4f',
+                'system_title': 'PLP Accreditation System',
+                'logo_url': '',
+                'login_bg_url': 'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284342/bg_qhybsq.jpg'
+            }
+        
+        return JsonResponse({
+            'success': True,
+            'settings': appearance_settings
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def save_theme_color(request):
+    """Save theme color setting"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied. Only QA Head and QA Admin can modify appearance settings.'
+        }, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        color = data.get('color', '#4a9d4f')
+        
+        # Validate color format (hex color)
+        if not color.startswith('#') or len(color) != 7:
+            return JsonResponse({
+                'success': False,
+                'message': 'Invalid color format. Please use hex color format (e.g., #4a9d4f).'
+            }, status=400)
+        
+        # Get existing settings
+        settings_docs = get_all_documents('system_settings')
+        appearance_settings = None
+        settings_id = None
+        
+        for doc in settings_docs:
+            if doc.get('setting_type') == 'appearance':
+                appearance_settings = doc
+                settings_id = doc.get('id')
+                break
+        
+        # Update or create settings
+        if settings_id:
+            update_document('system_settings', settings_id, {
+                'theme_color': color,
+                'updated_at': datetime.now()
+            })
+        else:
+            create_document('system_settings', {
+                'setting_type': 'appearance',
+                'theme_color': color,
+                'system_title': 'PLP Accreditation System',
+                'logo_url': '',
+                'login_bg_url': 'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284342/bg_qhybsq.jpg'
+            })
+        
+        # Log audit trail
+        log_audit(
+            user=user,
+            action_type='update',
+            resource_type='system_appearance',
+            resource_id='theme_color',
+            details=f"Changed theme color to {color}",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Theme color saved successfully.'
+        })
+    except Exception as e:
+        # Log failed audit
+        log_audit(
+            user=user,
+            action_type='update',
+            resource_type='system_appearance',
+            resource_id='theme_color',
+            details=f"Failed to change theme color: {str(e)}",
+            status='failed',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def upload_logo(request):
+    """Upload system logo"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied. Only QA Head and QA Admin can modify appearance settings.'
+        }, status=403)
+    
+    try:
+        if 'logo' not in request.FILES:
+            return JsonResponse({
+                'success': False,
+                'message': 'No logo file provided.'
+            }, status=400)
+        
+        logo_file = request.FILES['logo']
+        
+        # Validate file size (5MB max)
+        if logo_file.size > 5 * 1024 * 1024:
+            return JsonResponse({
+                'success': False,
+                'message': 'File size must be less than 5MB.'
+            }, status=400)
+        
+        # Get existing settings to check for old logo
+        settings_docs = get_all_documents('system_settings')
+        appearance_settings = None
+        settings_id = None
+        old_logo_url = None
+        
+        for doc in settings_docs:
+            if doc.get('setting_type') == 'appearance':
+                appearance_settings = doc
+                settings_id = doc.get('id')
+                old_logo_url = doc.get('logo_url')
+                break
+        
+        # Delete old logo from Cloudinary if exists
+        if old_logo_url and 'cloudinary' in old_logo_url:
+            try:
+                delete_image_from_cloudinary(old_logo_url)
+            except:
+                pass  # Continue even if deletion fails
+        
+        # Upload new logo to Cloudinary
+        logo_url = upload_image_to_cloudinary(logo_file, folder='system/logos')
+        
+        # Update or create settings
+        if settings_id:
+            update_document('system_settings', settings_id, {
+                'logo_url': logo_url,
+                'updated_at': datetime.now()
+            })
+        else:
+            create_document('system_settings', {
+                'setting_type': 'appearance',
+                'theme_color': '#4a9d4f',
+                'system_title': 'PLP Accreditation System',
+                'logo_url': logo_url,
+                'login_bg_url': 'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284342/bg_qhybsq.jpg'
+            })
+        
+        # Log audit trail
+        log_audit(
+            user=user,
+            action_type='update',
+            resource_type='system_appearance',
+            resource_id='logo',
+            details=f"Uploaded new system logo: {logo_url}",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Logo uploaded successfully.',
+            'logo_url': logo_url
+        })
+    except Exception as e:
+        # Log failed audit
+        log_audit(
+            user=user,
+            action_type='update',
+            resource_type='system_appearance',
+            resource_id='logo',
+            details=f"Failed to upload logo: {str(e)}",
+            status='failed',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def remove_logo(request):
+    """Remove system logo"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied. Only QA Head and QA Admin can modify appearance settings.'
+        }, status=403)
+    
+    try:
+        # Get existing settings
+        settings_docs = get_all_documents('system_settings')
+        settings_id = None
+        old_logo_url = None
+        
+        for doc in settings_docs:
+            if doc.get('setting_type') == 'appearance':
+                settings_id = doc.get('id')
+                old_logo_url = doc.get('logo_url')
+                break
+        
+        if not settings_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'No settings found.'
+            }, status=404)
+        
+        # Delete logo from Cloudinary if exists
+        if old_logo_url and 'cloudinary' in old_logo_url:
+            try:
+                delete_image_from_cloudinary(old_logo_url)
+            except:
+                pass  # Continue even if deletion fails
+        
+        # Update settings
+        update_document('system_settings', settings_id, {
+            'logo_url': '',
+            'updated_at': datetime.now()
+        })
+        
+        # Log audit trail
+        log_audit(
+            user=user,
+            action_type='delete',
+            resource_type='system_appearance',
+            resource_id='logo',
+            details=f"Removed system logo",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Logo removed successfully.'
+        })
+    except Exception as e:
+        # Log failed audit
+        log_audit(
+            user=user,
+            action_type='delete',
+            resource_type='system_appearance',
+            resource_id='logo',
+            details=f"Failed to remove logo: {str(e)}",
+            status='failed',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def save_system_title(request):
+    """Save system title setting"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied. Only QA Head and QA Admin can modify appearance settings.'
+        }, status=403)
+    
+    try:
+        data = json.loads(request.body)
+        title = data.get('title', 'PLP Accreditation System').strip()
+        
+        # Validate title
+        if not title:
+            return JsonResponse({
+                'success': False,
+                'message': 'System title cannot be empty.'
+            }, status=400)
+        
+        if len(title) > 50:
+            return JsonResponse({
+                'success': False,
+                'message': 'System title must be 50 characters or less.'
+            }, status=400)
+        
+        # Get existing settings
+        settings_docs = get_all_documents('system_settings')
+        appearance_settings = None
+        settings_id = None
+        
+        for doc in settings_docs:
+            if doc.get('setting_type') == 'appearance':
+                appearance_settings = doc
+                settings_id = doc.get('id')
+                break
+        
+        # Update or create settings
+        if settings_id:
+            update_document('system_settings', settings_id, {
+                'system_title': title,
+                'updated_at': datetime.now()
+            })
+        else:
+            create_document('system_settings', {
+                'setting_type': 'appearance',
+                'theme_color': '#4a9d4f',
+                'system_title': title,
+                'logo_url': '',
+                'login_bg_url': 'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284342/bg_qhybsq.jpg'
+            })
+        
+        # Log audit trail
+        log_audit(
+            user=user,
+            action_type='update',
+            resource_type='system_appearance',
+            resource_id='system_title',
+            details=f"Changed system title to: {title}",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'System title saved successfully.'
+        })
+    except Exception as e:
+        # Log failed audit
+        log_audit(
+            user=user,
+            action_type='update',
+            resource_type='system_appearance',
+            resource_id='system_title',
+            details=f"Failed to change system title: {str(e)}",
+            status='failed',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def upload_background(request):
+    """Upload login background image"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied. Only QA Head and QA Admin can modify appearance settings.'
+        }, status=403)
+    
+    try:
+        if 'background' not in request.FILES:
+            return JsonResponse({
+                'success': False,
+                'message': 'No background file provided.'
+            }, status=400)
+        
+        bg_file = request.FILES['background']
+        
+        # Validate file size (5MB max)
+        if bg_file.size > 5 * 1024 * 1024:
+            return JsonResponse({
+                'success': False,
+                'message': 'File size must be less than 5MB.'
+            }, status=400)
+        
+        # Get existing settings to check for old background
+        settings_docs = get_all_documents('system_settings')
+        appearance_settings = None
+        settings_id = None
+        old_bg_url = None
+        
+        for doc in settings_docs:
+            if doc.get('setting_type') == 'appearance':
+                appearance_settings = doc
+                settings_id = doc.get('id')
+                old_bg_url = doc.get('login_bg_url')
+                break
+        
+        # Delete old background from Cloudinary if exists and not default
+        if old_bg_url and 'cloudinary' in old_bg_url and 'bg_qhybsq' not in old_bg_url:
+            try:
+                delete_image_from_cloudinary(old_bg_url)
+            except:
+                pass  # Continue even if deletion fails
+        
+        # Upload new background to Cloudinary
+        bg_url = upload_image_to_cloudinary(bg_file, folder='system/backgrounds')
+        
+        # Update or create settings
+        if settings_id:
+            update_document('system_settings', settings_id, {
+                'login_bg_url': bg_url,
+                'updated_at': datetime.now()
+            })
+        else:
+            create_document('system_settings', {
+                'setting_type': 'appearance',
+                'theme_color': '#4a9d4f',
+                'system_title': 'PLP Accreditation System',
+                'logo_url': '',
+                'login_bg_url': bg_url
+            })
+        
+        # Log audit trail
+        log_audit(
+            user=user,
+            action_type='update',
+            resource_type='system_appearance',
+            resource_id='login_background',
+            details=f"Uploaded new login background: {bg_url}",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Background uploaded successfully.',
+            'bg_url': bg_url
+        })
+    except Exception as e:
+        # Log failed audit
+        log_audit(
+            user=user,
+            action_type='update',
+            resource_type='system_appearance',
+            resource_id='login_background',
+            details=f"Failed to upload background: {str(e)}",
+            status='failed',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def remove_background(request):
+    """Remove login background image"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied. Only QA Head and QA Admin can modify appearance settings.'
+        }, status=403)
+    
+    try:
+        # Get existing settings
+        settings_docs = get_all_documents('system_settings')
+        settings_id = None
+        old_bg_url = None
+        
+        for doc in settings_docs:
+            if doc.get('setting_type') == 'appearance':
+                settings_id = doc.get('id')
+                old_bg_url = doc.get('login_bg_url')
+                break
+        
+        if not settings_id:
+            return JsonResponse({
+                'success': False,
+                'message': 'No settings found.'
+            }, status=404)
+        
+        # Delete background from Cloudinary if exists and not default
+        if old_bg_url and 'cloudinary' in old_bg_url and 'bg_qhybsq' not in old_bg_url:
+            try:
+                delete_image_from_cloudinary(old_bg_url)
+            except:
+                pass  # Continue even if deletion fails
+        
+        # Reset to default background
+        default_bg = 'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284342/bg_qhybsq.jpg'
+        update_document('system_settings', settings_id, {
+            'login_bg_url': default_bg,
+            'updated_at': datetime.now()
+        })
+        
+        # Log audit trail
+        log_audit(
+            user=user,
+            action_type='delete',
+            resource_type='system_appearance',
+            resource_id='login_background',
+            details=f"Removed login background, reset to default",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Background removed successfully.'
+        })
+    except Exception as e:
+        # Log failed audit
+        log_audit(
+            user=user,
+            action_type='delete',
+            resource_type='system_appearance',
+            resource_id='login_background',
+            details=f"Failed to remove background: {str(e)}",
+            status='failed',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': False,
+            'message': str(e)
+        }, status=500)
 
 
 @login_required

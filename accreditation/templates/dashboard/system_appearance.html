@@ -3,20 +3,1046 @@
 {% block title %}System Appearance{% endblock %}
 
 {% block content %}
-<h1 class="dashboard-title">System Appearance</h1>
+{% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
-<div class="content-section">
-    <h2 class="section-title">
-        <i class="fas fa-palette me-2"></i>
-        Customize System Appearance
-    </h2>
-    <p><strong>Access Level:</strong> QA Head and QA Admin</p>
-    <p>Customize the look and feel:</p>
-    <ul>
-        <li>Theme colors</li>
-        <li>Logo customization</li>
-        <li>Layout preferences</li>
-        <li>Dashboard widgets</li>
-    </ul>
+<style>
+    .page-title {
+        font-size: 28px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 30px;
+    }
+    
+    .settings-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+        gap: 25px;
+        margin-bottom: 25px;
+    }
+    
+    .settings-card {
+        background: white;
+        border-radius: 12px;
+        padding: 0;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+    
+    .settings-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    
+    .card-header {
+        background: #f8f9fa;
+        padding: 20px 25px;
+        border-bottom: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .card-header-icon {
+        width: 40px;
+        height: 40px;
+        background: var(--plp-green);
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 18px;
+    }
+    
+    .card-header-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+    
+    .card-body {
+        padding: 25px;
+    }
+    
+    .info-alert {
+        background: #e7f3ff;
+        border-left: 4px solid #2196F3;
+        padding: 12px 15px;
+        border-radius: 6px;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .info-alert i {
+        color: #2196F3;
+        margin-top: 2px;
+    }
+    
+    .info-alert p {
+        margin: 0;
+        color: #0d47a1;
+        font-size: 13px;
+        line-height: 1.5;
+    }
+    
+    .form-group {
+        margin-bottom: 20px;
+    }
+    
+    .form-label {
+        display: block;
+        font-weight: 600;
+        color: #495057;
+        margin-bottom: 8px;
+        font-size: 14px;
+    }
+    
+    .form-control {
+        width: 100%;
+        padding: 10px 15px;
+        border: 1px solid #ced4da;
+        border-radius: 6px;
+        font-size: 14px;
+        transition: all 0.3s ease;
+        background: white;
+    }
+    
+    .form-control:focus {
+        outline: none;
+        border-color: var(--plp-green);
+        box-shadow: 0 0 0 3px rgba(74, 157, 79, 0.1);
+    }
+    
+    .color-picker-group {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .color-picker-display {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .color-swatch {
+        width: 60px;
+        height: 60px;
+        border: 3px solid #e9ecef;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .color-swatch:hover {
+        border-color: var(--plp-green);
+        transform: scale(1.05);
+    }
+    
+    .color-code {
+        font-family: 'Courier New', monospace;
+        font-weight: 600;
+        color: #495057;
+        font-size: 16px;
+        background: #f8f9fa;
+        padding: 8px 12px;
+        border-radius: 6px;
+    }
+    
+    .button-group {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+    }
+    
+    .btn {
+        padding: 10px 20px;
+        border: none;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        text-decoration: none;
+    }
+    
+    .btn-success {
+        background: var(--plp-green);
+        color: white;
+    }
+    
+    .btn-success:hover {
+        background: var(--plp-dark-green);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(74, 157, 79, 0.3);
+    }
+    
+    .btn-secondary {
+        background: #6c757d;
+        color: white;
+    }
+    
+    .btn-secondary:hover {
+        background: #5a6268;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(108, 117, 125, 0.3);
+    }
+    
+    .btn-danger {
+        background: #dc3545;
+        color: white;
+    }
+    
+    .btn-danger:hover {
+        background: #c82333;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(220, 53, 69, 0.3);
+    }
+    
+    .color-preview-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 12px;
+        margin-top: 20px;
+    }
+    
+    .color-preview-box {
+        padding: 20px 15px;
+        border-radius: 8px;
+        text-align: center;
+        color: white;
+        font-weight: 600;
+        font-size: 13px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .upload-section {
+        margin-top: 20px;
+    }
+    
+    .current-preview {
+        text-align: center;
+        margin-bottom: 20px;
+        padding: 20px;
+        background: #f8f9fa;
+        border-radius: 10px;
+    }
+    
+    .preview-image {
+        max-width: 200px;
+        max-height: 200px;
+        border-radius: 10px;
+        border: 3px solid #e9ecef;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin-bottom: 15px;
+    }
+    
+    .preview-label {
+        font-size: 12px;
+        color: #6c757d;
+        font-weight: 500;
+        margin-bottom: 10px;
+    }
+    
+    .upload-dropzone {
+        border: 2px dashed #ced4da;
+        border-radius: 10px;
+        padding: 30px 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: #f8f9fa;
+    }
+    
+    .upload-dropzone:hover {
+        border-color: var(--plp-green);
+        background: #e8f5e9;
+    }
+    
+    .upload-icon {
+        font-size: 48px;
+        color: var(--plp-green);
+        margin-bottom: 15px;
+    }
+    
+    .upload-text {
+        font-size: 14px;
+        color: #495057;
+        margin: 5px 0;
+    }
+    
+    .upload-hint {
+        font-size: 12px;
+        color: #6c757d;
+        margin: 5px 0;
+    }
+    
+    .new-preview {
+        display: none;
+        margin-top: 20px;
+        padding: 20px;
+        background: #e8f5e9;
+        border-radius: 10px;
+        text-align: center;
+    }
+    
+    .new-preview.show {
+        display: block;
+    }
+    
+    .new-preview-image {
+        max-width: 250px;
+        max-height: 250px;
+        border-radius: 10px;
+        border: 3px solid var(--plp-green);
+        box-shadow: 0 4px 12px rgba(74, 157, 79, 0.3);
+        margin-bottom: 15px;
+    }
+    
+    .hidden {
+        display: none;
+    }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255,255,255,0.3);
+        border-radius: 50%;
+        border-top-color: white;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+        .settings-grid {
+            grid-template-columns: 1fr;
+        }
+        
+        .color-preview-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+
+<h1 class="page-title">System Appearance</h1>
+
+<div class="settings-grid">
+    <!-- Theme Color Card -->
+    <div class="settings-card">
+        <div class="card-header">
+            <div class="card-header-icon">
+                <i class="fas fa-paint-brush"></i>
+            </div>
+            <h2 class="card-header-title">Theme Color</h2>
+        </div>
+        <div class="card-body">
+            <div class="info-alert">
+                <i class="fas fa-info-circle"></i>
+                <p>Choose a primary color for your system. This will change the overall theme color throughout the application.</p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">Primary Color</label>
+                <div class="color-picker-group">
+                    <div class="color-picker-display">
+                        <input type="color" id="primaryColorPicker" class="color-swatch" value="#4a9d4f">
+                        <span class="color-code" id="colorHexDisplay">#4a9d4f</span>
+                    </div>
+                </div>
+                
+                <div class="color-preview-grid">
+                    <div class="color-preview-box" id="colorPreview1" style="background-color: #4a9d4f;">
+                        Primary Color
+                    </div>
+                    <div class="color-preview-box" id="colorPreview2" style="background-color: #3d8b41;">
+                        Hover State
+                    </div>
+                    <div class="color-preview-box" id="colorPreview3" style="background-color: #66bb6a;">
+                        Light Variant
+                    </div>
+                </div>
+                
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="saveThemeColor()">
+                        <i class="fas fa-save"></i>
+                        Save Color
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetThemeColor()">
+                        <i class="fas fa-undo"></i>
+                        Reset to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- System Title Card -->
+    <div class="settings-card">
+        <div class="card-header">
+            <div class="card-header-icon">
+                <i class="fas fa-heading"></i>
+            </div>
+            <h2 class="card-header-title">System Title</h2>
+        </div>
+        <div class="card-body">
+            <div class="info-alert">
+                <i class="fas fa-info-circle"></i>
+                <p>Customize the system title that appears in the header and throughout the application.</p>
+            </div>
+            
+            <div class="form-group">
+                <label class="form-label">System Title</label>
+                <input type="text" id="systemTitleInput" class="form-control" placeholder="PLP Accreditation System" maxlength="50">
+                
+                <div class="button-group">
+                    <button class="btn btn-success" onclick="saveSystemTitle()">
+                        <i class="fas fa-save"></i>
+                        Save Title
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetSystemTitle()">
+                        <i class="fas fa-undo"></i>
+                        Reset to Default
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 </div>
+
+<!-- Full Width Cards -->
+<div class="settings-grid" >
+    <!-- System Logo Card -->
+    <div class="settings-card">
+        <div class="card-header">
+            <div class="card-header-icon">
+                <i class="fas fa-image"></i>
+            </div>
+            <h2 class="card-header-title">System Logo</h2>
+        </div>
+        <div class="card-body">
+            <div class="info-alert">
+                <i class="fas fa-info-circle"></i>
+                <p>Upload your institution's logo. This will appear in the header and login page. Recommended size: 500x500px, max 5MB.</p>
+            </div>
+            
+            <div class="upload-section">
+                <div id="currentLogoContainer" class="current-preview" style="display: none;">
+                    <p class="preview-label">CURRENT LOGO</p>
+                    <img id="currentLogo" src="" alt="Current Logo" class="preview-image">
+                    <div class="button-group">
+                        <button class="btn btn-danger" onclick="removeLogo()">
+                            <i class="fas fa-trash"></i>
+                            Remove Logo
+                        </button>
+                    </div>
+                </div>
+                
+                <input type="file" id="logoFileInput" accept="image/*" class="hidden" onchange="handleLogoChange(event)">
+                
+                <div class="upload-dropzone" onclick="document.getElementById('logoFileInput').click()">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <p class="upload-text">Click to upload or drag and drop</p>
+                    <p class="upload-hint">PNG, JPG, GIF up to 5MB</p>
+                </div>
+                
+                <div id="logoPreviewContainer" class="new-preview">
+                    <p class="preview-label">NEW LOGO PREVIEW</p>
+                    <img id="logoPreview" src="" alt="Logo Preview" class="new-preview-image">
+                    <div class="button-group">
+                        <button class="btn btn-success" onclick="uploadLogo()">
+                            <i class="fas fa-upload"></i>
+                            Upload Logo
+                        </button>
+                        <button class="btn btn-secondary" onclick="cancelLogoUpload()">
+                            <i class="fas fa-times"></i>
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Login Background Card -->
+    <div class="settings-card">
+        <div class="card-header">
+            <div class="card-header-icon">
+                <i class="fas fa-image"></i>
+            </div>
+            <h2 class="card-header-title">Login Background Image</h2>
+        </div>
+        <div class="card-body">
+            <div class="info-alert">
+                <i class="fas fa-info-circle"></i>
+                <p>Upload a custom background image for the login page. Recommended size: 1920x1080px, max 5MB.</p>
+            </div>
+            
+            <div class="upload-section">
+                <div id="currentBgContainer" class="current-preview">
+                    <p class="preview-label">CURRENT BACKGROUND</p>
+                    <img id="currentBg" src="https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284342/bg_qhybsq.jpg" alt="Current Background" class="preview-image" style="max-width: 100%; max-height: 300px;">
+                    <div class="button-group">
+                        <button class="btn btn-danger" onclick="removeBackground()">
+                            <i class="fas fa-trash"></i>
+                            Remove Background
+                        </button>
+                    </div>
+                </div>
+                
+                <input type="file" id="bgFileInput" accept="image/*" class="hidden" onchange="handleBgChange(event)">
+                
+                <div class="upload-dropzone" onclick="document.getElementById('bgFileInput').click()">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <p class="upload-text">Click to upload or drag and drop</p>
+                    <p class="upload-hint">PNG, JPG up to 5MB</p>
+                </div>
+                
+                <div id="bgPreviewContainer" class="new-preview">
+                    <p class="preview-label">NEW BACKGROUND PREVIEW</p>
+                    <img id="bgPreview" src="" alt="Background Preview" class="new-preview-image" style="max-width: 100%; max-height: 300px;">
+                    <div class="button-group">
+                        <button class="btn btn-success" onclick="uploadBackground()">
+                            <i class="fas fa-upload"></i>
+                            Upload Background
+                        </button>
+                        <button class="btn btn-secondary" onclick="cancelBgUpload()">
+                            <i class="fas fa-times"></i>
+                            Cancel
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Global variables for file handling
+    let selectedLogoFile = null;
+    let selectedBgFile = null;
+    
+    // Helper function to show confirmation modal
+    function showConfirmationModal(type, title, message, onConfirm) {
+        if (window.ConfirmationModal) {
+            window.ConfirmationModal.show({
+                type: type,
+                title: title,
+                message: message,
+                onConfirm: onConfirm
+            });
+        } else {
+            // Fallback to native confirm
+            if (confirm(message)) {
+                onConfirm();
+            }
+        }
+    }
+    
+    // Helper function to show toast notification
+    function showToast(type, title, message) {
+        if (window.Toast) {
+            window.Toast.show(message, type);
+        } else {
+            // Fallback to alert
+            alert(message);
+        }
+    }
+    
+    // Load current settings on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        loadAppearanceSettings();
+        
+        // Update color hex display on color picker change
+        document.getElementById('primaryColorPicker').addEventListener('input', function(e) {
+            const color = e.target.value;
+            document.getElementById('colorHexDisplay').textContent = color;
+            updateColorPreviews(color);
+        });
+    });
+    
+    // Load current appearance settings
+    async function loadAppearanceSettings() {
+        try {
+            const response = await fetch('/dashboard/settings/appearance/get/', {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Set theme color
+                if (data.settings.theme_color) {
+                    document.getElementById('primaryColorPicker').value = data.settings.theme_color;
+                    document.getElementById('colorHexDisplay').textContent = data.settings.theme_color;
+                    updateColorPreviews(data.settings.theme_color);
+                }
+                
+                // Set system title
+                if (data.settings.system_title) {
+                    document.getElementById('systemTitleInput').value = data.settings.system_title;
+                }
+                
+                // Set logo
+                if (data.settings.logo_url) {
+                    document.getElementById('currentLogo').src = data.settings.logo_url;
+                    document.getElementById('currentLogoContainer').style.display = 'block';
+                }
+                
+                // Set background
+                if (data.settings.login_bg_url) {
+                    document.getElementById('currentBg').src = data.settings.login_bg_url;
+                    document.getElementById('currentBgContainer').style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error('Error loading settings:', error);
+        }
+    }
+    
+    // Update color previews
+    function updateColorPreviews(color) {
+        // Convert hex to RGB for calculations
+        const r = parseInt(color.substr(1, 2), 16);
+        const g = parseInt(color.substr(3, 2), 16);
+        const b = parseInt(color.substr(5, 2), 16);
+        
+        // Primary color
+        document.getElementById('colorPreview1').style.backgroundColor = color;
+        
+        // Darker hover state (reduce by 10%)
+        const hoverR = Math.floor(r * 0.9);
+        const hoverG = Math.floor(g * 0.9);
+        const hoverB = Math.floor(b * 0.9);
+        document.getElementById('colorPreview2').style.backgroundColor = 
+            `rgb(${hoverR}, ${hoverG}, ${hoverB})`;
+        
+        // Lighter variant (increase by 20%)
+        const lightR = Math.min(255, Math.floor(r * 1.2));
+        const lightG = Math.min(255, Math.floor(g * 1.2));
+        const lightB = Math.min(255, Math.floor(b * 1.2));
+        document.getElementById('colorPreview3').style.backgroundColor = 
+            `rgb(${lightR}, ${lightG}, ${lightB})`;
+    }
+    
+    // Save theme color
+    async function saveThemeColor() {
+        const color = document.getElementById('primaryColorPicker').value;
+        
+        showConfirmationModal(
+            'save',
+            'Save Theme Color',
+            `Are you sure you want to change the theme color to ${color}?`,
+            async function() {
+                try {
+                    const response = await fetch('/dashboard/settings/appearance/save-color/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ color: color })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('success', 'Success', 'Theme color saved successfully. Refreshing page...');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast('error', 'Error', data.message || 'Failed to save theme color.');
+                    }
+                } catch (error) {
+                    showToast('error', 'Error', 'An error occurred while saving theme color.');
+                    console.error('Error:', error);
+                }
+            }
+        );
+    }
+    
+    // Reset theme color
+    async function resetThemeColor() {
+        showConfirmationModal(
+            'warning',
+            'Reset Theme Color',
+            'Are you sure you want to reset the theme color to default green (#4a9d4f)?',
+            async function() {
+                document.getElementById('primaryColorPicker').value = '#4a9d4f';
+                document.getElementById('colorHexDisplay').textContent = '#4a9d4f';
+                updateColorPreviews('#4a9d4f');
+                
+                try {
+                    const response = await fetch('/dashboard/settings/appearance/save-color/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ color: '#4a9d4f' })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('success', 'Success', 'Theme color reset successfully. Refreshing page...');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast('error', 'Error', data.message || 'Failed to reset theme color.');
+                    }
+                } catch (error) {
+                    showToast('error', 'Error', 'An error occurred while resetting theme color.');
+                    console.error('Error:', error);
+                }
+            }
+        );
+    }
+    
+    // Handle logo file selection
+    function handleLogoChange(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('error', 'Error', 'File size must be less than 5MB.');
+            return;
+        }
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showToast('error', 'Error', 'Please select a valid image file.');
+            return;
+        }
+        
+        selectedLogoFile = file;
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('logoPreview').src = e.target.result;
+            document.getElementById('logoPreviewContainer').classList.add('show');
+            document.getElementById('currentLogoContainer').style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // Upload logo
+    async function uploadLogo() {
+        if (!selectedLogoFile) {
+            showToast('error', 'Error', 'Please select a logo file first.');
+            return;
+        }
+        
+        showConfirmationModal(
+            'save',
+            'Upload Logo',
+            'Are you sure you want to upload this logo? The previous logo will be replaced.',
+            async function() {
+                const formData = new FormData();
+                formData.append('logo', selectedLogoFile);
+                
+                const btn = event.target.closest('button');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="loading-spinner"></span> Uploading...';
+                btn.disabled = true;
+                
+                try {
+                    const response = await fetch('/dashboard/settings/appearance/upload-logo/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('success', 'Success', 'Logo uploaded successfully. Refreshing page...');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast('error', 'Error', data.message || 'Failed to upload logo.');
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }
+                } catch (error) {
+                    showToast('error', 'Error', 'An error occurred while uploading logo.');
+                    console.error('Error:', error);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            }
+        );
+    }
+    
+    // Cancel logo upload
+    function cancelLogoUpload() {
+        selectedLogoFile = null;
+        document.getElementById('logoFileInput').value = '';
+        document.getElementById('logoPreviewContainer').classList.remove('show');
+        document.getElementById('currentLogoContainer').style.display = 'block';
+    }
+    
+    // Remove logo
+    async function removeLogo() {
+        showConfirmationModal(
+            'delete',
+            'Remove Logo',
+            'Are you sure you want to remove the current logo? This action cannot be undone.',
+            async function() {
+                try {
+                    const response = await fetch('/dashboard/settings/appearance/remove-logo/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('success', 'Success', 'Logo removed successfully. Refreshing page...');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast('error', 'Error', data.message || 'Failed to remove logo.');
+                    }
+                } catch (error) {
+                    showToast('error', 'Error', 'An error occurred while removing logo.');
+                    console.error('Error:', error);
+                }
+            }
+        );
+    }
+    
+    // Save system title
+    async function saveSystemTitle() {
+        const title = document.getElementById('systemTitleInput').value.trim();
+        
+        if (!title) {
+            showToast('error', 'Error', 'System title cannot be empty.');
+            return;
+        }
+        
+        showConfirmationModal(
+            'save',
+            'Save System Title',
+            `Are you sure you want to change the system title to "${title}"?`,
+            async function() {
+                try {
+                    const response = await fetch('/dashboard/settings/appearance/save-title/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ title: title })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('success', 'Success', 'System title saved successfully. Refreshing page...');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast('error', 'Error', data.message || 'Failed to save system title.');
+                    }
+                } catch (error) {
+                    showToast('error', 'Error', 'An error occurred while saving system title.');
+                    console.error('Error:', error);
+                }
+            }
+        );
+    }
+    
+    // Reset system title
+    async function resetSystemTitle() {
+        showConfirmationModal(
+            'warning',
+            'Reset System Title',
+            'Are you sure you want to reset the system title to "PLP Accreditation System"?',
+            async function() {
+                document.getElementById('systemTitleInput').value = 'PLP Accreditation System';
+                
+                try {
+                    const response = await fetch('/dashboard/settings/appearance/save-title/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: JSON.stringify({ title: 'PLP Accreditation System' })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('success', 'Success', 'System title reset successfully. Refreshing page...');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast('error', 'Error', data.message || 'Failed to reset system title.');
+                    }
+                } catch (error) {
+                    showToast('error', 'Error', 'An error occurred while resetting system title.');
+                    console.error('Error:', error);
+                }
+            }
+        );
+    }
+    
+    // Handle background file selection
+    function handleBgChange(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        // Validate file size (5MB max)
+        if (file.size > 5 * 1024 * 1024) {
+            showToast('error', 'Error', 'File size must be less than 5MB.');
+            return;
+        }
+        
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+            showToast('error', 'Error', 'Please select a valid image file.');
+            return;
+        }
+        
+        selectedBgFile = file;
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            document.getElementById('bgPreview').src = e.target.result;
+            document.getElementById('bgPreviewContainer').classList.add('show');
+            document.getElementById('currentBgContainer').style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+    }
+    
+    // Upload background
+    async function uploadBackground() {
+        if (!selectedBgFile) {
+            showToast('error', 'Error', 'Please select a background image first.');
+            return;
+        }
+        
+        showConfirmationModal(
+            'save',
+            'Upload Background',
+            'Are you sure you want to upload this background image? The previous background will be replaced.',
+            async function() {
+                const formData = new FormData();
+                formData.append('background', selectedBgFile);
+                
+                const btn = event.target.closest('button');
+                const originalText = btn.innerHTML;
+                btn.innerHTML = '<span class="loading-spinner"></span> Uploading...';
+                btn.disabled = true;
+                
+                try {
+                    const response = await fetch('/dashboard/settings/appearance/upload-background/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken')
+                        },
+                        body: formData
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('success', 'Success', 'Background uploaded successfully. Refreshing page...');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast('error', 'Error', data.message || 'Failed to upload background.');
+                        btn.innerHTML = originalText;
+                        btn.disabled = false;
+                    }
+                } catch (error) {
+                    showToast('error', 'Error', 'An error occurred while uploading background.');
+                    console.error('Error:', error);
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            }
+        );
+    }
+    
+    // Cancel background upload
+    function cancelBgUpload() {
+        selectedBgFile = null;
+        document.getElementById('bgFileInput').value = '';
+        document.getElementById('bgPreviewContainer').classList.remove('show');
+        document.getElementById('currentBgContainer').style.display = 'block';
+    }
+    
+    // Remove background
+    async function removeBackground() {
+        showConfirmationModal(
+            'delete',
+            'Remove Background',
+            'Are you sure you want to remove the current background image? This action cannot be undone.',
+            async function() {
+                try {
+                    const response = await fetch('/dashboard/settings/appearance/remove-background/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCookie('csrftoken')
+                        }
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        showToast('success', 'Success', 'Background removed successfully. Refreshing page...');
+                        setTimeout(() => location.reload(), 1500);
+                    } else {
+                        showToast('error', 'Error', data.message || 'Failed to remove background.');
+                    }
+                } catch (error) {
+                    showToast('error', 'Error', 'An error occurred while removing background.');
+                    console.error('Error:', error);
+                }
+            }
+        );
+    }
+    
+    // Helper function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>
+
 {% endblock %}
