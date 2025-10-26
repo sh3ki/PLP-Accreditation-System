@@ -456,12 +456,17 @@
                     Results and Incentives
                 </a>
             </li>
+            
+            <!-- Audit Trail (Only for QA Head and QA Admin) -->
+            {% if user.role == 'qa_head' or user.role == 'qa_admin' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:audit' %}" class="sidebar-link {% if active_page == 'audit' %}active{% endif %}">
                     <i class="fas fa-history"></i>
                     Audit Trail
                 </a>
             </li>
+            {% endif %}
+            
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:archive' %}" class="sidebar-link {% if active_page == 'archive' %}active{% endif %}">
                     <i class="fas fa-archive"></i>

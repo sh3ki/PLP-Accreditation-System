@@ -55,14 +55,26 @@ def get_user_from_session(request):
 @login_required
 def dashboard_home(request):
     """
-    Main dashboard home page
-    Shows stats cards and charts
+    Main dashboard home page with role-based content
+    Shows stats cards, charts, and recent activity based on user role
     """
+    user = get_user_from_session(request)
+    user_role = user.get('role', '')
+    
     context = {
         'active_page': 'dashboard',
-        'user': get_user_from_session(request),
+        'user': user,
     }
-    return render(request, 'dashboard_base.html', context)
+    
+    # Get role-specific dashboard data
+    if user_role == 'qa_head':
+        context.update(get_qa_head_dashboard_data(user))
+    elif user_role == 'qa_admin':
+        context.update(get_qa_admin_dashboard_data(user))
+    elif user_role == 'department_user':
+        context.update(get_department_dashboard_data(user))
+    
+    return render(request, 'dashboard/home.html', context)
 
 
 @login_required
@@ -6524,3 +6536,367 @@ def audit_trail_view(request):
     return render(request, 'dashboard/audit.html', context)
 
 
+# ================================================================================
+# DASHBOARD DATA FUNCTIONS - Role-Based Dashboard Content
+# ================================================================================
+
+def get_qa_head_dashboard_data(user):
+    """Get comprehensive system statistics for QA Head dashboard"""
+    from datetime import datetime, timedelta
+    import json
+    
+    try:
+        # Get all users
+        users = get_all_documents('users')
+        total_users = len([u for u in users if not u.get('archived', False)])
+        
+        # Count users added this month
+        now = datetime.now()
+        month_start = datetime(now.year, now.month, 1)
+        users_this_month = len([
+            u for u in users 
+            if u.get('created_at') and isinstance(u.get('created_at'), datetime) and u.get('created_at') >= month_start
+        ])
+        
+        # Get all documents
+        documents = get_all_documents('documents')
+        total_documents = len(documents)
+        
+        # Count documents this week
+        week_ago = now - timedelta(days=7)
+        documents_this_week = len([
+            d for d in documents
+            if d.get('uploaded_at') and isinstance(d.get('uploaded_at'), datetime) and d.get('uploaded_at') >= week_ago
+        ])
+        
+        # Get programs and departments
+        programs = get_all_documents('programs')
+        total_programs = len([p for p in programs if p.get('status') == 'active'])
+        
+        departments = get_all_documents('departments')
+        active_departments = len([d for d in departments if d.get('active', True) and not d.get('archived', False)])
+        
+        # Count pending approvals (documents with pending status)
+        pending_approvals = len([d for d in documents if d.get('status') == 'pending'])
+        
+        # Calculate completion rate (documents with status 'approved' vs total required)
+        approved_docs = len([d for d in documents if d.get('status') == 'approved'])
+        completion_rate = round((approved_docs / total_documents * 100) if total_documents > 0 else 0, 1)
+        
+        # Get recent activities from audit trail
+        audit_logs = get_all_documents('audit_logs')
+        audit_logs.sort(key=lambda x: x.get('timestamp', datetime.min), reverse=True)
+        recent_activities = audit_logs[:10]
+        
+        # Format activities
+        for activity in recent_activities:
+            activity['user_name'] = activity.get('user_name', 'Unknown User')
+            if isinstance(activity.get('timestamp'), datetime):
+                activity['timestamp'] = activity['timestamp']
+        
+        # Prepare department chart data
+        dept_doc_counts = {}
+        for doc in documents:
+            dept_name = doc.get('department_name', 'Unknown')
+            dept_doc_counts[dept_name] = dept_doc_counts.get(dept_name, 0) + 1
+        
+        department_labels = json.dumps(list(dept_doc_counts.keys()))
+        department_data = json.dumps(list(dept_doc_counts.values()))
+        
+        # Prepare timeline data (last 30 days)
+        timeline_data = []
+        timeline_labels = []
+        for i in range(29, -1, -1):
+            day = now - timedelta(days=i)
+            day_str = day.strftime('%m/%d')
+            timeline_labels.append(day_str)
+            
+            count = len([
+                d for d in documents
+                if d.get('uploaded_at') and isinstance(d.get('uploaded_at'), datetime) and d.get('uploaded_at').date() == day.date()
+            ])
+            timeline_data.append(count)
+        
+        # Department progress
+        department_progress = []
+        for dept in departments[:10]:  # Top 10 departments
+            if dept.get('active', True) and not dept.get('archived', False):
+                dept_docs = [d for d in documents if d.get('department_id') == dept.get('id')]
+                approved = len([d for d in dept_docs if d.get('status') == 'approved'])
+                total = len(dept_docs)
+                progress = round((approved / total * 100) if total > 0 else 0, 1)
+                
+                department_progress.append({
+                    'name': dept.get('name', 'Unknown'),
+                    'progress': progress
+                })
+        
+        return {
+            'stats': {
+                'total_users': total_users,
+                'users_this_month': users_this_month,
+                'total_documents': total_documents,
+                'documents_this_week': documents_this_week,
+                'total_programs': total_programs,
+                'pending_approvals': pending_approvals,
+                'active_departments': active_departments,
+                'completion_rate': completion_rate,
+            },
+            'recent_activities': recent_activities,
+            'department_labels': department_labels,
+            'department_data': department_data,
+            'timeline_labels': json.dumps(timeline_labels),
+            'timeline_data': json.dumps(timeline_data),
+            'department_progress': department_progress,
+        }
+    except Exception as e:
+        print(f"Error in get_qa_head_dashboard_data: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'stats': {},
+            'recent_activities': [],
+            'department_labels': '[]',
+            'department_data': '[]',
+            'timeline_labels': '[]',
+            'timeline_data': '[]',
+            'department_progress': [],
+        }
+
+
+def get_qa_admin_dashboard_data(user):
+    """Get accreditation-focused statistics for QA Admin dashboard"""
+    from datetime import datetime, timedelta
+    import json
+    
+    try:
+        # Get all documents
+        documents = get_all_documents('documents')
+        total_documents = len(documents)
+        
+        # Count documents by status
+        pending_reviews = len([d for d in documents if d.get('status') == 'pending'])
+        approved_documents = len([d for d in documents if d.get('status') == 'approved'])
+        rejected_documents = len([d for d in documents if d.get('status') == 'rejected'])
+        in_review = len([d for d in documents if d.get('status') == 'in_review'])
+        
+        # Count documents uploaded today
+        now = datetime.now()
+        today = now.date()
+        documents_today = len([
+            d for d in documents
+            if d.get('uploaded_at') and isinstance(d.get('uploaded_at'), datetime) and d.get('uploaded_at').date() == today
+        ])
+        
+        # Get programs
+        programs = get_all_documents('programs')
+        active_programs = len([p for p in programs if p.get('status') == 'active'])
+        
+        # Calculate completion rate
+        completion_rate = round((approved_documents / total_documents * 100) if total_documents > 0 else 0, 1)
+        
+        # Get recent document uploads
+        documents.sort(key=lambda x: x.get('uploaded_at', datetime.min), reverse=True)
+        recent_documents = documents[:10]
+        
+        # Format recent documents
+        for doc in recent_documents:
+            if isinstance(doc.get('uploaded_at'), datetime):
+                doc['uploaded_at'] = doc['uploaded_at']
+        
+        # Prepare department uploads data
+        dept_uploads = {}
+        for doc in documents:
+            dept_name = doc.get('department_name', 'Unknown')
+            dept_uploads[dept_name] = dept_uploads.get(dept_name, 0) + 1
+        
+        department_labels = json.dumps(list(dept_uploads.keys()))
+        department_uploads = json.dumps(list(dept_uploads.values()))
+        
+        # Weekly trends (last 7 days)
+        weekly_data = []
+        weekly_labels = []
+        for i in range(6, -1, -1):
+            day = now - timedelta(days=i)
+            day_str = day.strftime('%a')
+            weekly_labels.append(day_str)
+            
+            count = len([
+                d for d in documents
+                if d.get('uploaded_at') and isinstance(d.get('uploaded_at'), datetime) and d.get('uploaded_at').date() == day.date()
+            ])
+            weekly_data.append(count)
+        
+        # Get area progress
+        areas = get_all_documents('areas')
+        area_progress = []
+        for area in areas[:10]:  # Top 10 areas
+            area_checklists = [
+                c for c in get_all_documents('checklists')
+                if c.get('area_id') == area.get('id')
+            ]
+            
+            if area_checklists:
+                # Count documents for this area
+                checklist_ids = [c.get('id') for c in area_checklists]
+                area_docs = [d for d in documents if d.get('checklist_id') in checklist_ids]
+                approved = len([d for d in area_docs if d.get('status') == 'approved'])
+                total = len(area_docs)
+                progress = round((approved / total * 100) if total > 0 else 0, 1)
+                
+                area_progress.append({
+                    'number': area.get('area_number', ''),
+                    'name': area.get('name', 'Unknown'),
+                    'progress': progress
+                })
+        
+        return {
+            'stats': {
+                'total_documents': total_documents,
+                'documents_today': documents_today,
+                'pending_reviews': pending_reviews,
+                'approved_documents': approved_documents,
+                'rejected_documents': rejected_documents,
+                'in_review': in_review,
+                'active_programs': active_programs,
+                'completion_rate': completion_rate,
+            },
+            'recent_documents': recent_documents,
+            'department_labels': department_labels,
+            'department_uploads': department_uploads,
+            'weekly_labels': json.dumps(weekly_labels),
+            'weekly_data': json.dumps(weekly_data),
+            'area_progress': area_progress,
+        }
+    except Exception as e:
+        print(f"Error in get_qa_admin_dashboard_data: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'stats': {},
+            'recent_documents': [],
+            'department_labels': '[]',
+            'department_uploads': '[]',
+            'weekly_labels': '[]',
+            'weekly_data': '[]',
+            'area_progress': [],
+        }
+
+
+def get_department_dashboard_data(user):
+    """Get department-specific statistics for Department dashboard"""
+    from datetime import datetime, timedelta
+    import json
+    
+    try:
+        user_dept_id = user.get('department_id')
+        if not user_dept_id:
+            return {'stats': {}, 'area_progress': [], 'recent_activities': []}
+        
+        # Get department's documents
+        all_documents = get_all_documents('documents')
+        my_documents = [d for d in all_documents if d.get('department_id') == user_dept_id]
+        
+        # Count by status
+        pending_uploads = len([d for d in my_documents if d.get('status') == 'pending'])
+        approved = len([d for d in my_documents if d.get('status') == 'approved'])
+        needs_revision = len([d for d in my_documents if d.get('status') in ['rejected', 'needs_revision']])
+        
+        # Calculate completion
+        total_docs = len(my_documents)
+        completion_percentage = round((approved / total_docs * 100) if total_docs > 0 else 0, 1)
+        
+        # Get next deadline (placeholder - would need actual deadline system)
+        days_to_deadline = 15  # Placeholder
+        
+        # Get area progress for this department
+        areas = get_all_documents('areas')
+        area_progress = []
+        
+        for area in areas:
+            # Get checklists for this area
+            area_checklists = [
+                c for c in get_all_documents('checklists')
+                if c.get('area_id') == area.get('id')
+            ]
+            
+            if area_checklists:
+                checklist_ids = [c.get('id') for c in area_checklists]
+                area_docs = [d for d in my_documents if d.get('checklist_id') in checklist_ids]
+                
+                required = len(area_checklists)
+                uploaded = len(area_docs)
+                percentage = round((uploaded / required * 100) if required > 0 else 0, 1)
+                
+                area_progress.append({
+                    'number': area.get('area_number', ''),
+                    'name': area.get('name', 'Unknown'),
+                    'uploaded': uploaded,
+                    'required': required,
+                    'percentage': percentage
+                })
+        
+        # Get recent activities
+        my_documents.sort(key=lambda x: x.get('uploaded_at', datetime.min), reverse=True)
+        recent_activities = []
+        
+        for doc in my_documents[:10]:
+            activity_type = 'upload'
+            if doc.get('status') == 'approved':
+                activity_type = 'approved'
+            elif doc.get('status') in ['rejected', 'needs_revision']:
+                activity_type = 'rejected'
+            
+            recent_activities.append({
+                'type': activity_type,
+                'title': doc.get('title', 'Untitled Document'),
+                'description': f"Area: {doc.get('area_name', 'N/A')}",
+                'timestamp': doc.get('uploaded_at', datetime.now())
+            })
+        
+        # Prepare upload progress chart data (last 30 days)
+        now = datetime.now()
+        upload_data = []
+        upload_labels = []
+        
+        for i in range(29, -1, -1):
+            day = now - timedelta(days=i)
+            day_str = day.strftime('%m/%d')
+            upload_labels.append(day_str)
+            
+            count = len([
+                d for d in my_documents
+                if d.get('uploaded_at') and isinstance(d.get('uploaded_at'), datetime) and d.get('uploaded_at').date() == day.date()
+            ])
+            upload_data.append(count)
+        
+        # Upcoming deadlines (placeholder)
+        upcoming_deadlines = []
+        
+        return {
+            'stats': {
+                'my_documents': total_docs,
+                'pending_uploads': pending_uploads,
+                'approved': approved,
+                'needs_revision': needs_revision,
+                'completion_percentage': completion_percentage,
+                'days_to_deadline': days_to_deadline,
+            },
+            'area_progress': area_progress,
+            'recent_activities': recent_activities,
+            'upload_labels': json.dumps(upload_labels),
+            'upload_data': json.dumps(upload_data),
+            'upcoming_deadlines': upcoming_deadlines,
+        }
+    except Exception as e:
+        print(f"Error in get_department_dashboard_data: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'stats': {},
+            'area_progress': [],
+            'recent_activities': [],
+            'upload_labels': '[]',
+            'upload_data': '[]',
+            'upcoming_deadlines': [],
+        }

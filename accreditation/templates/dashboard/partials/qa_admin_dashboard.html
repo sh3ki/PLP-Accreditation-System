@@ -1,0 +1,381 @@
+<!-- QA ADMIN DASHBOARD: Accreditation Focus -->
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card-modern gradient">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.total_documents|default:0 }}</div>
+                <div class="stat-label">Total Documents</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-file-alt"></i>
+            </div>
+        </div>
+        {% if stats.documents_today %}
+        <div class="stat-trend up">
+            <i class="fas fa-arrow-up"></i>
+            <span>+{{ stats.documents_today }} today</span>
+        </div>
+        {% endif %}
+    </div>
+
+    <div class="stat-card-modern">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.pending_reviews|default:0 }}</div>
+                <div class="stat-label">Pending Reviews</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-clock"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.approved_documents|default:0 }}</div>
+                <div class="stat-label">Approved</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-check-circle"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.rejected_documents|default:0 }}</div>
+                <div class="stat-label">Rejected</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-times-circle"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern gradient">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.active_programs|default:0 }}</div>
+                <div class="stat-label">Active Programs</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-graduation-cap"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern gradient">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.completion_rate|default:0 }}%</div>
+                <div class="stat-label">Completion Rate</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-chart-line"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="content-grid">
+    <!-- Document Status Distribution -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-chart-pie"></i>
+                Document Status Distribution
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-wrapper">
+                <canvas id="statusChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Document Uploads -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-upload"></i>
+                Recent Uploads
+            </div>
+            <a href="/dashboard/documents/" class="btn btn-sm btn-outline-primary">View All</a>
+        </div>
+        <div class="card-body" style="padding: 0; max-height: 400px; overflow-y: auto;">
+            {% if recent_documents %}
+            <ul class="activity-list">
+                {% for doc in recent_documents %}
+                <li class="activity-item">
+                    <div class="activity-icon">
+                        <i class="fas fa-file-pdf"></i>
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">{{ doc.title|truncatewords:8 }}</div>
+                        <div class="activity-description">
+                            {{ doc.department_name }} - {{ doc.program_name }}
+                        </div>
+                        <div class="activity-time">{{ doc.uploaded_at|timesince }} ago</div>
+                    </div>
+                    {% if doc.status == 'pending' %}
+                    <span class="badge bg-warning">Pending</span>
+                    {% elif doc.status == 'approved' %}
+                    <span class="badge bg-success">Approved</span>
+                    {% elif doc.status == 'rejected' %}
+                    <span class="badge bg-danger">Rejected</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No recent document uploads</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Department Uploads and Weekly Trends -->
+<div class="content-grid">
+    <!-- Uploads by Department -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-building"></i>
+                Document Uploads by Department
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-wrapper">
+                <canvas id="departmentUploadsChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Area Completion Progress -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-tasks"></i>
+                Accreditation Area Progress
+            </div>
+        </div>
+        <div class="card-body">
+            {% if area_progress %}
+            <ul class="progress-list">
+                {% for area in area_progress %}
+                <li class="progress-item">
+                    <div class="progress-header">
+                        <span class="progress-label">Area {{ area.number }}: {{ area.name|truncatewords:5 }}</span>
+                        <span class="progress-value">{{ area.progress|default:0 }}%</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" style="width: {{ area.progress|default:0 }}%"></div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-list-check"></i>
+                <p>No area data available</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Weekly Upload Trends -->
+<div class="dashboard-card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-chart-area"></i>
+            Weekly Upload Trends
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="chart-wrapper">
+            <canvas id="weeklyTrendsChart"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="dashboard-card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-bolt"></i>
+            Quick Actions
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="quick-actions-grid">
+            <a href="/dashboard/documents/?status=pending" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-eye"></i>
+                </div>
+                <div class="action-label">Review Documents</div>
+            </a>
+            <a href="/dashboard/accreditation/programs/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-graduation-cap"></i>
+                </div>
+                <div class="action-label">Manage Programs</div>
+            </a>
+            <a href="/dashboard/reports/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-file-pdf"></i>
+                </div>
+                <div class="action-label">Generate Report</div>
+            </a>
+            <a href="/dashboard/calendar/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-calendar"></i>
+                </div>
+                <div class="action-label">View Calendar</div>
+            </a>
+            <a href="/dashboard/accreditation/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-award"></i>
+                </div>
+                <div class="action-label">Accreditation</div>
+            </a>
+            <a href="/dashboard/performance/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <div class="action-label">Performance</div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Document Status Distribution Chart
+    const statusCanvas = document.getElementById('statusChart');
+    if (statusCanvas) {
+        const statusChart = new Chart(statusCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: ['Approved', 'Pending', 'Rejected', 'In Review'],
+                datasets: [{
+                    data: [
+                        {{ stats.approved_documents|default:0 }},
+                        {{ stats.pending_reviews|default:0 }},
+                        {{ stats.rejected_documents|default:0 }},
+                        {{ stats.in_review|default:0 }}
+                    ],
+                    backgroundColor: ['#4caf50', '#ff9800', '#f44336', '#2196f3'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: { size: 12 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Department Uploads Bar Chart
+    const deptUploadsCanvas = document.getElementById('departmentUploadsChart');
+    if (deptUploadsCanvas) {
+        const deptUploadsChart = new Chart(deptUploadsCanvas, {
+            type: 'bar',
+            data: {
+                labels: {{ department_labels|safe }},
+                datasets: [{
+                    label: 'Documents',
+                    data: {{ department_uploads|safe }},
+                    backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--plp-green').trim(),
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                }
+            }
+        });
+    }
+
+    // Weekly Trends Line Chart
+    const weeklyCanvas = document.getElementById('weeklyTrendsChart');
+    if (weeklyCanvas) {
+        const weeklyChart = new Chart(weeklyCanvas, {
+            type: 'line',
+            data: {
+                labels: {{ weekly_labels|safe }},
+                datasets: [{
+                    label: 'Uploads',
+                    data: {{ weekly_data|safe }},
+                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--plp-green').trim(),
+                    backgroundColor: 'rgba(74, 157, 79, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 600;
+}
+.badge.bg-warning {
+    background: #ff9800;
+    color: white;
+}
+.badge.bg-success {
+    background: #4caf50;
+    color: white;
+}
+.badge.bg-danger {
+    background: #f44336;
+    color: white;
+}
+</style>

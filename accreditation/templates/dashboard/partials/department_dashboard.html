@@ -1,0 +1,424 @@
+<!-- DEPARTMENT DASHBOARD: Department-Specific View -->
+
+<!-- Statistics Cards -->
+<div class="stats-grid">
+    <div class="stat-card-modern gradient">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.my_documents|default:0 }}</div>
+                <div class="stat-label">My Documents</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-file-alt"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.pending_uploads|default:0 }}</div>
+                <div class="stat-label">Pending Uploads</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-clock"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.approved|default:0 }}</div>
+                <div class="stat-label">Approved</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-check-circle"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.needs_revision|default:0 }}</div>
+                <div class="stat-label">Needs Revision</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern gradient">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.completion_percentage|default:0 }}%</div>
+                <div class="stat-label">Completion Progress</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-chart-pie"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="stat-card-modern">
+        <div class="stat-card-header">
+            <div>
+                <div class="stat-value">{{ stats.days_to_deadline|default:"N/A" }}</div>
+                <div class="stat-label">Days to Deadline</div>
+            </div>
+            <div class="stat-icon-badge">
+                <i class="fas fa-calendar-alt"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Main Content Grid -->
+<div class="content-grid">
+    <!-- Area Completion Progress -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-tasks"></i>
+                Area Completion Progress
+            </div>
+        </div>
+        <div class="card-body">
+            {% if area_progress %}
+            <ul class="progress-list">
+                {% for area in area_progress %}
+                <li class="progress-item">
+                    <div class="progress-header">
+                        <span class="progress-label">
+                            <i class="fas fa-folder" style="color: var(--plp-green); margin-right: 8px;"></i>
+                            Area {{ area.number }}: {{ area.name|truncatewords:5 }}
+                        </span>
+                        <span class="progress-value">{{ area.uploaded }}/{{ area.required }}</span>
+                    </div>
+                    <div class="progress-bar-container">
+                        <div class="progress-bar-fill" style="width: {{ area.percentage|default:0 }}%"></div>
+                    </div>
+                    <div style="font-size: 12px; color: #666; margin-top: 4px;">
+                        {{ area.percentage|default:0 }}% Complete
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-list-check"></i>
+                <p>No areas available</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Recent Activity -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-history"></i>
+                My Recent Activity
+            </div>
+        </div>
+        <div class="card-body" style="padding: 0; max-height: 500px; overflow-y: auto;">
+            {% if recent_activities %}
+            <ul class="activity-list">
+                {% for activity in recent_activities %}
+                <li class="activity-item">
+                    <div class="activity-icon">
+                        {% if activity.type == 'upload' %}
+                        <i class="fas fa-upload"></i>
+                        {% elif activity.type == 'approved' %}
+                        <i class="fas fa-check"></i>
+                        {% elif activity.type == 'rejected' %}
+                        <i class="fas fa-times"></i>
+                        {% else %}
+                        <i class="fas fa-info"></i>
+                        {% endif %}
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">{{ activity.title|truncatewords:10 }}</div>
+                        <div class="activity-description">{{ activity.description }}</div>
+                        <div class="activity-time">{{ activity.timestamp|timesince }} ago</div>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+            {% else %}
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>No recent activity</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Upload Progress Chart and Document Status -->
+<div class="content-grid">
+    <!-- Upload Progress Over Time -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-chart-line"></i>
+                My Upload Progress (Last 30 Days)
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-wrapper">
+                <canvas id="uploadProgressChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Document Status Breakdown -->
+    <div class="dashboard-card">
+        <div class="card-header">
+            <div class="card-title">
+                <i class="fas fa-chart-pie"></i>
+                Document Status Breakdown
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="chart-wrapper">
+                <canvas id="statusBreakdownChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Upcoming Deadlines -->
+<div class="dashboard-card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-bell"></i>
+            Upcoming Deadlines & Required Actions
+        </div>
+    </div>
+    <div class="card-body">
+        {% if upcoming_deadlines %}
+        <div class="deadline-list">
+            {% for deadline in upcoming_deadlines %}
+            <div class="deadline-item">
+                <div class="deadline-icon">
+                    <i class="fas fa-calendar-check"></i>
+                </div>
+                <div class="deadline-content">
+                    <div class="deadline-title">{{ deadline.title }}</div>
+                    <div class="deadline-date">Due: {{ deadline.due_date|date:"M d, Y" }}</div>
+                </div>
+                <div class="deadline-badge">
+                    {% if deadline.days_left <= 3 %}
+                    <span class="badge bg-danger">{{ deadline.days_left }} days left</span>
+                    {% elif deadline.days_left <= 7 %}
+                    <span class="badge bg-warning">{{ deadline.days_left }} days left</span>
+                    {% else %}
+                    <span class="badge bg-success">{{ deadline.days_left }} days left</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state">
+            <i class="fas fa-calendar-check"></i>
+            <p>No upcoming deadlines</p>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="dashboard-card">
+    <div class="card-header">
+        <div class="card-title">
+            <i class="fas fa-bolt"></i>
+            Quick Actions
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="quick-actions-grid">
+            <a href="/dashboard/documents/upload/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-cloud-upload-alt"></i>
+                </div>
+                <div class="action-label">Upload Document</div>
+            </a>
+            <a href="/dashboard/documents/my/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <div class="action-label">My Documents</div>
+            </a>
+            <a href="/dashboard/accreditation/requirements/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <div class="action-label">Requirements</div>
+            </a>
+            <a href="/dashboard/calendar/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-calendar"></i>
+                </div>
+                <div class="action-label">View Calendar</div>
+            </a>
+            <a href="/dashboard/performance/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-chart-bar"></i>
+                </div>
+                <div class="action-label">My Performance</div>
+            </a>
+            <a href="/dashboard/profile/" class="action-btn-modern">
+                <div class="action-icon">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="action-label">Profile Settings</div>
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Upload Progress Line Chart
+    const uploadCanvas = document.getElementById('uploadProgressChart');
+    if (uploadCanvas) {
+        const uploadChart = new Chart(uploadCanvas, {
+            type: 'line',
+            data: {
+                labels: {{ upload_labels|safe }},
+                datasets: [{
+                    label: 'Documents Uploaded',
+                    data: {{ upload_data|safe }},
+                    borderColor: getComputedStyle(document.documentElement).getPropertyValue('--plp-green').trim(),
+                    backgroundColor: 'rgba(74, 157, 79, 0.1)',
+                    tension: 0.4,
+                    fill: true,
+                    borderWidth: 2,
+                    pointRadius: 4,
+                    pointHoverRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: { precision: 0 }
+                    }
+                }
+            }
+        });
+    }
+
+    // Status Breakdown Pie Chart
+    const statusCanvas = document.getElementById('statusBreakdownChart');
+    if (statusCanvas) {
+        const statusChart = new Chart(statusCanvas, {
+            type: 'pie',
+            data: {
+                labels: ['Approved', 'Pending', 'Needs Revision'],
+                datasets: [{
+                    data: [
+                        {{ stats.approved|default:0 }},
+                        {{ stats.pending_uploads|default:0 }},
+                        {{ stats.needs_revision|default:0 }}
+                    ],
+                    backgroundColor: ['#4caf50', '#ff9800', '#f44336'],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: { size: 12 }
+                        }
+                    }
+                }
+            }
+        });
+    }
+});
+</script>
+
+<style>
+.deadline-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.deadline-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border-left: 4px solid var(--plp-green);
+}
+
+.deadline-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--plp-green);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 18px;
+}
+
+.deadline-content {
+    flex: 1;
+}
+
+.deadline-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.deadline-date {
+    font-size: 13px;
+    color: #666;
+}
+
+.deadline-badge {
+    flex-shrink: 0;
+}
+
+.badge {
+    padding: 6px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+}
+.badge.bg-danger {
+    background: #f44336;
+    color: white;
+}
+.badge.bg-warning {
+    background: #ff9800;
+    color: white;
+}
+.badge.bg-success {
+    background: #4caf50;
+    color: white;
+}
+</style>
