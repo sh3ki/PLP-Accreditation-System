@@ -163,13 +163,14 @@ def extract_public_id_from_url(url):
         return None
 
 
-def upload_document_to_cloudinary(file, folder='documents'):
+def upload_document_to_cloudinary(file, folder='documents', filename=None):
     """
     Upload a document file (doc, docx, pdf, ppt, etc.) to Cloudinary
     
     Args:
-        file: Django UploadedFile object
+        file: Django UploadedFile object or BytesIO object
         folder: Cloudinary folder name
+        filename: Optional custom filename (used when file is BytesIO)
         
     Returns:
         str: Cloudinary URL of uploaded document
@@ -198,7 +199,14 @@ def upload_document_to_cloudinary(file, folder='documents'):
         )
         
         # Determine resource type based on file extension
-        file_name = file.name if hasattr(file, 'name') else str(file)
+        # Use provided filename if available, otherwise get from file object
+        if filename:
+            file_name = filename
+        elif hasattr(file, 'name'):
+            file_name = file.name
+        else:
+            file_name = 'document.bin'
+            
         file_ext = file_name.split('.')[-1].lower()
         
         # Map file types to Cloudinary resource types
@@ -217,10 +225,18 @@ def upload_document_to_cloudinary(file, folder='documents'):
             'access_mode': 'public',  # Ensure public access
         }
         
+        # Don't set custom public_id - let Cloudinary generate unique hash
+        # But ensure the format is preserved by using the correct resource_type
+        # The format will be detected from the file content
+        
         # For PDFs, enable page transformations for preview capabilities
         if file_ext == 'pdf':
             upload_options['pages'] = True  # Enable multi-page PDFs
             upload_options['flags'] = 'attachment'  # Force download when accessed
+        
+        # For Word documents, specify the format explicitly to ensure it's recognized
+        if file_ext in ['doc', 'docx']:
+            upload_options['format'] = 'docx'  # Force .docx format
         
         upload_result = cloudinary.uploader.upload(file, **upload_options)
         

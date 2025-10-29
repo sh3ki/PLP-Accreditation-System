@@ -1,0 +1,109 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}About{% endblock %}
+
+{% block content %}
+<div class="content-section">
+    <h1 class="dashboard-title">
+        About Pamantasan ng Lungsod ng Pasig
+    </h1>
+    
+    <div class="row">
+        <div class="col-md-12 mb-4">
+            <div class="card shadow-sm">
+                <div class="card-body">
+                    <div class="text-center mb-4">
+                        <img src="https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284239/PLP_LOGO_ujtdgd.png" 
+                             alt="PLP Logo" 
+                             style="width: 120px; height: 120px; border-radius: 50%; padding: 10px; background: white; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+                    </div>
+                    
+                    <h2 class="text-center mb-4" style="color: var(--plp-green);">Pamantasan ng Lungsod ng Pasig</h2>
+                    
+                    <div class="about-content" style="font-size: 16px; line-height: 1.8; color: #555;">
+                        <p class="lead text-center" style="color: #333; font-weight: 500;">
+                            Excellence in Education, Service to the Community
+                        </p>
+                        
+                        <hr class="my-4">
+                        
+                        <h4 style="color: var(--plp-green); margin-top: 30px;">
+                            <i class="fas fa-university"></i> Our History
+                        </h4>
+                        <p>
+                            Pamantasan ng Lungsod ng Pasig (PLP) is a premier local university in Pasig City, Metro Manila, Philippines. 
+                            Established to provide quality and affordable education to the youth of Pasig and neighboring cities, PLP has 
+                            grown to become a center of academic excellence and community development.
+                        </p>
+                        
+                        <h4 style="color: var(--plp-green); margin-top: 30px;">
+                            <i class="fas fa-graduation-cap"></i> Academic Programs
+                        </h4>
+                        <p>
+                            PLP offers a wide range of undergraduate and graduate programs across various colleges, including:
+                        </p>
+                        <ul style="margin-left: 20px;">
+                            <li>College of Business and Accountancy</li>
+                            <li>College of Computer Studies</li>
+                            <li>College of International Hospitality Management</li>
+                            <li>College of Engineering</li>
+                            <li>College of Education</li>
+                            <li>College of Arts and Sciences</li>
+                            <li>College of Nursing</li>
+                        </ul>
+                        
+                        <h4 style="color: var(--plp-green); margin-top: 30px;">
+                            <i class="fas fa-certificate"></i> Accreditation Commitment
+                        </h4>
+                        <p>
+                            PLP is committed to maintaining the highest standards of quality education through continuous improvement 
+                            and accreditation. Our Accreditation Management System ensures that all programs meet national and 
+                            international standards, providing our students with world-class education and globally competitive skills.
+                        </p>
+                        
+                        <h4 style="color: var(--plp-green); margin-top: 30px;">
+                            <i class="fas fa-trophy"></i> Our Achievements
+                        </h4>
+                        <p>
+                            PLP has consistently produced graduates who excel in their chosen fields, contributing to the development 
+                            of Pasig City and the nation. Our commitment to excellence has earned us recognition from various 
+                            accrediting bodies and educational institutions.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .about-content h4 {
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 15px;
+    }
+    
+    .about-content p {
+        margin-bottom: 15px;
+        text-align: justify;
+    }
+    
+    .about-content ul {
+        margin-bottom: 20px;
+    }
+    
+    .about-content ul li {
+        margin-bottom: 8px;
+        color: #555;
+    }
+    
+    .card {
+        border: none;
+        border-radius: 8px;
+    }
+    
+    .card-body {
+        padding: 40px;
+    }
+</style>
+{% endblock %}

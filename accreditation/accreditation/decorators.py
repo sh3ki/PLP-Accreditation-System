@@ -16,7 +16,7 @@ def login_required(view_func):
         user = getattr(request, 'user', AnonymousUser())
         if not user.is_authenticated:
             messages.warning(request, 'Please log in to access this page.')
-            return redirect('login')
+            return redirect('auth:login')
         return view_func(request, *args, **kwargs)
     return wrapper
 
@@ -30,7 +30,7 @@ def role_required(*allowed_roles):
             
             if not user.is_authenticated:
                 messages.warning(request, 'Please log in to access this page.')
-                return redirect('login')
+                return redirect('auth:login')
             
             if user.role not in allowed_roles:
                 messages.error(request, 'Access denied. You do not have permission to access this page.')
@@ -72,7 +72,7 @@ class RoleBasedAccessMixin:
         
         if self.login_required and not user.is_authenticated:
             messages.warning(request, 'Please log in to access this page.')
-            return redirect('login')
+            return redirect('auth:login')
         
         if self.allowed_roles and user.role not in self.allowed_roles:
             messages.error(request, 'Access denied. You do not have permission to access this page.')

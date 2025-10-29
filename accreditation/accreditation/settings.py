@@ -194,3 +194,17 @@ except ImportError as e:
 
 # Security Settings
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframes from same origin
+
+# Email Configuration for OTP Verification
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'accreditationsystem2023@gmail.com'  # Replace with your Gmail
+EMAIL_HOST_PASSWORD = 'tjgh wibm ddtg eqml'  # Your Gmail App Password
+DEFAULT_FROM_EMAIL = 'PLP Accreditation System <accreditationsystem2023@gmail.com>'
+
+# OTP Settings
+OTP_EXPIRY_MINUTES = 10  # OTP valid for 10 minutes
+OTP_LENGTH = 6  # 6-digit OTP
+

@@ -7,6 +7,7 @@
 
 {% block content %}
 {% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
 <style>
     .settings-header {
@@ -500,7 +501,7 @@
                     <span class="progress-percentage">{{ type.progress }}%</span>
                 </div>
                 <div class="type-actions">
-                    <button class="btn-action btn-archive" onclick="event.stopPropagation();" title="Archive">
+                    <button class="btn-action btn-archive" onclick="event.stopPropagation(); archiveType('{{ dept_id }}', '{{ prog_id }}', '{{ type.id }}', '{{ type.name }}');" title="Archive">
                         <i class="fas fa-archive"></i>
                     </button>
                     <i class="fas fa-chevron-right type-chevron"></i>
@@ -554,6 +555,55 @@ function searchTypes() {
     } else {
         noResultsMsg.style.display = 'none';
     }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function archiveType(deptId, progId, typeId, typeName) {
+    ConfirmationModal.show({
+        title: 'Archive Accreditation Type',
+        message: `Are you sure you want to archive "${typeName}"? This will also archive all areas and checklists under this type.`,
+        type: 'warning',
+        confirmText: 'Archive',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/types/${typeId}/archive/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message || 'Type archived successfully');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    Toast.error(data.message || 'Failed to archive type');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Toast.error('An error occurred while archiving the type');
+            });
+        }
+    });
 }
 </script>
 

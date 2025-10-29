@@ -2800,10 +2800,9 @@ def system_appearance_view(request):
     return render(request, 'dashboard/system_appearance.html', context)
 
 
-@login_required
 @require_http_methods(["GET"])
 def get_appearance_settings(request):
-    """Get current appearance settings"""
+    """Get current appearance settings - PUBLIC endpoint for login page"""
     try:
         # Get settings from Firestore
         settings_docs = get_all_documents('system_settings')
@@ -2829,10 +2828,17 @@ def get_appearance_settings(request):
             'settings': appearance_settings
         })
     except Exception as e:
+        print(f"Error loading appearance settings: {e}")
+        # Return default settings on error
         return JsonResponse({
-            'success': False,
-            'message': str(e)
-        }, status=500)
+            'success': True,
+            'settings': {
+                'theme_color': '#4a9d4f',
+                'system_title': 'PLP Accreditation System',
+                'logo_url': '',
+                'login_bg_url': 'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284342/bg_qhybsq.jpg'
+            }
+        })
 
 
 @login_required
@@ -5604,11 +5610,17 @@ def checklist_documents_view(request, dept_id, prog_id, type_id, area_id, checkl
         ]
         
         # Separate required and additional documents
-        required_document = next((doc for doc in documents if doc.get('is_required', False)), None)
+        required_documents = [doc for doc in documents if doc.get('is_required', False)]
         additional_documents = [doc for doc in documents if not doc.get('is_required', False)]
+        
+        # Sort required documents by creation date (most recent first)
+        required_documents.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         
         # Sort additional documents by creation date
         additional_documents.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+        # Get the most recent required document for backward compatibility
+        required_document = required_documents[0] if required_documents else None
         
     except Exception as e:
         print(f"Error fetching documents: {str(e)}")
@@ -5624,6 +5636,7 @@ def checklist_documents_view(request, dept_id, prog_id, type_id, area_id, checkl
         'area': area,
         'checklist': checklist,
         'required_document': required_document,
+        'required_documents': required_documents,
         'additional_documents': additional_documents,
         'dept_id': dept_id,
         'prog_id': prog_id,
@@ -5706,10 +5719,68 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                 # Reset file pointer after validation
                 required_file.seek(0)
             
-            # Upload required document
+            # ============================================
+            # ADD FOOTER WATERMARK TO WORD DOCUMENTS
+            # ============================================
+            file_to_upload = required_file
+            upload_filename = required_file.name
+            
+            if file_ext in ['doc', 'docx']:
+                try:
+                    from accreditation.document_footer_utils import (
+                        add_footer_code_to_document, 
+                        count_existing_required_documents
+                    )
+                    
+                    # Get metadata for footer code
+                    # Fetch department, program, type, area, and checklist info
+                    dept = get_document('departments', selected_dept_id)
+                    program = get_document('programs', selected_prog_id)
+                    accred_type = get_document('accreditation_types', selected_type_id)
+                    area = get_document('areas', selected_area_id)
+                    checklist = get_document('checklists', selected_checklist_id)
+                    
+                    # Count existing required documents to get next number
+                    doc_number = count_existing_required_documents(
+                        selected_dept_id, 
+                        selected_prog_id, 
+                        selected_type_id, 
+                        selected_area_id, 
+                        selected_checklist_id
+                    )
+                    
+                    # Prepare metadata
+                    metadata = {
+                        'accreditation_type_name': accred_type.get('name', '') if accred_type else '',
+                        'dept_code': dept.get('code', 'DEPT') if dept else 'DEPT',
+                        'program_code': program.get('code', 'PROG') if program else 'PROG',
+                        'area_name': area.get('name', 'Area 1') if area else 'Area 1',
+                        'checklist_name': checklist.get('name', 'Checklist 1') if checklist else 'Checklist 1',
+                        'document_number': doc_number
+                    }
+                    
+                    # Add footer to document and get modified file with new filename
+                    file_to_upload, upload_filename = add_footer_code_to_document(
+                        required_file, 
+                        metadata, 
+                        required_file.name
+                    )
+                    
+                    # Update file extension to 'docx' since we saved it as .docx
+                    file_ext = 'docx'
+                    
+                except Exception as footer_error:
+                    print(f"Warning: Failed to add footer to document: {str(footer_error)}")
+                    # Continue with original file if footer addition fails
+                    required_file.seek(0)
+                    file_to_upload = required_file
+                    upload_filename = required_file.name
+            
+            # Upload required document (with footer if Word document)
             file_url = upload_document_to_cloudinary(
-                required_file, 
-                folder=f'documents/{selected_dept_id}/{selected_prog_id}/{selected_type_id}/{selected_area_id}/{selected_checklist_id}'
+                file_to_upload, 
+                folder=f'documents/{selected_dept_id}/{selected_prog_id}/{selected_type_id}/{selected_area_id}/{selected_checklist_id}',
+                filename=upload_filename
             )
             
             if not file_url:
@@ -5736,6 +5807,7 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                 'comment': '',  # Comment will be added by disapprover later
                 'is_active': True,
                 'is_archived': False,
+                'user_id': user.get('id'),  # Add user_id for notifications
             }
             
             doc_id = str(uuid.uuid4())
@@ -5744,6 +5816,41 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                 log_audit(user, action_type='document_upload', resource_type='document', resource_id=doc_id, details=f"Uploaded required document: {required_doc_name}", status='success', ip=get_client_ip(request))
             except Exception:
                 pass
+            
+            # Create notification for document upload
+            try:
+                from accreditation.notification_utils import notify_document_upload
+                
+                print(f"[NOTIFICATION DEBUG] Creating notification for document: {doc_id}")
+                
+                # Get names for notification
+                department = get_document('departments', selected_dept_id)
+                program = get_document('programs', selected_prog_id)
+                acc_type = get_document('accreditation_types', selected_type_id)
+                area = get_document('areas', selected_area_id)
+                checklist = get_document('checklists', selected_checklist_id)
+                
+                print(f"[NOTIFICATION DEBUG] Department: {department.get('name') if department else 'None'}")
+                print(f"[NOTIFICATION DEBUG] User: {user.get('email')}")
+                
+                notify_document_upload(
+                    document_id=doc_id,
+                    document_name=required_doc_name,
+                    department_name=department.get('name', 'Unknown') if department else 'Unknown',
+                    program_name=program.get('name', 'Unknown') if program else 'Unknown',
+                    type_name=acc_type.get('name', 'Unknown') if acc_type else 'Unknown',
+                    area_name=area.get('name', 'Unknown') if area else 'Unknown',
+                    checklist_name=checklist.get('name', 'Unknown') if checklist else 'Unknown',
+                    uploader_email=user.get('email', 'Unknown'),
+                    uploader_name=f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get('email', 'Unknown')
+                )
+                
+                print(f"[NOTIFICATION DEBUG] Notification created successfully!")
+            except Exception as notif_error:
+                import traceback
+                print(f"[NOTIFICATION ERROR] Failed to create upload notification: {str(notif_error)}")
+                print(f"[NOTIFICATION ERROR] Traceback: {traceback.format_exc()}")
+            
             uploaded_count += 1
         
         # Handle additional documents with individual names
@@ -5788,6 +5895,7 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                     'comment': '',  # Comment will be added by disapprover later
                     'is_active': True,
                     'is_archived': False,
+                    'user_id': user.get('id'),  # Add user_id for notifications
                 }
                 
                 add_doc_id = str(uuid.uuid4())
@@ -5796,6 +5904,31 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                     log_audit(user, action_type='document_upload', resource_type='document', resource_id=add_doc_id, details=f"Uploaded additional document: {add_doc_name}", status='success', ip=get_client_ip(request))
                 except Exception:
                     pass
+                
+                # Create notification for additional document upload  
+                try:
+                    from accreditation.notification_utils import notify_document_upload
+                    
+                    # Get names for notification (reuse from above or fetch)
+                    department = get_document('departments', selected_dept_id)
+                    program = get_document('programs', selected_prog_id)
+                    acc_type = get_document('accreditation_types', selected_type_id)
+                    area = get_document('areas', selected_area_id)
+                    checklist = get_document('checklists', selected_checklist_id)
+                    
+                    notify_document_upload(
+                        document_id=add_doc_id,
+                        document_name=add_doc_name,
+                        department_name=department.get('name', 'Unknown') if department else 'Unknown',
+                        program_name=program.get('name', 'Unknown') if program else 'Unknown',
+                        type_name=acc_type.get('name', 'Unknown') if acc_type else 'Unknown',
+                        area_name=area.get('name', 'Unknown') if area else 'Unknown',
+                        checklist_name=checklist.get('name', 'Unknown') if checklist else 'Unknown',
+                        uploader_email=user.get('email', 'Unknown'),
+                        uploader_name=f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get('email', 'Unknown')
+                    )
+                except Exception as notif_error:
+                    print(f"Error creating upload notification: {str(notif_error)}")
         
         total_docs = uploaded_count + len([f for f in additional_files if f.name])
         return JsonResponse({
@@ -5892,6 +6025,45 @@ def document_update_status_view(request, dept_id, prog_id, type_id, area_id, che
             log_audit(user, action_type='update', resource_type='document', resource_id=document_id, details=f"{action_text.capitalize()} document: {doc_name}", status='success')
         except Exception:
             pass
+        
+        # Create notification for document status change
+        try:
+            from accreditation.notification_utils import notify_document_status_change
+            
+            print(f"[STATUS NOTIFICATION] Processing status change for document: {document_id}")
+            
+            # Get document details for notification
+            uploader_id = document.get('user_id')
+            
+            print(f"[STATUS NOTIFICATION] Uploader ID: {uploader_id}")
+            
+            if uploader_id:  # Only notify if we have uploader info
+                department = get_document('departments', document.get('department_id'))
+                program = get_document('programs', document.get('program_id'))
+                acc_type = get_document('accreditation_types', document.get('accreditation_type_id'))
+                area = get_document('areas', document.get('area_id'))
+                checklist = get_document('checklists', document.get('checklist_id'))
+                
+                notify_document_status_change(
+                    document_id=document_id,
+                    document_name=document.get('name', 'Unknown'),
+                    status=status,
+                    uploader_id=uploader_id,
+                    department_name=department.get('name', 'Unknown') if department else 'Unknown',
+                    program_name=program.get('name', 'Unknown') if program else 'Unknown',
+                    type_name=acc_type.get('name', 'Unknown') if acc_type else 'Unknown',
+                    area_name=area.get('name', 'Unknown') if area else 'Unknown',
+                    checklist_name=checklist.get('name', 'Unknown') if checklist else 'Unknown',
+                    reviewer_name=f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get('email', 'Reviewer'),
+                    comment=comment
+                )
+                print(f"[STATUS NOTIFICATION] Notification sent successfully!")
+            else:
+                print(f"[STATUS NOTIFICATION] No uploader_id found, skipping notification")
+        except Exception as notif_error:
+            import traceback
+            print(f"[STATUS NOTIFICATION ERROR] Failed: {str(notif_error)}")
+            print(f"[STATUS NOTIFICATION ERROR] Traceback: {traceback.format_exc()}")
         
         return JsonResponse({
             'success': True,
@@ -6294,6 +6466,20 @@ def create_calendar_event(request):
             log_audit(user, action_type='create', resource_type='calendar_event', resource_id=event_id, details=f"Created calendar event: {event_title} ({event_type}) on {event_date}", status='success')
         except Exception:
             pass
+        
+        # Create notification for new event
+        try:
+            from accreditation.notification_utils import notify_event_created
+            
+            notify_event_created(
+                event_id=event_id,
+                event_title=data['title'],
+                event_date=data['date'],
+                event_description=data['description'],
+                created_by=f"{user.get('first_name', '')} {user.get('last_name', '')}".strip() or user.get('email', 'Admin')
+            )
+        except Exception as notif_error:
+            print(f"Error creating event notification: {str(notif_error)}")
         
         return JsonResponse({
             'success': True,
@@ -7504,11 +7690,17 @@ def my_accreditation_checklist_documents_view(request, dept_id, prog_id, type_id
         ]
         
         # Separate required and additional documents
-        required_document = next((doc for doc in documents if doc.get('is_required', False)), None)
+        required_documents = [doc for doc in documents if doc.get('is_required', False)]
         additional_documents = [doc for doc in documents if not doc.get('is_required', False)]
+        
+        # Sort required documents by creation date (most recent first)
+        required_documents.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         
         # Sort additional documents by creation date
         additional_documents.sort(key=lambda x: x.get('created_at', ''), reverse=True)
+        
+        # Get the most recent required document for backward compatibility
+        required_document = required_documents[0] if required_documents else None
         
     except Exception as e:
         print(f"Error fetching documents: {str(e)}")
@@ -7527,6 +7719,7 @@ def my_accreditation_checklist_documents_view(request, dept_id, prog_id, type_id
         'area': area,
         'checklist': checklist,
         'required_document': required_document,
+        'required_documents': required_documents,
         'additional_documents': additional_documents,
         'dept_id': dept_id,
         'prog_id': prog_id,
@@ -7628,4 +7821,610 @@ def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_
     except Exception as e:
         print(f"Error downloading document: {str(e)}")
         return JsonResponse({'success': False, 'error': 'An error occurred while preparing the download'})
+
+
+@login_required
+def contact_us_view(request):
+    """Contact Us page (Department Users only)"""
+    user = get_user_from_session(request)
+    
+    # Check if user is Department User
+    if user.get('role') != 'department_user':
+        messages.error(request, 'Access denied. Contact Us page is only available for Department Users.')
+        return redirect('dashboard:home')
+    
+    context = {
+        'active_page': 'contact_us',
+        'user': user,
+    }
+    return render(request, 'dashboard/contact_us.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def contact_us_submit(request):
+    """Handle contact form submission"""
+    from django.core.mail import send_mail
+    from django.conf import settings
+    
+    user = get_user_from_session(request)
+    
+    # Check if user is Department User
+    if user.get('role') != 'department_user':
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied.'
+        }, status=403)
+    
+    try:
+        name = request.POST.get('name', '').strip()
+        email = request.POST.get('email', '').strip()
+        subject = request.POST.get('subject', '').strip()
+        message = request.POST.get('message', '').strip()
+        
+        # Validation
+        if not all([name, email, subject, message]):
+            return JsonResponse({
+                'success': False,
+                'message': 'All fields are required.'
+            })
+        
+        # Create contact message document
+        contact_data = {
+            'name': name,
+            'email': email,
+            'subject': subject,
+            'message': message,
+            'user_id': user.get('id'),
+            'user_role': user.get('role'),
+            'status': 'unread',
+            'created_at': datetime.now().isoformat(),
+        }
+        
+        # Save to Firestore
+        doc_id = create_document('contact_messages', contact_data)
+        
+        # Send email notification to QA Office
+        try:
+            email_subject = f"[Contact Form] {subject}"
+            email_body = f"""
+New Contact Form Submission
+
+From: {name}
+Email: {email}
+Subject: {subject}
+
+Message:
+{message}
+
+---
+Sent from PLP Accreditation System
+Date: {datetime.now().strftime('%B %d, %Y at %I:%M %p')}
+User Role: {user.get('role', 'N/A')}
+            """
+            
+            # Send email to QA Office
+            send_mail(
+                subject=email_subject,
+                message=email_body,
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[settings.EMAIL_HOST_USER],  # Send to QA Office email
+                fail_silently=False,
+            )
+            
+            # Send confirmation email to user
+            confirmation_subject = f"Your message has been received: {subject}"
+            confirmation_body = f"""
+Dear {name},
+
+Thank you for contacting the Quality Assurance Office at Pamantasan ng Lungsod ng Pasig.
+
+We have received your message regarding: {subject}
+
+Our team will review your inquiry and get back to you as soon as possible.
+
+Your Message:
+{message}
+
+---
+This is an automated confirmation email from the PLP Accreditation System.
+Please do not reply to this email.
+
+For urgent matters, you may contact us directly at:
+Email: qa@plpasig.edu.ph
+Phone: (02) 8643-7000
+
+Best regards,
+Quality Assurance Office
+Pamantasan ng Lungsod ng Pasig
+            """
+            
+            send_mail(
+                subject=confirmation_subject,
+                message=confirmation_body,
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[email],
+                fail_silently=True,  # Don't fail if user email doesn't work
+            )
+            
+        except Exception as email_error:
+            print(f"Error sending email: {str(email_error)}")
+            # Continue even if email fails - message is still saved in DB
+        
+        # Log audit trail
+        log_audit(
+            user_id=user.get('id'),
+            user_email=user.get('email'),
+            action='CONTACT_SUBMIT',
+            target_type='contact_message',
+            target_id=doc_id,
+            details={
+                'subject': subject,
+                'page': 'contact_us'
+            },
+            ip_address=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Your message has been sent successfully! We will get back to you soon.'
+        })
+        
+    except Exception as e:
+        print(f"Error submitting contact form: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'An error occurred: {str(e)}'
+        }, status=500)
+
+
+# ============================================
+# Simple Archive Endpoints for Accreditation Navigation
+# ============================================
+
+@require_http_methods(["POST"])
+def archive_department_simple(request, dept_code):
+    """Simple archive endpoint for departments (used in accreditation navigation)"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied.'
+        }, status=403)
+    
+    try:
+        # Find department by code
+        depts = get_all_documents('departments')
+        dept = next((d for d in depts if d.get('code') == dept_code), None)
+        
+        if not dept:
+            return JsonResponse({
+                'success': False,
+                'message': 'Department not found'
+            }, status=404)
+        
+        dept_id = dept.get('id')
+        dept_name = dept.get('name')
+        
+        # Archive the department
+        update_document('departments', dept_id, {'is_archived': True})
+        
+        # Log audit trail
+        log_audit(
+            user,
+            action_type='ARCHIVE',
+            resource_type='department',
+            resource_id=dept_id,
+            details=f"Archived department: {dept_name} (Code: {dept_code})",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Department "{dept_name}" archived successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error archiving department: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error archiving department: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def archive_program_simple(request, prog_code):
+    """Simple archive endpoint for programs (used in accreditation navigation)"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied.'
+        }, status=403)
+    
+    try:
+        # Find program by code
+        progs = get_all_documents('programs')
+        prog = next((p for p in progs if p.get('code') == prog_code), None)
+        
+        if not prog:
+            return JsonResponse({
+                'success': False,
+                'message': 'Program not found'
+            }, status=404)
+        
+        prog_id = prog.get('id')
+        prog_name = prog.get('name')
+        
+        # Archive the program
+        update_document('programs', prog_id, {'is_archived': True})
+        
+        # Log audit trail
+        log_audit(
+            user,
+            action_type='ARCHIVE',
+            resource_type='program',
+            resource_id=prog_id,
+            details=f"Archived program: {prog_name} (Code: {prog_code})",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Program "{prog_name}" archived successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error archiving program: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error archiving program: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def archive_type_simple(request, type_id):
+    """Simple archive endpoint for accreditation types (used in accreditation navigation)"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied.'
+        }, status=403)
+    
+    try:
+        # Get accreditation type
+        acc_type = get_document('accreditation_types', type_id)
+        
+        if not acc_type:
+            return JsonResponse({
+                'success': False,
+                'message': 'Accreditation type not found'
+            }, status=404)
+        
+        type_name = acc_type.get('name')
+        
+        # Archive the type
+        update_document('accreditation_types', type_id, {'is_archived': True})
+        
+        # Log audit trail
+        log_audit(
+            user,
+            action_type='ARCHIVE',
+            resource_type='accreditation_type',
+            resource_id=type_id,
+            details=f"Archived accreditation type: {type_name}",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Type "{type_name}" archived successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error archiving type: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error archiving type: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def archive_area_simple(request, area_id):
+    """Simple archive endpoint for areas (used in accreditation navigation)"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied.'
+        }, status=403)
+    
+    try:
+        # Get area
+        area = get_document('areas', area_id)
+        
+        if not area:
+            return JsonResponse({
+                'success': False,
+                'message': 'Area not found'
+            }, status=404)
+        
+        area_name = area.get('name')
+        
+        # Archive the area
+        update_document('areas', area_id, {'is_archived': True})
+        
+        # Log audit trail
+        log_audit(
+            user,
+            action_type='ARCHIVE',
+            resource_type='area',
+            resource_id=area_id,
+            details=f"Archived area: {area_name}",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Area "{area_name}" archived successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error archiving area: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error archiving area: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(["POST"])
+def archive_checklist_simple(request, checklist_id):
+    """Simple archive endpoint for checklists (used in accreditation navigation)"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({
+            'success': False,
+            'message': 'Access denied.'
+        }, status=403)
+    
+    try:
+        # Get checklist
+        checklist = get_document('checklists', checklist_id)
+        
+        if not checklist:
+            return JsonResponse({
+                'success': False,
+                'message': 'Checklist not found'
+            }, status=404)
+        
+        checklist_name = checklist.get('name')
+        
+        # Archive the checklist
+        update_document('checklists', checklist_id, {'is_archived': True})
+        
+        # Log audit trail
+        log_audit(
+            user,
+            action_type='ARCHIVE',
+            resource_type='checklist',
+            resource_id=checklist_id,
+            details=f"Archived checklist: {checklist_name}",
+            status='success',
+            ip=get_client_ip(request)
+        )
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Checklist "{checklist_name}" archived successfully'
+        })
+        
+    except Exception as e:
+        print(f"Error archiving checklist: {str(e)}")
+        return JsonResponse({
+            'success': False,
+            'message': f'Error archiving checklist: {str(e)}'
+        }, status=500)
+
+
+# ============================================
+# Department User Pages
+# ============================================
+
+@login_required
+def dept_home(request):
+    """Department User Home Page with welcome message and overlay background"""
+    user = get_user_from_session(request)
+    
+    # Get appearance settings
+    appearance_settings = get_document('settings', 'appearance')
+    theme_color = appearance_settings.get('theme_color', '#4a9d4f') if appearance_settings else '#4a9d4f'
+    logo_url = appearance_settings.get('logo_url', '') if appearance_settings else ''
+    system_title = appearance_settings.get('system_title', 'PLP Accreditation System') if appearance_settings else 'PLP Accreditation System'
+    
+    context = {
+        'active_page': 'dept_home',
+        'user': user,
+        'theme_color': theme_color,
+        'logo_url': logo_url,
+        'system_title': system_title,
+    }
+    
+    return render(request, 'dashboard/dept_home.html', context)
+
+
+@login_required
+def about(request):
+    """About PLP Page"""
+    user = get_user_from_session(request)
+    
+    # Get appearance settings
+    appearance_settings = get_document('settings', 'appearance')
+    theme_color = appearance_settings.get('theme_color', '#4a9d4f') if appearance_settings else '#4a9d4f'
+    logo_url = appearance_settings.get('logo_url', '') if appearance_settings else ''
+    system_title = appearance_settings.get('system_title', 'PLP Accreditation System') if appearance_settings else 'PLP Accreditation System'
+    
+    context = {
+        'active_page': 'about',
+        'user': user,
+        'theme_color': theme_color,
+        'logo_url': logo_url,
+        'system_title': system_title,
+    }
+    
+    return render(request, 'dashboard/about.html', context)
+
+
+@login_required
+def location(request):
+    """Location/Campus Map Page"""
+    user = get_user_from_session(request)
+    
+    # Get appearance settings
+    appearance_settings = get_document('settings', 'appearance')
+    theme_color = appearance_settings.get('theme_color', '#4a9d4f') if appearance_settings else '#4a9d4f'
+    logo_url = appearance_settings.get('logo_url', '') if appearance_settings else ''
+    system_title = appearance_settings.get('system_title', 'PLP Accreditation System') if appearance_settings else 'PLP Accreditation System'
+    
+    context = {
+        'active_page': 'location',
+        'user': user,
+        'theme_color': theme_color,
+        'logo_url': logo_url,
+        'system_title': system_title,
+    }
+    
+    return render(request, 'dashboard/location.html', context)
+
+
+@login_required
+def mission_vision(request):
+    """Mission & Vision Page"""
+    user = get_user_from_session(request)
+    
+    # Get appearance settings
+    appearance_settings = get_document('settings', 'appearance')
+    theme_color = appearance_settings.get('theme_color', '#4a9d4f') if appearance_settings else '#4a9d4f'
+    logo_url = appearance_settings.get('logo_url', '') if appearance_settings else ''
+    system_title = appearance_settings.get('system_title', 'PLP Accreditation System') if appearance_settings else 'PLP Accreditation System'
+    
+    context = {
+        'active_page': 'mission_vision',
+        'user': user,
+        'theme_color': theme_color,
+        'logo_url': logo_url,
+        'system_title': system_title,
+    }
+    
+    return render(request, 'dashboard/mission_vision.html', context)
+
+
+# ============================================
+# Notification Endpoints
+# ============================================
+
+@login_required
+def notifications_list_view(request):
+    """Get user's notifications"""
+    from accreditation.notification_utils import get_user_notifications, get_unread_count
+    
+    user = get_user_from_session(request)
+    user_id = user.get('id')
+    
+    try:
+        notifications = get_user_notifications(user_id)
+        unread_count = get_unread_count(user_id)
+        
+        return JsonResponse({
+            'success': True,
+            'notifications': notifications,
+            'unread_count': unread_count
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error loading notifications: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def notification_mark_read_view(request, notification_id):
+    """Mark a notification as read"""
+    from accreditation.notification_utils import mark_notification_as_read
+    
+    user = get_user_from_session(request)
+    
+    try:
+        # Verify notification belongs to user
+        notification = get_document('notifications', notification_id)
+        
+        if not notification:
+            return JsonResponse({
+                'success': False,
+                'message': 'Notification not found'
+            }, status=404)
+        
+        if notification.get('user_id') != user.get('id'):
+            return JsonResponse({
+                'success': False,
+                'message': 'Unauthorized'
+            }, status=403)
+        
+        success = mark_notification_as_read(notification_id)
+        
+        if success:
+            return JsonResponse({
+                'success': True,
+                'message': 'Notification marked as read'
+            })
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Failed to mark as read'
+            }, status=500)
+            
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }, status=500)
+
+
+@login_required
+@require_http_methods(["POST"])
+def notifications_mark_all_read_view(request):
+    """Mark all notifications as read for the user"""
+    from accreditation.notification_utils import mark_all_as_read
+    
+    user = get_user_from_session(request)
+    user_id = user.get('id')
+    
+    try:
+        count = mark_all_as_read(user_id)
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'{count} notifications marked as read',
+            'count': count
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Error: {str(e)}'
+        }, status=500)
 

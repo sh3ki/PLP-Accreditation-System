@@ -259,13 +259,22 @@
         background: #0056b3;
     }
     
-    .btn-download {
+    .btn-comment {
         background: #17a2b8;
         color: white;
     }
     
-    .btn-download:hover {
+    .btn-comment:hover {
         background: #138496;
+    }
+    
+    .btn-download {
+        background: #28a745;
+        color: white;
+    }
+    
+    .btn-download:hover {
+        background: #218838;
     }
     
     .btn-edit {
@@ -570,7 +579,8 @@
     <!-- Required Document Section -->
     <div class="document-section">
         <h3 class="document-section-title">Required Document</h3>
-        {% if required_document %}
+        {% if required_documents %}
+            {% for required_document in required_documents %}
             <div class="document-item clickable" onclick="viewDocument('{{ required_document.id }}')">
                 <div class="document-info">
                     <div class="document-icon">
@@ -591,6 +601,11 @@
                     <button class="btn-action btn-view" onclick="event.stopPropagation(); viewDocument('{{ required_document.id }}')" title="View">
                         <i class="fas fa-eye"></i>
                     </button>
+                    {% if required_document.status == 'disapproved' %}
+                        <button class="btn-action btn-comment" onclick="event.stopPropagation(); viewComment('{{ required_document.comment|escapejs }}', '{{ required_document.name|escapejs }}')" title="View Comment">
+                            <i class="fas fa-comment"></i>
+                        </button>
+                    {% endif %}
                     {% if required_document.status == 'approved' %}
                         <button class="btn-action btn-download" onclick="event.stopPropagation(); downloadDocument('{{ required_document.id }}', '{{ required_document.name|escapejs }}')" title="Download">
                             <i class="fas fa-download"></i>
@@ -603,6 +618,7 @@
                     {% endif %}
                 </div>
             </div>
+            {% endfor %}
         {% else %}
             <div class="no-documents">
                 <i class="fas fa-file-upload"></i>
@@ -666,6 +682,11 @@
                             <button class="btn-action btn-view" onclick="event.stopPropagation(); viewDocument('{{ doc.id }}')" title="View">
                                 <i class="fas fa-eye"></i>
                             </button>
+                            {% if doc.status == 'disapproved' %}
+                                <button class="btn-action btn-comment" onclick="event.stopPropagation(); viewComment('{{ doc.comment|escapejs }}', '{{ doc.name|escapejs }}')" title="View Comment">
+                                    <i class="fas fa-comment"></i>
+                                </button>
+                            {% endif %}
                             {% if doc.status == 'approved' %}
                                 <button class="btn-action btn-download" onclick="event.stopPropagation(); downloadDocument('{{ doc.id }}', '{{ doc.name|escapejs }}')" title="Download">
                                     <i class="fas fa-download"></i>
@@ -951,6 +972,18 @@ function searchDocuments() {
         if (nameElement) {
             const name = nameElement.textContent.toLowerCase();
             item.style.display = name.includes(searchTerm) ? '' : 'none';
+        }
+    });
+}
+
+function viewComment(comment, documentName) {
+    ConfirmationModal.show({
+        title: 'Disapproval Comment',
+        message: `Document: "${documentName}"\n\nReason for Disapproval:\n\n${comment || 'No comment provided'}`,
+        type: 'warning',
+        confirmText: 'Close',
+        onConfirm: () => {
+            // Just close the modal
         }
     });
 }

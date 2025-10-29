@@ -4,6 +4,7 @@
 
 {% block content %}
 {% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
 <style>
     .settings-header {
@@ -440,7 +441,7 @@
                     <span class="progress-percentage">{{ dept.progress }}%</span>
                 </div>
                 <div class="department-actions">
-                    <button class="btn-action btn-archive" onclick="event.stopPropagation();" title="Archive">
+                    <button class="btn-action btn-archive" onclick="event.stopPropagation(); archiveDepartment('{{ dept.code }}', '{{ dept.name }}');" title="Archive">
                         <i class="fas fa-archive"></i>
                     </button>
                     <i class="fas fa-chevron-right department-chevron"></i>
@@ -463,6 +464,55 @@ function navigateToDepartmentPrograms(deptCode, event) {
         return;
     }
     window.location.href = `/dashboard/accreditation/department/${deptCode}/programs/`;
+}
+
+function archiveDepartment(deptCode, deptName) {
+    ConfirmationModal.show({
+        title: 'Archive Department',
+        message: `Are you sure you want to archive "${deptName}"? This will also archive all programs, types, areas, and checklists under this department.`,
+        type: 'warning',
+        confirmText: 'Archive',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/departments/${deptCode}/archive/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ is_archived: true })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success('Department archived successfully');
+                    // Reload the page to update the list
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    Toast.error(data.message || 'Failed to archive department');
+                }
+            })
+            .catch(error => {
+                Toast.error('An error occurred while archiving');
+                console.error('Error:', error);
+            });
+        }
+    });
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
 }
 
 function searchItems(listId, searchInputId, itemClass, nameClass) {

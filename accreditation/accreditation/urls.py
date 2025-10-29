@@ -21,8 +21,8 @@ from django.views.generic import RedirectView
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('firestore/', include('accreditation.firebase_urls')),
-    path('', include('accreditation.auth_urls')),
+    path('auth/', include('accreditation.auth_urls')),
     path('dashboard/', include('accreditation.dashboard_urls')),
     # Redirect root URL to login page
-    path('', RedirectView.as_view(url='/login/', permanent=False), name='home'),
+    path('', RedirectView.as_view(url='/auth/login/', permanent=False), name='home'),
 ]

@@ -7,6 +7,7 @@
 
 {% block content %}
 {% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
 <style>
     .settings-header {
@@ -512,7 +513,7 @@
                     <span class="progress-percentage">{{ checklist.progress }}%</span>
                 </div>
                 <div class="checklist-actions">
-                    <button class="btn-action btn-archive" onclick="event.stopPropagation();" title="Archive">
+                    <button class="btn-action btn-archive" onclick="event.stopPropagation(); archiveChecklist('{{ dept_id }}', '{{ prog_id }}', '{{ type_id }}', '{{ area_id }}', '{{ checklist.id }}', '{{ checklist.name }}');" title="Archive">
                         <i class="fas fa-archive"></i>
                     </button>
                     <i class="fas fa-chevron-right checklist-chevron"></i>
@@ -568,6 +569,55 @@ function searchChecklists() {
 
 function navigateToDocuments(checklistId) {
     window.location.href = `/dashboard/accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/`;
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function archiveChecklist(deptId, progId, typeId, areaId, checklistId, checklistName) {
+    ConfirmationModal.show({
+        title: 'Archive Checklist',
+        message: `Are you sure you want to archive "${checklistName}"? This checklist will be permanently removed from the active list.`,
+        type: 'warning',
+        confirmText: 'Archive',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/checklists/${checklistId}/archive/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message || 'Checklist archived successfully');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    Toast.error(data.message || 'Failed to archive checklist');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Toast.error('An error occurred while archiving the checklist');
+            });
+        }
+    });
 }
 </script>
 

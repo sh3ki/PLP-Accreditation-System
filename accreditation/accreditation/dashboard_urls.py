@@ -115,6 +115,13 @@ urlpatterns = [
     
     path('change-password/', dashboard_views.change_password_view, name='change_password'),
     
+    # Simple archive endpoints for accreditation navigation
+    path('settings/departments/<str:dept_code>/archive/', dashboard_views.archive_department_simple, name='archive_department_simple'),
+    path('settings/programs/<str:prog_code>/archive/', dashboard_views.archive_program_simple, name='archive_program_simple'),
+    path('settings/types/<str:type_id>/archive/', dashboard_views.archive_type_simple, name='archive_type_simple'),
+    path('settings/areas/<str:area_id>/archive/', dashboard_views.archive_area_simple, name='archive_area_simple'),
+    path('settings/checklists/<str:checklist_id>/archive/', dashboard_views.archive_checklist_simple, name='archive_checklist_simple'),
+    
     # Archive API endpoints
     path('archive/api/departments/', dashboard_views.archive_api_departments, name='archive_api_departments'),
     path('archive/api/programs/', dashboard_views.archive_api_programs, name='archive_api_programs'),
@@ -140,6 +147,21 @@ urlpatterns = [
     path('calendar/events/<str:event_id>/update/', dashboard_views.update_calendar_event, name='update_calendar_event'),
     path('calendar/events/<str:event_id>/delete/', dashboard_views.delete_calendar_event, name='delete_calendar_event'),
     path('calendar/events/<str:event_id>/archive/', dashboard_views.archive_calendar_event, name='archive_calendar_event'),
+    
+    # Contact Us (Department Users only)
+    path('contact-us/', dashboard_views.contact_us_view, name='contact_us'),
+    path('contact-us/submit/', dashboard_views.contact_us_submit, name='contact_us_submit'),
+    
+    # Notifications
+    path('notifications/list/', dashboard_views.notifications_list_view, name='notifications_list'),
+    path('notifications/<str:notification_id>/mark-read/', dashboard_views.notification_mark_read_view, name='notification_mark_read'),
+    path('notifications/mark-all-read/', dashboard_views.notifications_mark_all_read_view, name='notifications_mark_all_read'),
+    
+    # Department User Pages
+    path('dept-home/', dashboard_views.dept_home, name='dept_home'),
+    path('about/', dashboard_views.about, name='about'),
+    path('location/', dashboard_views.location, name='location'),
+    path('mission-vision/', dashboard_views.mission_vision, name='mission_vision'),
     
     # Legacy URLs for backward compatibility
     path('qa-head/', dashboard_views.qa_head_dashboard, name='qa_head_dashboard'),

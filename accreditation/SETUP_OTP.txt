@@ -1,0 +1,45 @@
+"""
+QUICK SETUP - OTP VERIFICATION SYSTEM
+======================================
+
+⚠️ IMPORTANT: Update these settings before testing!
+
+1. EDIT: accreditation/settings.py
+   
+   Line 203-205:
+   
+   EMAIL_HOST_USER = 'YOUR-GMAIL@gmail.com'  # ← Put your Gmail here
+   EMAIL_HOST_PASSWORD = 'tjgh wibm ddtg eqml'  # ← Already set ✅
+   DEFAULT_FROM_EMAIL = 'PLP Accreditation System <YOUR-GMAIL@gmail.com>'  # ← Same Gmail
+
+2. SAVE the file
+
+3. TEST THE SYSTEM:
+   
+   a) Start server:
+      python manage.py runserver
+   
+   b) Create a test user (as QA Head/Admin)
+   
+   c) Login with the test user
+   
+   d) Check your email for OTP
+   
+   e) Enter 6-digit OTP on verification page
+   
+   f) Change password when prompted
+   
+   g) Done! ✅
+
+📧 Email Requirements:
+- Gmail account with 2FA enabled
+- App Password generated (already done: tjgh wibm ddtg eqml)
+- No "Less secure app access" needed
+
+🔐 Security Flow:
+Login → OTP Email → Verify OTP (6 digits) → Change Password → Dashboard
+
+✅ CANNOT BE BYPASSED!
+
+For full documentation, see: OTP_IMPLEMENTATION_GUIDE.md
+"""

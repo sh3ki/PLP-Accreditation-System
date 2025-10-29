@@ -1,0 +1,555 @@
+<!-- Notifications Modal Component -->
+<style>
+    .notifications-modal-overlay {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 10000;
+        animation: fadeIn 0.2s ease;
+    }
+
+    .notifications-modal-overlay.show {
+        display: block;
+    }
+
+    .notifications-modal {
+        position: fixed;
+        top: 70px;
+        right: 20px;
+        width: 420px;
+        max-width: 90vw;
+        max-height: 80vh;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        animation: slideDown 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+
+    @keyframes slideDown {
+        from {
+            opacity: 0;
+            transform: translateY(-20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .notifications-header {
+        padding: 20px;
+        border-bottom: 1px solid #eee;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background: #f8f9fa;
+    }
+
+    .notifications-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .notifications-title i {
+        color: var(--plp-green);
+    }
+
+    .mark-all-read-btn {
+        background: var(--plp-green);
+        color: white;
+        border: none;
+        padding: 6px 12px;
+        border-radius: 4px;
+        font-size: 12px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .mark-all-read-btn:hover {
+        background: #45a049;
+    }
+
+    .notifications-list {
+        flex: 1;
+        overflow-y: auto;
+        max-height: calc(80vh - 140px);
+        min-height: 200px;
+        scrollbar-width: thin;
+        scrollbar-color: #ccc #f0f0f0;
+    }
+
+    /* Custom scrollbar for webkit browsers */
+    .notifications-list::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .notifications-list::-webkit-scrollbar-track {
+        background: #f0f0f0;
+        border-radius: 10px;
+    }
+
+    .notifications-list::-webkit-scrollbar-thumb {
+        background: #ccc;
+        border-radius: 10px;
+    }
+
+    .notifications-list::-webkit-scrollbar-thumb:hover {
+        background: #999;
+    }
+
+    .notification-item {
+        padding: 16px 20px;
+        border-bottom: 1px solid #f0f0f0;
+        cursor: pointer;
+        transition: all 0.3s;
+        position: relative;
+    }
+
+    .notification-item:hover {
+        background: #f8f9fa;
+    }
+
+    .notification-item.unread {
+        background: #e8f5e9;
+        border-left: 4px solid var(--plp-green);
+    }
+
+    .notification-item.unread:hover {
+        background: #d4edda;
+    }
+
+    .notification-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        margin-right: 12px;
+        flex-shrink: 0;
+        vertical-align: top;
+    }
+
+    .notification-icon.upload {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+
+    .notification-icon.approved {
+        background: #e8f5e9;
+        color: #4caf50;
+    }
+
+    .notification-icon.disapproved {
+        background: #ffebee;
+        color: #f44336;
+    }
+
+    .notification-icon.event {
+        background: #fff3e0;
+        color: #ff9800;
+    }
+
+    .notification-icon.reminder {
+        background: #fce4ec;
+        color: #e91e63;
+    }
+
+    .notification-content {
+        display: inline-block;
+        width: calc(100% - 60px);
+        vertical-align: top;
+    }
+
+    .notification-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: #333;
+        margin-bottom: 4px;
+        line-height: 1.4;
+    }
+
+    .notification-message {
+        font-size: 13px;
+        color: #666;
+        margin-bottom: 6px;
+        line-height: 1.4;
+    }
+
+    .notification-details {
+        font-size: 12px;
+        color: #999;
+        margin-top: 4px;
+    }
+
+    .notification-time {
+        font-size: 11px;
+        color: #999;
+        margin-top: 6px;
+    }
+
+    .no-notifications {
+        padding: 60px 20px;
+        text-align: center;
+        color: #999;
+    }
+
+    .no-notifications i {
+        font-size: 48px;
+        margin-bottom: 16px;
+        color: #ddd;
+    }
+
+    .no-notifications p {
+        font-size: 14px;
+        margin: 0;
+    }
+
+    .notifications-footer {
+        padding: 12px 20px;
+        border-top: 1px solid #eee;
+        text-align: center;
+        background: #f8f9fa;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .notifications-footer-info {
+        font-size: 11px;
+        color: #666;
+        font-style: italic;
+    }
+
+    .close-notifications-btn {
+        background: #6c757d;
+        color: white;
+        border: none;
+        padding: 8px 20px;
+        border-radius: 4px;
+        font-size: 13px;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+
+    .close-notifications-btn:hover {
+        background: #5a6268;
+    }
+
+    .notification-badge {
+        position: absolute;
+        top: -5px;
+        right: -5px;
+        background: #f44336;
+        color: white;
+        border-radius: 10px;
+        padding: 2px 6px;
+        font-size: 11px;
+        font-weight: 600;
+        min-width: 18px;
+        text-align: center;
+    }
+</style>
+
+<div id="notificationsModalOverlay" class="notifications-modal-overlay">
+    <div class="notifications-modal">
+        <div class="notifications-header">
+            <h3 class="notifications-title">
+                <i class="fas fa-bell"></i>
+                Notifications
+            </h3>
+            <button type="button" class="mark-all-read-btn" onclick="NotificationsModal.markAllAsRead()">
+                Mark All Read
+            </button>
+        </div>
+        <div class="notifications-list" id="notificationsList">
+            <div class="no-notifications">
+                <i class="fas fa-bell-slash"></i>
+                <p>No notifications yet</p>
+            </div>
+        </div>
+        <div class="notifications-footer">
+            <div class="notifications-footer-info">
+                Showing 10 most recent notifications
+            </div>
+            <button type="button" class="close-notifications-btn" onclick="NotificationsModal.hide()">
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    class NotificationsModalManager {
+        constructor() {
+            this.overlay = null;
+            this.listContainer = null;
+            this.initialized = false;
+            this.notifications = [];
+            this.unreadCount = 0;
+        }
+
+        init() {
+            if (this.initialized) return;
+            
+            this.overlay = document.getElementById('notificationsModalOverlay');
+            this.listContainer = document.getElementById('notificationsList');
+            
+            // Close on overlay click
+            this.overlay.addEventListener('click', (e) => {
+                if (e.target === this.overlay) {
+                    this.hide();
+                }
+            });
+
+            // Close on Escape key
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape' && this.overlay.classList.contains('show')) {
+                    this.hide();
+                }
+            });
+
+            this.initialized = true;
+        }
+
+        async show() {
+            this.init();
+            await this.loadNotifications();
+            this.overlay.classList.add('show');
+        }
+
+        hide() {
+            this.overlay.classList.remove('show');
+        }
+
+        async loadNotifications() {
+            // Ensure modal is initialized before trying to load
+            if (!this.initialized) {
+                this.init();
+            }
+            
+            // Check if elements exist
+            if (!this.listContainer) {
+                console.warn('Notification list container not found');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/dashboard/notifications/list/', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    this.notifications = data.notifications;
+                    this.unreadCount = data.unread_count;
+                    this.renderNotifications();
+                    this.updateBadge();
+                } else {
+                    console.error('Failed to load notifications');
+                }
+            } catch (error) {
+                console.error('Error loading notifications:', error);
+            }
+        }
+
+        renderNotifications() {
+            // Safety check - ensure container exists
+            if (!this.listContainer) {
+                console.warn('Cannot render notifications: container not found');
+                return;
+            }
+            
+            if (this.notifications.length === 0) {
+                this.listContainer.innerHTML = `
+                    <div class="no-notifications">
+                        <i class="fas fa-bell-slash"></i>
+                        <p>No notifications yet</p>
+                    </div>
+                `;
+                return;
+            }
+
+            let html = '';
+            this.notifications.forEach(notification => {
+                const iconClass = this.getIconClass(notification.type);
+                const icon = this.getIcon(notification.type);
+                const unreadClass = notification.is_read ? '' : 'unread';
+                const timeAgo = this.getTimeAgo(notification.created_at);
+
+                html += `
+                    <div class="notification-item ${unreadClass}" onclick="NotificationsModal.markAsRead('${notification.id}')">
+                        <span class="notification-icon ${iconClass}">
+                            <i class="${icon}"></i>
+                        </span>
+                        <div class="notification-content">
+                            <div class="notification-title">${notification.title}</div>
+                            <div class="notification-message">${notification.message}</div>
+                            ${notification.details ? `<div class="notification-details">${notification.details}</div>` : ''}
+                            <div class="notification-time">${timeAgo}</div>
+                        </div>
+                    </div>
+                `;
+            });
+
+            this.listContainer.innerHTML = html;
+        }
+
+        getIconClass(type) {
+            const iconMap = {
+                'document_upload': 'upload',
+                'document_approved': 'approved',
+                'document_disapproved': 'disapproved',
+                'event_created': 'event',
+                'event_reminder': 'reminder',
+                'event_today': 'event'
+            };
+            return iconMap[type] || 'upload';
+        }
+
+        getIcon(type) {
+            const iconMap = {
+                'document_upload': 'fas fa-file-upload',
+                'document_approved': 'fas fa-check-circle',
+                'document_disapproved': 'fas fa-times-circle',
+                'event_created': 'fas fa-calendar-plus',
+                'event_reminder': 'fas fa-bell',
+                'event_today': 'fas fa-calendar-day'
+            };
+            return iconMap[type] || 'fas fa-bell';
+        }
+
+        getTimeAgo(timestamp) {
+            const now = new Date();
+            const created = new Date(timestamp);
+            const diff = Math.floor((now - created) / 1000); // seconds
+
+            if (diff < 60) return 'Just now';
+            if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`;
+            if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`;
+            if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`;
+            
+            return created.toLocaleDateString();
+        }
+
+        async markAsRead(notificationId) {
+            try {
+                const response = await fetch(`/dashboard/notifications/${notificationId}/mark-read/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Reload notifications
+                    await this.loadNotifications();
+                }
+            } catch (error) {
+                console.error('Error marking notification as read:', error);
+            }
+        }
+
+        async markAllAsRead() {
+            try {
+                const response = await fetch('/dashboard/notifications/mark-all-read/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+
+                const data = await response.json();
+                
+                if (data.success) {
+                    Toast.success('All notifications marked as read');
+                    await this.loadNotifications();
+                }
+            } catch (error) {
+                console.error('Error marking all as read:', error);
+            }
+        }
+
+        updateBadge() {
+            const bellIcon = document.querySelector('.header-icon[title="Notifications"]');
+            if (!bellIcon) return;
+
+            // Remove existing badge
+            const existingBadge = bellIcon.querySelector('.notification-badge');
+            if (existingBadge) {
+                existingBadge.remove();
+            }
+
+            // Add new badge if there are unread notifications
+            if (this.unreadCount > 0) {
+                const badge = document.createElement('span');
+                badge.className = 'notification-badge';
+                badge.textContent = this.unreadCount > 99 ? '99+' : this.unreadCount;
+                bellIcon.appendChild(badge);
+            }
+        }
+
+        async refreshNotifications() {
+            await this.loadNotifications();
+        }
+    }
+
+    // Create global instance
+    window.NotificationsModal = new NotificationsModalManager();
+
+    // Initial load and auto-refresh setup
+    document.addEventListener('DOMContentLoaded', () => {
+        // Initial load of notifications
+        if (window.NotificationsModal) {
+            window.NotificationsModal.refreshNotifications();
+        }
+        
+        // Auto-refresh notifications every 30 seconds (only after DOM is ready)
+        setInterval(() => {
+            if (window.NotificationsModal) {
+                window.NotificationsModal.refreshNotifications();
+            }
+        }, 30000);
+    });
+
+    // Helper function for CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+</script>

@@ -306,21 +306,23 @@
         {% if messages %}
             {% for message in messages %}
                 // Determine toast type from Django message tags
-                let toastType = '{{ message.tags }}';
-                
-                // Map Django message tags to toast types
-                if (toastType.includes('success')) {
-                    toastType = 'success';
-                } else if (toastType.includes('error') || toastType.includes('danger')) {
-                    toastType = 'error';
-                } else if (toastType.includes('warning')) {
-                    toastType = 'warning';
-                } else {
-                    toastType = 'info';
-                }
-                
-                // Show the toast
-                Toast.show('{{ message|escapejs }}', toastType);
+                (function() {
+                    let toastType = '{{ message.tags }}';
+                    
+                    // Map Django message tags to toast types
+                    if (toastType.includes('success')) {
+                        toastType = 'success';
+                    } else if (toastType.includes('error') || toastType.includes('danger')) {
+                        toastType = 'error';
+                    } else if (toastType.includes('warning')) {
+                        toastType = 'warning';
+                    } else {
+                        toastType = 'info';
+                    }
+                    
+                    // Show the toast
+                    Toast.show('{{ message|escapejs }}', toastType);
+                })();
             {% endfor %}
         {% endif %}
     });

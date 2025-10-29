@@ -394,6 +394,9 @@
 <body>
     <!-- Include Toast Notification Component -->
     {% include 'components/toast_notifications.html' %}
+    
+    <!-- Include Notifications Modal Component -->
+    {% include 'components/notifications_modal.html' %}
 
     <!-- Header -->
     <header class="header">
@@ -411,7 +414,7 @@
                     <img src="https://ui-avatars.com/api/?name={{ user.first_name|default:'User'|urlencode }}+{{ user.last_name|default:''|urlencode }}&background=4CAF50&color=fff&size=40" alt="Profile" class="header-profile-img">
                 {% endif %}
             </a>
-            <a href="#" class="header-icon" title="Notifications">
+            <a href="#" class="header-icon" title="Notifications" onclick="event.preventDefault(); NotificationsModal.show();" style="position: relative;">
                 <i class="fas fa-bell"></i>
             </a>
         </div>
@@ -420,48 +423,112 @@
     <!-- Sidebar -->
     <nav class="sidebar">
         <ul class="sidebar-menu">
+            <!-- Home (Department Users only) -->
+            {% if user.role == 'department_user' %}
+            <li class="sidebar-item">
+                <a href="{% url 'dashboard:dept_home' %}" class="sidebar-link {% if active_page == 'dept_home' %}active{% endif %}">
+                    <i class="fas fa-home"></i>
+                    Home
+                </a>
+            </li>
+            {% endif %}
+            
+            <!-- About (Department Users only) -->
+            {% if user.role == 'department_user' %}
+            <li class="sidebar-item">
+                <a href="{% url 'dashboard:about' %}" class="sidebar-link {% if active_page == 'about' %}active{% endif %}">
+                    <i class="fas fa-info-circle"></i>
+                    About
+                </a>
+            </li>
+            {% endif %}
+            
+            <!-- Location (Department Users only) -->
+            {% if user.role == 'department_user' %}
+            <li class="sidebar-item">
+                <a href="{% url 'dashboard:location' %}" class="sidebar-link {% if active_page == 'location' %}active{% endif %}">
+                    <i class="fas fa-map-marker-alt"></i>
+                    Location
+                </a>
+            </li>
+            {% endif %}
+            
+            <!-- Mission, Vision & Core Values (Department Users only) -->
+            {% if user.role == 'department_user' %}
+            <li class="sidebar-item">
+                <a href="{% url 'dashboard:mission_vision' %}" class="sidebar-link {% if active_page == 'mission_vision' %}active{% endif %}">
+                    <i class="fas fa-eye"></i>
+                    Mission /    Vision
+                </a>
+            </li>
+            {% endif %}
+            
+            <!-- Dashboard (Hidden for department_user) -->
+            {% if user.role != 'department_user' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:home' %}" class="sidebar-link {% if active_page == 'dashboard' %}active{% endif %}">
                     <i class="fas fa-th-large"></i>
                     Dashboard
                 </a>
             </li>
+            {% endif %}
+            
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:calendar' %}" class="sidebar-link {% if active_page == 'calendar' %}active{% endif %}">
                     <i class="fas fa-calendar-alt"></i>
                     Calendar
                 </a>
             </li>
+            
+            <!-- Accreditation (Hidden for department_user) -->
+            {% if user.role != 'department_user' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:accreditation' %}" class="sidebar-link {% if active_page == 'accreditation' %}active{% endif %}">
                     <i class="fas fa-certificate"></i>
                     Accreditation
                 </a>
             </li>
+            {% endif %}
+            
+            <!-- My Accreditation (Hidden for qa_head and qa_admin) -->
+            {% if user.role != 'qa_head' and user.role != 'qa_admin' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:my_accreditation' %}" class="sidebar-link {% if active_page == 'my_accreditation' %}active{% endif %}">
                     <i class="fas fa-user-check"></i>
                     My Accreditation
                 </a>
             </li>
+            {% endif %}
+            
+            <!-- Performance (Hidden for department_user) -->
+            {% if user.role != 'department_user' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:performance' %}" class="sidebar-link {% if active_page == 'performance' %}active{% endif %}">
                     <i class="fas fa-chart-line"></i>
                     Performance
                 </a>
             </li>
+            {% endif %}
+            
+            <!-- Reports (Hidden for department_user) -->
+            {% if user.role != 'department_user' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:reports' %}" class="sidebar-link {% if active_page == 'reports' %}active{% endif %}">
                     <i class="fas fa-file-alt"></i>
                     Reports
                 </a>
             </li>
+            {% endif %}
+            
+            <!-- Results and Incentives (Hidden for department_user) -->
+            {% if user.role != 'department_user' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:results' %}" class="sidebar-link {% if active_page == 'results' %}active{% endif %}">
                     <i class="fas fa-trophy"></i>
                     Results and Incentives
                 </a>
             </li>
+            {% endif %}
             
             <!-- Audit Trail (Only for QA Head and QA Admin) -->
             {% if user.role == 'qa_head' or user.role == 'qa_admin' %}
@@ -514,6 +581,16 @@
                 <a href="{% url 'dashboard:system_appearance' %}" class="sidebar-link {% if active_page == 'system_appearance' %}active{% endif %}">
                     <i class="fas fa-palette"></i>
                     System Appearance
+                </a>
+            </li>
+            {% endif %}
+            
+            <!-- Contact Us (Department Users only) -->
+            {% if user.role == 'department_user' %}
+            <li class="sidebar-item">
+                <a href="{% url 'dashboard:contact_us' %}" class="sidebar-link {% if active_page == 'contact_us' %}active{% endif %}">
+                    <i class="fas fa-envelope"></i>
+                    Contact Us
                 </a>
             </li>
             {% endif %}
@@ -676,7 +753,7 @@
     </script>
 
     <!-- Password Change Modal (First Login) -->
-    {% if request.session.is_password_changed == False %}
+    {% if request.session.is_password_changed == False and request.session.otp_verified %}
     <div id="passwordChangeModal" class="password-modal" style="display: flex;">
         <div class="password-modal-content">
             <div class="password-modal-header">
@@ -964,7 +1041,6 @@
                 .btn-primary-appearance,
                 button.btn-success,
                 a.btn-success,
-                .action-btn,
                 .add-btn,
                 .save-btn {
                     background: ${color} !important;
@@ -976,7 +1052,6 @@
                 .btn-primary-appearance:hover,
                 button.btn-success:hover,
                 a.btn-success:hover,
-                .action-btn:hover,
                 .add-btn:hover,
                 .save-btn:hover {
                     background: ${darkColor} !important;

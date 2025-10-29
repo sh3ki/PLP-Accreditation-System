@@ -1,0 +1,274 @@
+{% extends 'dashboard_base.html' %}
+
+{% block title %}Mission & Vision{% endblock %}
+
+{% block content %}
+<div class="content-section">
+    <h1 class="dashboard-title">
+        Mission & Vision
+    </h1>
+    
+    <div class="row">
+        <!-- Vision Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header text-center" style="background: var(--plp-green); color: white; padding: 20px;">
+                    <i class="fas fa-eye fa-3x mb-3"></i>
+                    <h3 class="mb-0">VISION</h3>
+                </div>
+                <div class="card-body" style="padding: 30px;">
+                    <p class="vision-text">
+                        Pamantasan ng Lungsod ng Pasig envisions itself as a premier local university that provides 
+                        quality and accessible education, producing globally competitive and socially responsible 
+                        graduates who contribute to the sustainable development of Pasig City and the nation.
+                    </p>
+                    
+                    <div class="vision-icons mt-4">
+                        <div class="icon-item">
+                            <i class="fas fa-globe" style="color: var(--plp-green);"></i>
+                            <span>Global Competitiveness</span>
+                        </div>
+                        <div class="icon-item">
+                            <i class="fas fa-heart" style="color: var(--plp-green);"></i>
+                            <span>Social Responsibility</span>
+                        </div>
+                        <div class="icon-item">
+                            <i class="fas fa-leaf" style="color: var(--plp-green);"></i>
+                            <span>Sustainable Development</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Mission Card -->
+        <div class="col-md-6 mb-4">
+            <div class="card shadow-sm h-100">
+                <div class="card-header text-center" style="background: var(--plp-green); color: white; padding: 20px;">
+                    <i class="fas fa-bullseye fa-3x mb-3"></i>
+                    <h3 class="mb-0">MISSION</h3>
+                </div>
+                <div class="card-body" style="padding: 30px;">
+                    <p class="mission-intro">
+                        Pamantasan ng Lungsod ng Pasig is committed to:
+                    </p>
+                    
+                    <ul class="mission-list">
+                        <li>
+                            <i class="fas fa-check-circle" style="color: var(--plp-green);"></i>
+                            Provide quality, relevant, and affordable education to the youth of Pasig City and neighboring areas
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle" style="color: var(--plp-green);"></i>
+                            Develop competent and morally upright professionals equipped with knowledge, skills, and values
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle" style="color: var(--plp-green);"></i>
+                            Promote research, innovation, and extension services for community development
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle" style="color: var(--plp-green);"></i>
+                            Foster a culture of excellence, integrity, and social responsibility
+                        </li>
+                        <li>
+                            <i class="fas fa-check-circle" style="color: var(--plp-green);"></i>
+                            Collaborate with various stakeholders to address societal needs and challenges
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Core Values -->
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card shadow-sm">
+                <div class="card-header text-center" style="background: var(--plp-green); color: white; padding: 20px;">
+                    <i class="fas fa-star fa-3x mb-3"></i>
+                    <h3 class="mb-0">CORE VALUES</h3>
+                </div>
+                <div class="card-body" style="padding: 40px;">
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <div class="value-item">
+                                <div class="value-icon">
+                                    <i class="fas fa-medal"></i>
+                                </div>
+                                <h5>Excellence</h5>
+                                <p>Striving for the highest standards in all endeavors</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="value-item">
+                                <div class="value-icon">
+                                    <i class="fas fa-handshake"></i>
+                                </div>
+                                <h5>Integrity</h5>
+                                <p>Upholding honesty, ethics, and moral principles</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="value-item">
+                                <div class="value-icon">
+                                    <i class="fas fa-users"></i>
+                                </div>
+                                <h5>Service</h5>
+                                <p>Commitment to serve the community and society</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="value-item">
+                                <div class="value-icon">
+                                    <i class="fas fa-lightbulb"></i>
+                                </div>
+                                <h5>Innovation</h5>
+                                <p>Embracing creativity and continuous improvement</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="value-item">
+                                <div class="value-icon">
+                                    <i class="fas fa-balance-scale"></i>
+                                </div>
+                                <h5>Accountability</h5>
+                                <p>Taking responsibility for actions and outcomes</p>
+                            </div>
+                        </div>
+                        
+                        <div class="col-md-4 mb-3">
+                            <div class="value-item">
+                                <div class="value-icon">
+                                    <i class="fas fa-dove"></i>
+                                </div>
+                                <h5>Compassion</h5>
+                                <p>Showing empathy and care for others</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .vision-text,
+    .mission-intro {
+        font-size: 17px;
+        line-height: 1.8;
+        color: #333;
+        text-align: justify;
+        font-weight: 500;
+    }
+    
+    .vision-icons {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        margin-top: 25px;
+    }
+    
+    .icon-item {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+        padding: 12px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        transition: all 0.3s ease;
+    }
+    
+    .icon-item:hover {
+        background: #e9ecef;
+        transform: translateX(5px);
+    }
+    
+    .icon-item i {
+        font-size: 24px;
+    }
+    
+    .icon-item span {
+        font-size: 16px;
+        font-weight: 500;
+        color: #555;
+    }
+    
+    .mission-list {
+        list-style: none;
+        padding: 0;
+        margin: 20px 0 0 0;
+    }
+    
+    .mission-list li {
+        display: flex;
+        align-items: flex-start;
+        margin-bottom: 18px;
+        font-size: 16px;
+        line-height: 1.7;
+        color: #555;
+    }
+    
+    .mission-list li i {
+        margin-right: 12px;
+        margin-top: 3px;
+        font-size: 18px;
+    }
+    
+    .value-item {
+        text-align: center;
+        padding: 25px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        height: 100%;
+        transition: all 0.3s ease;
+    }
+    
+    .value-item:hover {
+        background: white;
+        box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+        transform: translateY(-5px);
+    }
+    
+    .value-icon {
+        width: 80px;
+        height: 80px;
+        margin: 0 auto 20px;
+        background: var(--plp-green);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 36px;
+    }
+    
+    .value-item h5 {
+        color: var(--plp-green);
+        font-size: 20px;
+        font-weight: 600;
+        margin-bottom: 12px;
+    }
+    
+    .value-item p {
+        color: #666;
+        font-size: 15px;
+        line-height: 1.6;
+        margin: 0;
+    }
+    
+    .card {
+        border: none;
+        border-radius: 8px;
+    }
+    
+    .card-header h3 {
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+</style>
+{% endblock %}

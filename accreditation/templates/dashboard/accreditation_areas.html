@@ -7,6 +7,7 @@
 
 {% block content %}
 {% include 'components/toast_notifications.html' %}
+{% include 'components/confirmation_modal.html' %}
 
 <style>
     .settings-header {
@@ -492,7 +493,7 @@
                     <span class="progress-percentage">{{ area.progress }}%</span>
                 </div>
                 <div class="area-actions">
-                    <button class="btn-action btn-archive" onclick="event.stopPropagation();" title="Archive">
+                    <button class="btn-action btn-archive" onclick="event.stopPropagation(); archiveArea('{{ dept_id }}', '{{ prog_id }}', '{{ type_id }}', '{{ area.id }}', '{{ area.name }}');" title="Archive">
                         <i class="fas fa-archive"></i>
                     </button>
                     <i class="fas fa-chevron-right area-chevron"></i>
@@ -546,6 +547,55 @@ function searchAreas() {
     } else {
         noResultsMsg.style.display = 'none';
     }
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function archiveArea(deptId, progId, typeId, areaId, areaName) {
+    ConfirmationModal.show({
+        title: 'Archive Area',
+        message: `Are you sure you want to archive "${areaName}"? This will also archive all checklists under this area.`,
+        type: 'warning',
+        confirmText: 'Archive',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            fetch(`/dashboard/settings/areas/${areaId}/archive/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCookie('csrftoken')
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    Toast.success(data.message || 'Area archived successfully');
+                    setTimeout(() => {
+                        location.reload();
+                    }, 1000);
+                } else {
+                    Toast.error(data.message || 'Failed to archive area');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                Toast.error('An error occurred while archiving the area');
+            });
+        }
+    });
 }
 </script>
 

@@ -259,6 +259,15 @@
         background: #0056b3;
     }
     
+    .btn-comment {
+        background: #17a2b8;
+        color: white;
+    }
+    
+    .btn-comment:hover {
+        background: #138496;
+    }
+    
     .btn-edit {
         background: #ffc107;
         color: #333;
@@ -559,7 +568,8 @@
     <!-- Required Document Section -->
     <div class="document-section">
         <h3 class="document-section-title">Required Document</h3>
-        {% if required_document %}
+        {% if required_documents %}
+            {% for required_document in required_documents %}
             <div class="document-item clickable" onclick="viewDocument('{{ required_document.id }}')">
                 <div class="document-info">
                     <div class="document-icon">
@@ -580,6 +590,11 @@
                     <button class="btn-action btn-view" onclick="event.stopPropagation(); viewDocument('{{ required_document.id }}')" title="View">
                         <i class="fas fa-eye"></i>
                     </button>
+                    {% if required_document.status == 'disapproved' %}
+                        <button class="btn-action btn-comment" onclick="event.stopPropagation(); viewComment('{{ required_document.comment|escapejs }}', '{{ required_document.name|escapejs }}')" title="View Comment">
+                            <i class="fas fa-comment"></i>
+                        </button>
+                    {% endif %}
                     {% if user.role == 'qa_head' or user.role == 'qa_admin' %}
                         {% if required_document.status == 'submitted' %}
                             <button class="btn-action btn-approve" onclick="event.stopPropagation(); approveDocument('{{ required_document.id }}', '{{ required_document.name|escapejs }}')" title="Approve">
@@ -595,6 +610,7 @@
                     </button>
                 </div>
             </div>
+            {% endfor %}
         {% else %}
             <div class="no-documents">
                 <i class="fas fa-file-upload"></i>
@@ -658,6 +674,11 @@
                             <button class="btn-action btn-view" onclick="event.stopPropagation(); viewDocument('{{ doc.id }}')" title="View">
                                 <i class="fas fa-eye"></i>
                             </button>
+                            {% if doc.status == 'disapproved' %}
+                                <button class="btn-action btn-comment" onclick="event.stopPropagation(); viewComment('{{ doc.comment|escapejs }}', '{{ doc.name|escapejs }}')" title="View Comment">
+                                    <i class="fas fa-comment"></i>
+                                </button>
+                            {% endif %}
                             {% if user.role == 'qa_head' or user.role == 'qa_admin' %}
                                 {% if doc.status == 'submitted' %}
                                     <button class="btn-action btn-approve" onclick="event.stopPropagation(); approveDocument('{{ doc.id }}', '{{ doc.name|escapejs }}')" title="Approve">
@@ -916,6 +937,18 @@ function deleteDocument(documentId, documentName) {
                 Toast.error('An error occurred');
                 console.error('Error:', error);
             });
+        }
+    });
+}
+
+function viewComment(comment, documentName) {
+    ConfirmationModal.show({
+        title: 'Disapproval Comment',
+        message: `Document: "${documentName}"\n\nReason for Disapproval:\n\n${comment || 'No comment provided'}`,
+        type: 'warning',
+        confirmText: 'Close',
+        onConfirm: () => {
+            // Just close the modal
         }
     });
 }

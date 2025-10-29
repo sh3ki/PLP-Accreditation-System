@@ -9,10 +9,13 @@ from django.views.decorators.cache import never_cache
 from django.views.decorators.csrf import csrf_protect
 from django.http import JsonResponse
 from django.urls import reverse
+from django.views.decorators.http import require_http_methods
+import json
 from accreditation.forms import LoginForm
 from accreditation.firebase_auth import FirebaseUser, AnonymousUser
 from accreditation.decorators import login_required, qa_head_required, qa_admin_required
 from accreditation.audit_utils import log_audit, get_client_ip
+from accreditation.otp_utils import generate_otp, send_otp_email, store_otp, verify_otp, resend_otp
 
 
 @never_cache
@@ -21,55 +24,86 @@ def login_view(request):
     """Login view"""
     # Redirect if user is already authenticated
     if hasattr(request, 'user') and request.user.is_authenticated:
-        return redirect('dashboard:home')
+        # Redirect based on user role
+        if request.user.role == 'department_user':
+            return redirect('dashboard:dept_home')
+        else:
+            return redirect('dashboard:home')
     
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
             user = form.get_user()
             if user:
-                # Store user data in session
-                request.session['user_id'] = user.id
-                request.session['user_email'] = user.email
-                request.session['user_role'] = user.role
-                request.session['user_name'] = user.full_name
-                request.session['is_password_changed'] = user.is_password_changed
-                
                 # Store additional user fields for profile
                 from accreditation.firebase_utils import get_document
                 user_doc = get_document('users', user.id)
-                if user_doc:
-                    request.session['user'] = {
-                        'id': user.id,
-                        'email': user.email,
-                        'role': user.role,
-                        'name': user.full_name,
-                        'first_name': user_doc.get('first_name', ''),
-                        'middle_name': user_doc.get('middle_name', ''),
-                        'last_name': user_doc.get('last_name', ''),
-                        'profile_image_url': user_doc.get('profile_image_url', ''),
-                        'department': user_doc.get('department', ''),  # Store department code
-                        'department_id': user_doc.get('department', ''),  # Same as department for compatibility
-                    }
                 
-                # Set session expiry based on remember_me
-                if form.cleaned_data.get('remember_me'):
-                    request.session.set_expiry(1209600)  # 2 weeks
+                # Check if this is first login (password not changed)
+                if not user.is_password_changed:
+                    # MANDATORY OTP VERIFICATION FOR FIRST LOGIN
+                    # Generate and send OTP
+                    otp = generate_otp(6)
+                    
+                    if send_otp_email(user.email, user.full_name, otp):
+                        if store_otp(user.id, otp):
+                            # Store minimal session data for OTP verification
+                            request.session['pending_otp_user_id'] = user.id
+                            request.session['pending_otp_email'] = user.email
+                            request.session['pending_otp_name'] = user.full_name
+                            request.session['pending_otp_role'] = user.role
+                            request.session['requires_otp'] = True
+                            request.session['requires_password_change'] = True
+                            
+                            messages.success(request, f'OTP sent to {user.email}. Please check your email.')
+                            return redirect('auth:verify_otp')
+                        else:
+                            messages.error(request, 'Failed to generate OTP. Please try again.')
+                    else:
+                        messages.error(request, 'Failed to send OTP email. Please contact administrator.')
                 else:
-                    request.session.set_expiry(86400)    # 1 day
-                
-                messages.success(request, f'Welcome back, {user.full_name}!')
-                
-                # Log audit event for successful login
-                try:
-                    ip = get_client_ip(request)
-                    user_name = user_doc.get('name') or f"{user_doc.get('first_name', '')} {user_doc.get('last_name', '')}".strip()
-                    log_audit(user_doc, action_type='login', resource_type='session', resource_id=None, details=f"Logged in successfully as {user_name}", status='success', ip=ip)
-                except Exception:
-                    pass
-                
-                # Redirect to unified dashboard home
-                return redirect('dashboard:home')
+                    # Normal login for users who have changed password
+                    request.session['user_id'] = user.id
+                    request.session['user_email'] = user.email
+                    request.session['user_role'] = user.role
+                    request.session['user_name'] = user.full_name
+                    request.session['is_password_changed'] = user.is_password_changed
+                    
+                    if user_doc:
+                        request.session['user'] = {
+                            'id': user.id,
+                            'email': user.email,
+                            'role': user.role,
+                            'name': user.full_name,
+                            'first_name': user_doc.get('first_name', ''),
+                            'middle_name': user_doc.get('middle_name', ''),
+                            'last_name': user_doc.get('last_name', ''),
+                            'profile_image_url': user_doc.get('profile_image_url', ''),
+                            'department': user_doc.get('department', ''),
+                            'department_id': user_doc.get('department', ''),
+                        }
+                    
+                    # Set session expiry based on remember_me
+                    if form.cleaned_data.get('remember_me'):
+                        request.session.set_expiry(1209600)  # 2 weeks
+                    else:
+                        request.session.set_expiry(86400)    # 1 day
+                    
+                    messages.success(request, f'Welcome back, {user.full_name}!')
+                    
+                    # Log audit event for successful login
+                    try:
+                        ip = get_client_ip(request)
+                        user_name = user_doc.get('name') or f"{user_doc.get('first_name', '')} {user_doc.get('last_name', '')}".strip()
+                        log_audit(user_doc, action_type='login', resource_type='session', resource_id=None, details=f"Logged in successfully as {user_name}", status='success', ip=ip)
+                    except Exception:
+                        pass
+                    
+                    # Redirect based on user role
+                    if user.role == 'department_user':
+                        return redirect('dashboard:dept_home')
+                    else:
+                        return redirect('dashboard:home')
             else:
                 messages.error(request, 'Authentication failed. Please try again.')
         else:
@@ -171,6 +205,126 @@ def get_user_from_session(request):
     
     # Return anonymous user if no valid session
     return AnonymousUser()
+
+
+@never_cache
+def verify_otp_view(request):
+    """OTP Verification View - MANDATORY for first login"""
+    # Check if OTP verification is required
+    if not request.session.get('requires_otp'):
+        return redirect('auth:login')
+    
+    user_email = request.session.get('pending_otp_email')
+    user_name = request.session.get('pending_otp_name')
+    
+    context = {
+        'user_email': user_email,
+        'user_name': user_name,
+        'title': 'OTP Verification - PLP Accreditation System'
+    }
+    
+    return render(request, 'auth/verify_otp.html', context)
+
+
+@require_http_methods(["POST"])
+def verify_otp_submit(request):
+    """Handle OTP verification submission"""
+    # Check if OTP verification is required
+    if not request.session.get('requires_otp'):
+        return JsonResponse({'success': False, 'message': 'Invalid session'}, status=400)
+    
+    try:
+        data = json.loads(request.body)
+        entered_otp = data.get('otp', '').strip()
+        
+        if not entered_otp:
+            return JsonResponse({'success': False, 'message': 'Please enter OTP'})
+        
+        user_id = request.session.get('pending_otp_user_id')
+        
+        # Verify OTP
+        result = verify_otp(user_id, entered_otp)
+        
+        if result['success']:
+            # OTP verified successfully
+            # Get user document
+            from accreditation.firebase_utils import get_document
+            user_doc = get_document('users', user_id)
+            
+            # Complete login session
+            request.session['user_id'] = user_id
+            request.session['user_email'] = request.session.get('pending_otp_email')
+            request.session['user_role'] = request.session.get('pending_otp_role')
+            request.session['user_name'] = request.session.get('pending_otp_name')
+            request.session['is_password_changed'] = False  # Still need to change password
+            request.session['otp_verified'] = True  # Mark OTP as verified
+            
+            if user_doc:
+                request.session['user'] = {
+                    'id': user_id,
+                    'email': user_doc.get('email'),
+                    'role': user_doc.get('role'),
+                    'name': user_doc.get('name') or f"{user_doc.get('first_name', '')} {user_doc.get('last_name', '')}".strip(),
+                    'first_name': user_doc.get('first_name', ''),
+                    'middle_name': user_doc.get('middle_name', ''),
+                    'last_name': user_doc.get('last_name', ''),
+                    'profile_image_url': user_doc.get('profile_image_url', ''),
+                    'department': user_doc.get('department', ''),
+                    'department_id': user_doc.get('department', ''),
+                }
+            
+            # Clear pending OTP session data
+            request.session.pop('pending_otp_user_id', None)
+            request.session.pop('pending_otp_email', None)
+            request.session.pop('pending_otp_name', None)
+            request.session.pop('pending_otp_role', None)
+            request.session.pop('requires_otp', None)
+            
+            # Log successful OTP verification
+            try:
+                ip = get_client_ip(request)
+                log_audit(user_doc, action_type='otp_verification', resource_type='session', resource_id=None, details=f"OTP verified successfully for first login", status='success', ip=ip)
+            except Exception:
+                pass
+            
+            # Redirect based on user role
+            user_role = request.session.get('user_role')
+            if user_role == 'department_user':
+                redirect_url = '/dashboard/dept-home/'
+            else:
+                redirect_url = '/dashboard/'
+            
+            return JsonResponse({
+                'success': True, 
+                'message': 'OTP verified successfully',
+                'redirect': redirect_url
+            })
+        else:
+            return JsonResponse(result)
+    
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid request format'})
+    except Exception as e:
+        print(f"Error in OTP verification: {e}")
+        return JsonResponse({'success': False, 'message': 'Verification error. Please try again.'})
+
+
+@require_http_methods(["POST"])
+def resend_otp_view(request):
+    """Resend OTP to user's email"""
+    # Check if OTP verification is required
+    if not request.session.get('requires_otp'):
+        return JsonResponse({'success': False, 'message': 'Invalid session'}, status=400)
+    
+    user_id = request.session.get('pending_otp_user_id')
+    user_email = request.session.get('pending_otp_email')
+    user_name = request.session.get('pending_otp_name')
+    
+    if not all([user_id, user_email, user_name]):
+        return JsonResponse({'success': False, 'message': 'Session expired. Please login again.'})
+    
+    result = resend_otp(user_id, user_email, user_name)
+    return JsonResponse(result)
 
 
 # AJAX views for API integration
