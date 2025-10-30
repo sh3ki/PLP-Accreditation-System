@@ -25,12 +25,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-6_dtbbcn06vbza(@fb+6rl6%f(^7coep16s!p7v)@a+r4t0z-!'
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-6_dtbbcn06vbza(@fb+6rl6%f(^7coep16s!p7v)@a+r4t0z-!')
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
 
 # Application definition
@@ -80,14 +80,26 @@ WSGI_APPLICATION = 'accreditation.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-# We're using Firebase Firestore as our primary database
-# SQLite is kept as a persistent database for Django's internal operations (sessions, auth, etc.)
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',  # Use persistent SQLite for Django's internal operations
+# Production uses PostgreSQL, development uses SQLite
+if os.getenv('DB_ENGINE') == 'django.db.backends.postgresql':
+    DATABASES = {
+        'default': {
+            'ENGINE': os.getenv('DB_ENGINE'),
+            'NAME': os.getenv('DB_NAME', 'plp_accreditation'),
+            'USER': os.getenv('DB_USER', 'plpuser'),
+            'PASSWORD': os.getenv('DB_PASSWORD', ''),
+            'HOST': os.getenv('DB_HOST', 'localhost'),
+            'PORT': os.getenv('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    # SQLite for development
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # Firebase Firestore is our primary database - configured below
 
@@ -126,7 +138,15 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_DIRS = [
+    BASE_DIR / 'static',
+] if (BASE_DIR / 'static').exists() else []
+
+# Media files
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
@@ -195,16 +215,44 @@ except ImportError as e:
 # Security Settings
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframes from same origin
 
+# Production Security Settings (only applied when DEBUG=False)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_BROWSER_XSS_FILTER = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    
+    # CSRF trusted origins for production
+    CSRF_TRUSTED_ORIGINS = [
+        'https://plpaccreditation.com',
+        'https://www.plpaccreditation.com'
+    ]
+
 # Email Configuration for OTP Verification
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'accreditationsystem2023@gmail.com'  # Replace with your Gmail
-EMAIL_HOST_PASSWORD = 'tjgh wibm ddtg eqml'  # Your Gmail App Password
-DEFAULT_FROM_EMAIL = 'PLP Accreditation System <accreditationsystem2023@gmail.com>'
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', 'accreditationsystem2023@gmail.com')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', 'tjgh wibm ddtg eqml')
+DEFAULT_FROM_EMAIL = f'PLP Accreditation System <{EMAIL_HOST_USER}>'
 
 # OTP Settings
 OTP_EXPIRY_MINUTES = 10  # OTP valid for 10 minutes
 OTP_LENGTH = 6  # 6-digit OTP
+
+# Cloudinary Configuration (for file/image uploads)
+# Cloud name is hardcoded in cloudinary_utils.py: 'dygrh6ztt'
+# API credentials should be in environment variables
+CLOUDINARY_API_KEY = os.getenv('CLOUDINARY_API_KEY', '')
+CLOUDINARY_API_SECRET = os.getenv('CLOUDINARY_API_SECRET', '')
+
+# Make Cloudinary credentials available to cloudinary_utils.py
+if CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET:
+    os.environ['CLOUDINARY_API_KEY'] = CLOUDINARY_API_KEY
+    os.environ['CLOUDINARY_API_SECRET'] = CLOUDINARY_API_SECRET
 
