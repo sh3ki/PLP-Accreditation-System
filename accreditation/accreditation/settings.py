@@ -30,7 +30,16 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-6_dtbbcn06vbza(@fb+6rl6%f(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+# Helper to parse comma-separated env values safely
+def _csv_env(name: str, default: str = ""):
+    return [h.strip() for h in os.getenv(name, default).split(',') if h.strip()]
+
+# Hosts allowed to serve this site. Provide as comma-separated list in env.
+ALLOWED_HOSTS = _csv_env('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+
+# If wildcard is explicitly set in env, allow all (useful for quick diagnostics only)
+if '*' in ALLOWED_HOSTS:
+    ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -215,6 +224,11 @@ except ImportError as e:
 # Security Settings
 X_FRAME_OPTIONS = 'SAMEORIGIN'  # Allow iframes from same origin
 
+# Respect proxy headers (Nginx) for correct host/scheme handling
+# Nginx sets X-Forwarded-Proto; we also set X-Forwarded-Host for safety.
+USE_X_FORWARDED_HOST = True
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 # Production Security Settings (only applied when DEBUG=False)
 if not DEBUG:
     SECURE_SSL_REDIRECT = True
@@ -226,11 +240,15 @@ if not DEBUG:
     SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     SECURE_HSTS_PRELOAD = True
     
-    # CSRF trusted origins for production
-    CSRF_TRUSTED_ORIGINS = [
-        'https://plpaccreditation.com',
-        'https://www.plpaccreditation.com'
-    ]
+    # CSRF trusted origins for production (env overrides default)
+    _csrf_env = _csv_env('CSRF_TRUSTED_ORIGINS', '')
+    if _csrf_env:
+        CSRF_TRUSTED_ORIGINS = _csrf_env
+    else:
+        CSRF_TRUSTED_ORIGINS = [
+            'https://plpaccreditation.com',
+            'https://www.plpaccreditation.com'
+        ]
 
 # Email Configuration for OTP Verification
 EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'

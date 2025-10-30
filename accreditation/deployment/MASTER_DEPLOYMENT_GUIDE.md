@@ -233,22 +233,22 @@ nano .env
 Paste this content (replace values with your actual data):
 
 ```env
-SECRET_KEY=paste-your-generated-secret-key-here
+SECRET_KEY=1l4kls7c_gw5s0tfmoa*l%uob)d9-lcrr(2#+&+*v$e0q_az6+
 DEBUG=False
-ALLOWED_HOSTS=plpaccreditation.com,www.plpaccreditation.com,YOUR_VPS_IP
+ALLOWED_HOSTS=plpaccreditation.com,www.plpaccreditation.com,72.60.41.211
 
 DB_ENGINE=django.db.backends.postgresql
 DB_NAME=plp_accreditation
 DB_USER=plpuser
-DB_PASSWORD=YourStrongPassword123!
+DB_PASSWORD=Accresystem2023@
 DB_HOST=localhost
 DB_PORT=5432
 
 EMAIL_HOST_USER=accreditationsystem2023@gmail.com
 EMAIL_HOST_PASSWORD=tjgh wibm ddtg eqml
 
-CLOUDINARY_API_KEY=your-cloudinary-api-key
-CLOUDINARY_API_SECRET=your-cloudinary-api-secret
+CLOUDINARY_API_KEY=489778494632171
+CLOUDINARY_API_SECRET="-s7N1lsC1JoshfVmlCubvJJU0T8"
 ```
 
 **Replace**:
@@ -329,7 +329,7 @@ source venv/bin/activate
 gunicorn --bind 0.0.0.0:8000 accreditation.wsgi:application
 ```
 
-Visit `http://YOUR_VPS_IP:8000` - should see your site (without CSS).
+Visit `http://72.60.41.211:8000` - should see your site (without CSS).
 
 Press `Ctrl+C` to stop Gunicorn.
 
