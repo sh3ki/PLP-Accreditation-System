@@ -7,13 +7,9 @@
 <div class="dashboard-home">
     <h1 class="dashboard-title">Dashboard</h1>
 
-    {% if user.role == 'qa_head' %}
-        <!-- QA HEAD DASHBOARD: Full System Overview -->
-        {% include 'dashboard/partials/qa_head_dashboard.html' %}
-    
-    {% elif user.role == 'qa_admin' %}
-        <!-- QA ADMIN DASHBOARD: Accreditation Focus -->
-        {% include 'dashboard/partials/qa_admin_dashboard.html' %}
+    {% if user.role == 'qa_head' or user.role == 'qa_admin' %}
+        <!-- QA DASHBOARD: Full System Overview -->
+        {% include 'dashboard/partials/qa_dashboard.html' %}
     
     {% elif user.role == 'department_user' %}
         <!-- DEPARTMENT DASHBOARD: Department-Specific -->

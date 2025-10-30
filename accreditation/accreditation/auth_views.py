@@ -16,6 +16,7 @@ from accreditation.firebase_auth import FirebaseUser, AnonymousUser
 from accreditation.decorators import login_required, qa_head_required, qa_admin_required
 from accreditation.audit_utils import log_audit, get_client_ip
 from accreditation.otp_utils import generate_otp, send_otp_email, store_otp, verify_otp, resend_otp
+from accreditation.dashboard_views import get_qa_admin_dashboard_data
 
 
 @never_cache
@@ -155,30 +156,42 @@ def dashboard_view(request):
 
 @qa_head_required
 def qa_head_dashboard(request):
-    """QA Head dashboard"""
+    """QA Dashboard (shared with QA Admin)"""
     user = get_user_from_session(request)
+    
+    # Get dashboard data
+    dashboard_data = get_qa_admin_dashboard_data(user)
     
     context = {
         'user': user,
-        'title': 'QA Head Dashboard',
+        'title': 'QA Dashboard',
         'role': 'QA Head',
     }
     
-    return render(request, 'dashboards/qa_head_dashboard.html', context)
+    # Merge dashboard data into context
+    context.update(dashboard_data)
+    
+    return render(request, 'dashboards/qa_dashboard.html', context)
 
 
 @qa_admin_required
 def qa_admin_dashboard(request):
-    """QA Admin dashboard"""
+    """QA Dashboard (shared with QA Head)"""
     user = get_user_from_session(request)
+    
+    # Get dashboard data
+    dashboard_data = get_qa_admin_dashboard_data(user)
     
     context = {
         'user': user,
-        'title': 'QA Admin Dashboard',
+        'title': 'QA Dashboard',
         'role': 'QA Admin',
     }
     
-    return render(request, 'dashboards/qa_admin_dashboard.html', context)
+    # Merge dashboard data into context
+    context.update(dashboard_data)
+    
+    return render(request, 'dashboards/qa_dashboard.html', context)
 
 
 @login_required

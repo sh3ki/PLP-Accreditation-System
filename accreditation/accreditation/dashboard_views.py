@@ -67,9 +67,8 @@ def dashboard_home(request):
     }
     
     # Get role-specific dashboard data
-    if user_role == 'qa_head':
-        context.update(get_qa_head_dashboard_data(user))
-    elif user_role == 'qa_admin':
+    if user_role == 'qa_head' or user_role == 'qa_admin':
+        # Both QA roles use the same dashboard data
         context.update(get_qa_admin_dashboard_data(user))
     elif user_role == 'department_user':
         context.update(get_department_dashboard_data(user))
@@ -609,13 +608,18 @@ def performance_view(request):
         areas = [a for a in areas if a.get('is_active', True) and not a.get('is_archived', False)]
         
         all_checklists = get_all_documents('checklists')
+        # Filter to get only active checklists
+        active_checklists = [c for c in all_checklists if c.get('is_active', False) and not c.get('is_archived', False)]
+        
         all_documents = get_all_documents('documents')
+        # Filter to get only active documents
+        active_documents = [d for d in all_documents if d.get('is_active', False) and not d.get('is_archived', False)]
         
         # Calculate progress for each department
         department_stats = []
         total_required_docs = 0
         total_uploaded_docs = 0
-        total_checklists = 0
+        total_checklists_count = len(active_checklists)
         total_completed_checklists = 0
         
         for dept in departments:
@@ -651,37 +655,34 @@ def performance_view(request):
                         area_progresses = []
                         for area in type_areas:
                             area_id = area.get('id')
-                            area_checklists = [c for c in all_checklists if c.get('area_id') == area_id]
+                            area_checklists = [c for c in active_checklists if c.get('area_id') == area_id]
                             
                             if not area_checklists:
                                 area_progresses.append(0)
                                 continue
                             
                             dept_checklists += len(area_checklists)
-                            total_checklists += len(area_checklists)
                             
                             area_completed = 0
                             for checklist in area_checklists:
                                 checklist_id = checklist.get('id')
-                                required_docs = [
-                                    doc for doc in all_documents 
-                                    if doc.get('checklist_id') == checklist_id 
-                                    and doc.get('is_required', False)
-                                    and not doc.get('is_archived', False)
-                                    and doc.get('status') == 'approved'
+                                # Check if checklist has at least one approved document
+                                checklist_docs = [
+                                    doc for doc in active_documents 
+                                    if doc.get('checklist_id') == checklist_id
                                 ]
                                 
-                                dept_required_docs += len([d for d in required_docs])
-                                total_required_docs += len([d for d in required_docs])
+                                has_approved = any(d.get('status') == 'approved' for d in checklist_docs)
                                 
-                                uploaded_docs = [d for d in required_docs if d.get('file_url')]
-                                dept_uploaded_docs += len(uploaded_docs)
-                                total_uploaded_docs += len(uploaded_docs)
-                                
-                                if len(required_docs) > 0:
+                                if has_approved:
                                     area_completed += 1
                                     dept_completed_checklists += 1
                                     total_completed_checklists += 1
+                                
+                                # Count approved documents for this checklist
+                                approved_docs = [d for d in checklist_docs if d.get('status') == 'approved']
+                                dept_uploaded_docs += len(approved_docs)
+                                total_uploaded_docs += len(approved_docs)
                             
                             area_progress = (area_completed / len(area_checklists)) * 100 if area_checklists else 0
                             area_progresses.append(area_progress)
@@ -726,8 +727,9 @@ def performance_view(request):
         # Sort departments by progress (descending)
         department_stats.sort(key=lambda x: x['progress'], reverse=True)
         
-        # Calculate overall statistics
-        avg_completion = sum(d['progress'] for d in department_stats) / len(department_stats) if department_stats else 0
+        # Calculate overall completion rate (consistent with dashboard)
+        # Completion rate = completed checklists / total checklists * 100
+        avg_completion = (total_completed_checklists / total_checklists_count * 100) if total_checklists_count > 0 else 0
         
         # Status distribution
         excellent_count = len([d for d in department_stats if d['progress'] >= 80])
@@ -742,7 +744,7 @@ def performance_view(request):
             'total_departments': len(department_stats),
             'avg_completion': round(avg_completion, 1),
             'total_programs': len(programs),
-            'total_checklists': total_checklists,
+            'total_checklists': total_checklists_count,
             'total_completed_checklists': total_completed_checklists,
             'total_required_docs': total_required_docs,
             'total_uploaded_docs': total_uploaded_docs,
@@ -5756,7 +5758,9 @@ def document_add_view(request, dept_id, prog_id, type_id, area_id, checklist_id)
                         'program_code': program.get('code', 'PROG') if program else 'PROG',
                         'area_name': area.get('name', 'Area 1') if area else 'Area 1',
                         'checklist_name': checklist.get('name', 'Checklist 1') if checklist else 'Checklist 1',
-                        'document_number': doc_number
+                        'document_number': doc_number,
+                        'checklist_id': selected_checklist_id,  # Add checklist_id for versioning
+                        'document_name': required_doc_name  # Add document name for versioning
                     }
                     
                     # Add footer to document and get modified file with new filename
@@ -6877,10 +6881,10 @@ def get_qa_admin_dashboard_data(user):
         documents = get_all_documents('documents')
         total_documents = len(documents)
         
-        # Count documents by status
-        pending_reviews = len([d for d in documents if d.get('status') == 'pending'])
+        # Count documents by status - 'submitted' is the pending status
+        pending_reviews = len([d for d in documents if d.get('status') == 'submitted'])
         approved_documents = len([d for d in documents if d.get('status') == 'approved'])
-        rejected_documents = len([d for d in documents if d.get('status') == 'rejected'])
+        rejected_documents = len([d for d in documents if d.get('status') in ['rejected', 'disapproved']])
         in_review = len([d for d in documents if d.get('status') == 'in_review'])
         
         # Count documents uploaded today
@@ -6891,24 +6895,142 @@ def get_qa_admin_dashboard_data(user):
             if safe_get_datetime(d, 'uploaded_at').date() == today
         ])
         
-        # Get programs
+        # Get checklists - only active and not archived
+        all_checklists = get_all_documents('checklists')
+        active_checklists = [c for c in all_checklists if c.get('is_active', False) and not c.get('is_archived', False)]
+        total_checklists = len(active_checklists)
+        
+        # Calculate completion rate based on completed checklists
+        # A checklist is complete if it has at least one approved document
+        completed_checklists = 0
+        for checklist in active_checklists:
+            checklist_docs = [d for d in documents if d.get('checklist_id') == checklist.get('id')]
+            if checklist_docs:
+                # Check if there's at least one approved document for this checklist
+                has_approved = any(d.get('status') == 'approved' for d in checklist_docs)
+                if has_approved:
+                    completed_checklists += 1
+        
+        completion_rate = round((completed_checklists / total_checklists * 100) if total_checklists > 0 else 0, 1)
+        
+        # Get departments - use is_active and is_archived fields
+        departments = get_all_documents('departments')
+        active_departments = len([d for d in departments if d.get('is_active', False) and not d.get('is_archived', False)])
+        
+        # Get programs - use is_active and is_archived fields
         programs = get_all_documents('programs')
-        active_programs = len([p for p in programs if p.get('status') == 'active'])
+        active_programs = len([p for p in programs if p.get('is_active', False) and not p.get('is_archived', False)])
         
-        # Calculate completion rate
-        completion_rate = round((approved_documents / total_documents * 100) if total_documents > 0 else 0, 1)
+        # Get recent document uploads - only active and not archived
+        active_documents = [d for d in documents if d.get('is_active', False) and not d.get('is_archived', False)]
+        active_documents.sort(key=lambda x: safe_get_datetime(x, 'uploaded_at'), reverse=True)
         
-        # Get recent document uploads - sort safely
-        documents.sort(key=lambda x: safe_get_datetime(x, 'uploaded_at'), reverse=True)
-        recent_documents = documents[:10]
+        # Get all documents for the modal (all active documents)
+        all_documents_list = active_documents.copy()
         
-        # Format recent documents - convert timestamps to datetime objects
-        for doc in recent_documents:
+        # Get recent documents (limit to 12 for dashboard display)
+        recent_documents = active_documents[:12]
+        
+        # Format all documents - convert timestamps and get related info
+        from accreditation.firebase_utils import get_document
+        
+        # Get lookup dictionaries for efficiency
+        users_cache = {}
+        departments_cache = {}
+        programs_cache = {}
+        types_cache = {}
+        areas_cache = {}
+        checklists_cache = {}
+        
+        def get_user_name(user_identifier):
+            """Get user's full name from email or user ID"""
+            if not user_identifier:
+                return 'Unknown User'
+            if user_identifier not in users_cache:
+                try:
+                    # First try to get by ID
+                    user_doc = get_document('users', user_identifier)
+                    
+                    # If not found by ID, search by email
+                    if not user_doc:
+                        all_users = get_all_documents('users')
+                        user_doc = next((u for u in all_users if u.get('email') == user_identifier), None)
+                    
+                    if user_doc:
+                        name = f"{user_doc.get('first_name', '')} {user_doc.get('last_name', '')}".strip()
+                        users_cache[user_identifier] = name if name else user_doc.get('email', 'Unknown User')
+                    else:
+                        users_cache[user_identifier] = 'Unknown User'
+                except:
+                    users_cache[user_identifier] = 'Unknown User'
+            return users_cache[user_identifier]
+        
+        # Format all documents with full details
+        for doc in all_documents_list:
             doc['uploaded_at'] = safe_get_datetime(doc, 'uploaded_at')
+            doc['uploader_name'] = get_user_name(doc.get('uploaded_by'))
+            
+            # Get related information for the modal table
+            dept_id = doc.get('department_id')
+            prog_id = doc.get('program_id')
+            type_id = doc.get('accreditation_type_id')
+            area_id = doc.get('area_id')
+            checklist_id = doc.get('checklist_id')
+            
+            # Get department name
+            if dept_id and dept_id not in departments_cache:
+                try:
+                    dept = get_document('departments', dept_id)
+                    departments_cache[dept_id] = dept.get('name', 'Unknown') if dept else 'Unknown'
+                except:
+                    departments_cache[dept_id] = 'Unknown'
+            doc['department_name'] = departments_cache.get(dept_id, 'Unknown')
+            
+            # Get program name
+            if prog_id and prog_id not in programs_cache:
+                try:
+                    prog = get_document('programs', prog_id)
+                    programs_cache[prog_id] = prog.get('name', 'Unknown') if prog else 'Unknown'
+                except:
+                    programs_cache[prog_id] = 'Unknown'
+            doc['program_name'] = programs_cache.get(prog_id, 'Unknown')
+            
+            # Get accreditation type name
+            if type_id and type_id not in types_cache:
+                try:
+                    atype = get_document('accreditation_types', type_id)
+                    types_cache[type_id] = atype.get('name', 'Unknown') if atype else 'Unknown'
+                except:
+                    types_cache[type_id] = 'Unknown'
+            doc['type_name'] = types_cache.get(type_id, 'Unknown')
+            
+            # Get area name
+            if area_id and area_id not in areas_cache:
+                try:
+                    area = get_document('areas', area_id)
+                    areas_cache[area_id] = area.get('name', 'Unknown') if area else 'Unknown'
+                except:
+                    areas_cache[area_id] = 'Unknown'
+            doc['area_name'] = areas_cache.get(area_id, 'Unknown')
+            
+            # Get checklist name
+            if checklist_id and checklist_id not in checklists_cache:
+                try:
+                    checklist = get_document('checklists', checklist_id)
+                    checklists_cache[checklist_id] = checklist.get('name', 'Unknown') if checklist else 'Unknown'
+                except:
+                    checklists_cache[checklist_id] = 'Unknown'
+            doc['checklist_name'] = checklists_cache.get(checklist_id, 'Unknown')
+            
+            # Build the URL to the checklist documents page
+            if dept_id and prog_id and type_id and area_id and checklist_id:
+                doc['checklist_url'] = f"/dashboard/accreditation/department/{dept_id}/programs/{prog_id}/types/{type_id}/areas/{area_id}/checklists/{checklist_id}/documents/"
+            else:
+                doc['checklist_url'] = "#"
         
-        # Prepare department uploads data
+        # Prepare department uploads data - count documents by department
         dept_uploads = {}
-        for doc in documents:
+        for doc in active_documents:
             dept_name = doc.get('department_name', 'Unknown')
             dept_uploads[dept_name] = dept_uploads.get(dept_name, 0) + 1
         
@@ -6924,58 +7046,139 @@ def get_qa_admin_dashboard_data(user):
             weekly_labels.append(day_str)
             
             count = len([
-                d for d in documents
+                d for d in active_documents
                 if safe_get_datetime(d, 'uploaded_at').date() == day.date()
             ])
             weekly_data.append(count)
         
-        # Get area progress
-        areas = get_all_documents('areas')
-        area_progress = []
-        for area in areas[:10]:  # Top 10 areas
-            area_checklists = [
-                c for c in get_all_documents('checklists')
-                if c.get('area_id') == area.get('id')
-            ]
-            
-            if area_checklists:
-                # Count documents for this area
-                checklist_ids = [c.get('id') for c in area_checklists]
-                area_docs = [d for d in documents if d.get('checklist_id') in checklist_ids]
-                approved = len([d for d in area_docs if d.get('status') == 'approved'])
-                total = len(area_docs)
-                progress = round((approved / total * 100) if total > 0 else 0, 1)
+        # Get program progress (instead of area progress)
+        all_types = get_all_documents('accreditation_types')
+        all_areas = get_all_documents('areas')
+        all_checklists = get_all_documents('checklists')
+        
+        program_progress = []
+        for prog in programs:
+            if not prog.get('is_active', False) or prog.get('is_archived', False):
+                continue
                 
-                area_progress.append({
-                    'number': area.get('area_number', ''),
-                    'name': area.get('name', 'Unknown'),
-                    'progress': progress
+            prog_id = prog.get('id')
+            prog_name = prog.get('name', 'Unknown Program')
+            
+            # Get all types for this program
+            prog_types = [t for t in all_types if t.get('program_id') == prog_id]
+            
+            if not prog_types:
+                program_progress.append({
+                    'id': prog_id,
+                    'name': prog_name,
+                    'progress': 0
                 })
+                continue
+            
+            # Calculate progress for each type
+            type_progresses = []
+            for prog_type in prog_types:
+                type_id = prog_type.get('id')
+                type_areas = [a for a in all_areas if (a.get('type_id') == type_id or a.get('accreditation_type_id') == type_id)]
+                
+                if not type_areas:
+                    type_progresses.append(0)
+                    continue
+                
+                # Calculate progress for each area
+                area_progresses = []
+                for area in type_areas:
+                    area_id = area.get('id')
+                    area_checklists = [c for c in active_checklists if c.get('area_id') == area_id]
+                    
+                    if not area_checklists:
+                        area_progresses.append(0)
+                        continue
+                    
+                    area_total_checklists = len(area_checklists)
+                    completed_checklists = 0
+                    
+                    for checklist in area_checklists:
+                        checklist_id = checklist.get('id')
+                        # Check if checklist has at least one approved document
+                        checklist_docs = [
+                            d for d in active_documents 
+                            if d.get('checklist_id') == checklist_id
+                        ]
+                        has_approved = any(d.get('status') == 'approved' for d in checklist_docs)
+                        if has_approved:
+                            completed_checklists += 1
+                    
+                    area_progress = (completed_checklists / area_total_checklists) * 100 if area_total_checklists > 0 else 0
+                    area_progresses.append(area_progress)
+                
+                # Type progress is average of its areas
+                type_progress = sum(area_progresses) / len(area_progresses) if area_progresses else 0
+                type_progresses.append(type_progress)
+            
+            # Program progress is the average of its types' progress
+            prog_progress = round(sum(type_progresses) / len(type_progresses), 1) if type_progresses else 0
+            
+            program_progress.append({
+                'id': prog_id,
+                'name': prog_name,
+                'progress': prog_progress
+            })
+        
+        # Get the most recent submitted document's checklist URL for "Review Documents" quick action
+        recent_submitted_url = "#"
+        submitted_docs = [d for d in active_documents if d.get('status') == 'submitted']
+        if submitted_docs:
+            # Get the most recent submitted document
+            most_recent = submitted_docs[0]  # Already sorted by uploaded_at descending
+            dept_id = most_recent.get('department_id')
+            prog_id = most_recent.get('program_id')
+            type_id = most_recent.get('accreditation_type_id')
+            area_id = most_recent.get('area_id')
+            checklist_id = most_recent.get('checklist_id')
+            
+            if dept_id and prog_id and type_id and area_id and checklist_id:
+                recent_submitted_url = f"/dashboard/accreditation/department/{dept_id}/programs/{prog_id}/types/{type_id}/areas/{area_id}/checklists/{checklist_id}/documents/"
         
         return {
             'stats': {
                 'total_documents': total_documents,
                 'documents_today': documents_today,
+                'total_checklists': total_checklists,
+                'completion_rate': completion_rate,
+                'active_departments': active_departments,
+                'active_programs': active_programs,
                 'pending_reviews': pending_reviews,
                 'approved_documents': approved_documents,
                 'rejected_documents': rejected_documents,
                 'in_review': in_review,
-                'active_programs': active_programs,
-                'completion_rate': completion_rate,
             },
             'recent_documents': recent_documents,
+            'all_documents_list': all_documents_list,
             'department_labels': department_labels,
             'department_uploads': department_uploads,
             'weekly_labels': json.dumps(weekly_labels),
             'weekly_data': json.dumps(weekly_data),
-            'area_progress': area_progress,
+            'program_progress': program_progress,
+            'recent_submitted_url': recent_submitted_url,
         }
     except Exception as e:
         print(f"Error in get_qa_admin_dashboard_data: {str(e)}")
         import traceback
         traceback.print_exc()
         return {
-            'stats': {},
+            'stats': {
+                'total_documents': 0,
+                'documents_today': 0,
+                'total_checklists': 0,
+                'completion_rate': 0,
+                'active_departments': 0,
+                'active_programs': 0,
+                'pending_reviews': 0,
+                'approved_documents': 0,
+                'rejected_documents': 0,
+                'in_review': 0,
+            },
             'recent_documents': [],
             'department_labels': '[]',
             'department_uploads': '[]',

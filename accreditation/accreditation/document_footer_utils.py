@@ -65,7 +65,8 @@ def add_footer_code_to_document(file, metadata, original_filename):
             - program_code: Program code (e.g., 'BSCS')
             - area_name: Area name (e.g., 'Area 1')
             - checklist_name: Checklist name (e.g., 'Checklist 2')
-            - document_number: Sequential number of the document in the checklist (1, 2, 3, ...)
+            - checklist_id: Checklist ID for version tracking
+            - document_name: Original document name for version tracking
         original_filename: Original filename to preserve
             
     Returns:
@@ -81,15 +82,19 @@ def add_footer_code_to_document(file, metadata, original_filename):
         program_code = metadata.get('program_code', 'PROG')
         area_name = metadata.get('area_name', 'AREA1').replace(' ', '').upper()  # Remove spaces and uppercase
         checklist_num = get_checklist_number_from_name(metadata.get('checklist_name', 'Checklist 1'))
-        doc_number = metadata.get('document_number', 1)
         
-        # Format timestamp: MM:DD:YYYY-HRS:MINS:SECS
+        # Get document number and version
+        checklist_id = metadata.get('checklist_id')
+        document_name = metadata.get('document_name', original_filename)
+        doc_number, version = get_document_number_and_version(checklist_id, document_name)
+        
+        # Format timestamp: MM:DD:YYYY-HH:MM:SS
         now = datetime.now()
         timestamp = now.strftime('%m:%d:%Y-%H:%M:%S')
         
         # Construct the footer code
-        # Format: {TYPE_SHORT}-{DEPT_CODE}-{PROG_CODE}-{AREA_NAME}-{CHECKLIST_NUM}-{DOC_NUM} {TIMESTAMP}
-        footer_code = f"{type_short}-{dept_code}-{program_code}-{area_name}-{checklist_num}-{doc_number} {timestamp}"
+        # Format: {TYPE_SHORT}-{DEPT_CODE}-{PROG_CODE}-{AREA_NAME}-{CHECKLIST_NUM}-{DOC_NUM}v.{VERSION}.0 {TIMESTAMP}
+        footer_code = f"{type_short}-{dept_code}-{program_code}-{area_name}-{checklist_num}-{doc_number}v.{version}.0 {timestamp}"
         
         # Add footer to all sections
         for section in doc.sections:
@@ -102,7 +107,7 @@ def add_footer_code_to_document(file, metadata, original_filename):
             
             # Add new paragraph to footer
             footer_paragraph = footer.add_paragraph()
-            footer_paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT  # Right align
+            footer_paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT  # LEFT align
             
             # Add the footer code text
             run = footer_paragraph.add_run(footer_code)
@@ -163,3 +168,91 @@ def count_existing_required_documents(dept_id, prog_id, type_id, area_id, checkl
     except Exception as e:
         print(f"Error counting documents: {str(e)}")
         return 1  # Default to 1 if error
+
+
+def get_document_number_and_version(checklist_id, document_name):
+    """
+    Get document number and version for footer based on existing documents in checklist.
+    
+    Logic:
+    - Each unique document name gets a sequential number (1, 2, 3...)
+    - Same document name uploaded again increments version (v.0.0 -> v.1.0 -> v.2.0)
+    
+    Args:
+        checklist_id: Checklist ID
+        document_name: Original document name
+        
+    Returns:
+        tuple: (document_number, version)
+        
+    Example:
+        First upload of "syllabus.pdf" -> (1, 0)
+        First upload of "curriculum.docx" -> (2, 0)
+        Second upload of "syllabus.pdf" -> (1, 1)
+        First upload of "assessment.xlsx" -> (3, 0)
+        Third upload of "syllabus.pdf" -> (1, 2)
+    """
+    try:
+        from accreditation.firebase_utils import get_all_documents
+        
+        print(f"[VERSION DEBUG] Getting version for: checklist_id={checklist_id}, document_name={document_name}")
+        
+        # Get all documents in this checklist
+        all_documents = get_all_documents('documents')
+        checklist_docs = [
+            d for d in all_documents 
+            if d.get('checklist_id') == checklist_id 
+            and d.get('is_active', True)
+            and not d.get('is_archived', False)
+        ]
+        
+        print(f"[VERSION DEBUG] Found {len(checklist_docs)} documents in checklist")
+        
+        # Sort by uploaded_at to maintain order
+        checklist_docs.sort(key=lambda x: x.get('uploaded_at', ''))
+        
+        # Track unique document names and their numbers
+        doc_name_mapping = {}  # {doc_name: number}
+        doc_name_versions = {}  # {doc_name: version}
+        current_number = 1
+        
+        # Build mapping of existing documents
+        for doc in checklist_docs:
+            existing_name = doc.get('name', '')
+            
+            print(f"[VERSION DEBUG] Processing existing doc: {existing_name}")
+            
+            if existing_name not in doc_name_mapping:
+                # New document name - assign next number
+                doc_name_mapping[existing_name] = current_number
+                doc_name_versions[existing_name] = 0
+                print(f"[VERSION DEBUG] Assigned number {current_number} to '{existing_name}'")
+                current_number += 1
+            else:
+                # Same document name - increment version
+                doc_name_versions[existing_name] += 1
+                print(f"[VERSION DEBUG] Incremented version to {doc_name_versions[existing_name]} for '{existing_name}'")
+        
+        print(f"[VERSION DEBUG] Document name mapping: {doc_name_mapping}")
+        print(f"[VERSION DEBUG] Document versions: {doc_name_versions}")
+        
+        # Check if current document name already exists
+        if document_name in doc_name_mapping:
+            # Same name - use existing number and increment version
+            doc_number = doc_name_mapping[document_name]
+            version = doc_name_versions[document_name] + 1  # Increment for new upload
+            print(f"[VERSION DEBUG] Existing document: number={doc_number}, version={version}")
+        else:
+            # New name - assign next number with version 0
+            doc_number = current_number
+            version = 0
+            print(f"[VERSION DEBUG] New document: number={doc_number}, version={version}")
+        
+        print(f"[VERSION DEBUG] Final result: ({doc_number}, {version})")
+        return doc_number, version
+        
+    except Exception as e:
+        print(f"Error getting document number and version: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return 1, 0  # Default to first document, version 0
