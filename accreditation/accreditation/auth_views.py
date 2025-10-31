@@ -38,7 +38,7 @@ def login_view(request):
             if user:
                 # Store additional user fields for profile
                 from accreditation.firebase_utils import get_document
-                user_doc = get_document('users', user.id)
+                user_doc = get_document('users', user.id, request=request)
                 
                 # Check if this is first login (password not changed)
                 if not user.is_password_changed:
@@ -262,7 +262,7 @@ def verify_otp_submit(request):
             # OTP verified successfully
             # Get user document
             from accreditation.firebase_utils import get_document
-            user_doc = get_document('users', user_id)
+            user_doc = get_document('users', user_id, request=request)
             
             # Complete login session
             request.session['user_id'] = user_id

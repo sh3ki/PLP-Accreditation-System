@@ -275,36 +275,194 @@ class FirestoreHelper:
 # Global instance
 firestore_helper = FirestoreHelper()
 
+# Import caching utilities
+try:
+    from .cache_utils import (
+        _firestore_cache,
+        invalidate_collection_cache,
+        CACHE_TTL,
+        DEFAULT_TTL,
+    )
+    CACHING_ENABLED = True
+except ImportError:
+    CACHING_ENABLED = False
 
-# Convenience functions
+
+# Cached convenience functions with quota optimization
+def get_document(collection_name: str, document_id: str, request=None) -> Optional[Dict[str, Any]]:
+    """
+    Get a document from Firestore with intelligent caching
+    
+    Args:
+        collection_name: Name of the collection
+        document_id: ID of the document
+        request: Optional Django request object for request-level caching
+    
+    Returns:
+        Document data or None
+    """
+    if not CACHING_ENABLED:
+        return firestore_helper.get_document(collection_name, document_id)
+    
+    # Check request cache first
+    if request and hasattr(request, '_firestore_cache'):
+        cache_key = f"{collection_name}:{document_id}"
+        if cache_key in request._firestore_cache:
+            if hasattr(request, '_cache_hits'):
+                request._cache_hits += 1
+            return request._firestore_cache[cache_key]
+    
+    # Check application cache
+    cached = _firestore_cache.get(collection_name, document_id)
+    if cached is not None:
+        if request:
+            if not hasattr(request, '_firestore_cache'):
+                request._firestore_cache = {}
+            request._firestore_cache[f"{collection_name}:{document_id}"] = cached
+            if hasattr(request, '_cache_hits'):
+                request._cache_hits += 1
+        return cached
+    
+    # Cache miss - fetch from Firestore
+    if request and hasattr(request, '_cache_misses'):
+        request._cache_misses += 1
+    
+    result = firestore_helper.get_document(collection_name, document_id)
+    
+    # Cache the result if found
+    if result:
+        # Update application cache
+        all_docs = _firestore_cache.get(collection_name) or {}
+        if not isinstance(all_docs, list):
+            all_docs = {}
+        all_docs[document_id] = result
+        ttl = CACHE_TTL.get(collection_name, DEFAULT_TTL)
+        _firestore_cache.set(collection_name, all_docs, ttl)
+        
+        # Update request cache
+        if request and hasattr(request, '_firestore_cache'):
+            request._firestore_cache[f"{collection_name}:{document_id}"] = result
+    
+    return result
+
+
+def get_all_documents(collection_name: str, limit: Optional[int] = None, request=None) -> List[Dict[str, Any]]:
+    """
+    Get all documents from a collection with intelligent caching
+    
+    Args:
+        collection_name: Name of the collection
+        limit: Optional limit on number of documents
+        request: Optional Django request object for request-level caching
+    
+    Returns:
+        List of documents
+    """
+    if not CACHING_ENABLED:
+        return firestore_helper.get_all_documents(collection_name, limit)
+    
+    # Check request cache first
+    if request and hasattr(request, '_firestore_cache'):
+        cache_key = f"{collection_name}:all:{limit or 'unlimited'}"
+        if cache_key in request._firestore_cache:
+            if hasattr(request, '_cache_hits'):
+                request._cache_hits += 1
+            return request._firestore_cache[cache_key]
+    
+    # Check application cache (only if no limit or full collection is cached)
+    if not limit:
+        cached = _firestore_cache.get(collection_name)
+        if cached is not None and isinstance(cached, list):
+            if request:
+                if not hasattr(request, '_firestore_cache'):
+                    request._firestore_cache = {}
+                request._firestore_cache[f"{collection_name}:all:unlimited"] = cached
+                if hasattr(request, '_cache_hits'):
+                    request._cache_hits += 1
+            return cached
+    
+    # Cache miss - fetch from Firestore
+    if request and hasattr(request, '_cache_misses'):
+        request._cache_misses += 1
+    
+    result = firestore_helper.get_all_documents(collection_name, limit)
+    
+    # Cache the result (only cache full collections without limits)
+    if not limit and result:
+        ttl = CACHE_TTL.get(collection_name, DEFAULT_TTL)
+        _firestore_cache.set(collection_name, result, ttl)
+        
+        # Update request cache
+        if request and hasattr(request, '_firestore_cache'):
+            request._firestore_cache[f"{collection_name}:all:unlimited"] = result
+    
+    return result
+
+
+def query_documents(collection_name: str, field: str, operator: str, value: Any, limit: Optional[int] = None, request=None) -> List[Dict[str, Any]]:
+    """
+    Query documents in a collection with caching
+    
+    Note: Query results are cached at request level only due to dynamic nature
+    """
+    if not CACHING_ENABLED:
+        return firestore_helper.query_documents(collection_name, field, operator, value, limit)
+    
+    # Check request cache first
+    if request and hasattr(request, '_firestore_cache'):
+        cache_key = f"{collection_name}:query:{field}:{operator}:{value}:{limit or 'unlimited'}"
+        if cache_key in request._firestore_cache:
+            if hasattr(request, '_cache_hits'):
+                request._cache_hits += 1
+            return request._firestore_cache[cache_key]
+    
+    # Cache miss - execute query
+    if request and hasattr(request, '_cache_misses'):
+        request._cache_misses += 1
+    
+    result = firestore_helper.query_documents(collection_name, field, operator, value, limit)
+    
+    # Cache in request cache only (queries are too dynamic for app-level cache)
+    if request:
+        if not hasattr(request, '_firestore_cache'):
+            request._firestore_cache = {}
+        cache_key = f"{collection_name}:query:{field}:{operator}:{value}:{limit or 'unlimited'}"
+        request._firestore_cache[cache_key] = result
+    
+    return result
+
+
 def create_document(collection_name: str, document_data: Dict[str, Any], document_id: Optional[str] = None) -> str:
-    """Create a document in Firestore"""
-    return firestore_helper.create_document(collection_name, document_data, document_id)
-
-
-def get_document(collection_name: str, document_id: str) -> Optional[Dict[str, Any]]:
-    """Get a document from Firestore"""
-    return firestore_helper.get_document(collection_name, document_id)
-
-
-def get_all_documents(collection_name: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Get all documents from a collection"""
-    return firestore_helper.get_all_documents(collection_name, limit)
-
-
-def query_documents(collection_name: str, field: str, operator: str, value: Any, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    """Query documents in a collection"""
-    return firestore_helper.query_documents(collection_name, field, operator, value, limit)
+    """Create a document in Firestore and invalidate cache"""
+    result = firestore_helper.create_document(collection_name, document_data, document_id)
+    
+    # Invalidate cache for this collection
+    if CACHING_ENABLED:
+        invalidate_collection_cache(collection_name)
+    
+    return result
 
 
 def update_document(collection_name: str, document_id: str, update_data: Dict[str, Any]) -> bool:
-    """Update a document in Firestore"""
-    return firestore_helper.update_document(collection_name, document_id, update_data)
+    """Update a document in Firestore and invalidate cache"""
+    result = firestore_helper.update_document(collection_name, document_id, update_data)
+    
+    # Invalidate cache for this collection
+    if CACHING_ENABLED:
+        invalidate_collection_cache(collection_name)
+    
+    return result
 
 
 def delete_document(collection_name: str, document_id: str) -> bool:
-    """Delete a document from Firestore"""
-    return firestore_helper.delete_document(collection_name, document_id)
+    """Delete a document from Firestore and invalidate cache"""
+    result = firestore_helper.delete_document(collection_name, document_id)
+    
+    # Invalidate cache for this collection
+    if CACHING_ENABLED:
+        invalidate_collection_cache(collection_name)
+    
+    return result
 
 
 def upload_profile_image(file, file_path: str) -> str:
