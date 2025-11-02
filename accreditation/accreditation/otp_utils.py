@@ -16,14 +16,30 @@ def generate_otp(length=6):
     return ''.join(random.choices(string.digits, k=length))
 
 
-def send_otp_email(user_email, user_name, otp):
-    """Send OTP via email"""
-    subject = 'OTP Verification - PLP Accreditation System'
+def send_otp_email(user_email, user_name, otp, purpose='login'):
+    """Send OTP via email
+    
+    Args:
+        user_email: User's email address
+        user_name: User's full name
+        otp: The OTP code
+        purpose: Either 'login' or 'password_reset'
+    """
+    if purpose == 'password_reset':
+        subject = 'Password Reset OTP - PLP Accreditation System'
+        title = '🔑 Password Reset'
+        intro = 'Your One-Time Password (OTP) for resetting your password is:'
+        instruction = 'Please enter this code on the password reset page to continue.'
+    else:
+        subject = 'OTP Verification - PLP Accreditation System'
+        title = '🔐 OTP Verification'
+        intro = 'Your One-Time Password (OTP) for logging into the PLP Accreditation System is:'
+        instruction = 'Please enter this code on the verification page to continue.'
     
     message = f"""
 Hello {user_name},
 
-Your One-Time Password (OTP) for logging into the PLP Accreditation System is:
+{intro}
 
 {otp}
 
@@ -107,19 +123,19 @@ PLP Accreditation System
 <body>
     <div class="container">
         <div class="header">
-            <h1>🔐 OTP Verification</h1>
+            <h1>{title}</h1>
             <p style="margin: 10px 0 0 0; font-size: 14px;">PLP Accreditation System</p>
         </div>
         <div class="content">
             <p>Hello <strong>{user_name}</strong>,</p>
-            <p>Your One-Time Password (OTP) for logging into the PLP Accreditation System is:</p>
+            <p>{intro}</p>
             
             <div class="otp-box">
                 <div class="otp-code">{otp}</div>
                 <div class="info-text">Valid for {settings.OTP_EXPIRY_MINUTES} minutes</div>
             </div>
             
-            <p>Please enter this code on the verification page to continue.</p>
+            <p>{instruction}</p>
             
             <div class="warning">
                 <strong>⚠️ Security Notice:</strong> If you did not request this OTP, please ignore this email and contact your administrator immediately.
@@ -149,8 +165,14 @@ PLP Accreditation System
         return False
 
 
-def store_otp(user_uid, otp):
-    """Store OTP in Firestore with expiry time"""
+def store_otp(user_uid, otp, purpose='login'):
+    """Store OTP in Firestore with expiry time
+    
+    Args:
+        user_uid: User's unique ID
+        otp: The OTP code
+        purpose: Either 'login' or 'password_reset'
+    """
     from accreditation.settings import db
     
     if not db:
@@ -161,28 +183,39 @@ def store_otp(user_uid, otp):
         
         otp_data = {
             'otp': otp,
+            'purpose': purpose,
             'created_at': firestore.SERVER_TIMESTAMP,
             'expires_at': expiry_time,
             'verified': False,
             'attempts': 0
         }
         
-        db.collection('otp_verifications').document(user_uid).set(otp_data)
+        # Use different collection based on purpose
+        collection_name = f'otp_{purpose}' if purpose == 'password_reset' else 'otp_verifications'
+        db.collection(collection_name).document(user_uid).set(otp_data)
         return True
     except Exception as e:
         print(f"Error storing OTP: {e}")
         return False
 
 
-def verify_otp(user_uid, entered_otp):
-    """Verify OTP and check expiry"""
+def verify_otp(user_uid, entered_otp, purpose='login'):
+    """Verify OTP and check expiry
+    
+    Args:
+        user_uid: User's unique ID
+        entered_otp: The OTP entered by user
+        purpose: Either 'login' or 'password_reset'
+    """
     from accreditation.settings import db
     
     if not db:
         return {'success': False, 'message': 'Database connection error'}
     
     try:
-        otp_ref = db.collection('otp_verifications').document(user_uid)
+        # Use different collection based on purpose
+        collection_name = f'otp_{purpose}' if purpose == 'password_reset' else 'otp_verifications'
+        otp_ref = db.collection(collection_name).document(user_uid)
         otp_doc = otp_ref.get()
         
         if not otp_doc.exists:
@@ -224,30 +257,43 @@ def verify_otp(user_uid, entered_otp):
         return {'success': False, 'message': 'Verification error. Please try again.'}
 
 
-def delete_otp(user_uid):
-    """Delete OTP after successful verification"""
+def delete_otp(user_uid, purpose='login'):
+    """Delete OTP after successful verification
+    
+    Args:
+        user_uid: User's unique ID
+        purpose: Either 'login' or 'password_reset'
+    """
     from accreditation.settings import db
     
     if not db:
         return False
     
     try:
-        db.collection('otp_verifications').document(user_uid).delete()
+        collection_name = f'otp_{purpose}' if purpose == 'password_reset' else 'otp_verifications'
+        db.collection(collection_name).document(user_uid).delete()
         return True
     except Exception as e:
         print(f"Error deleting OTP: {e}")
         return False
 
 
-def resend_otp(user_uid, user_email, user_name):
-    """Resend a new OTP"""
+def resend_otp(user_uid, user_email, user_name, purpose='login'):
+    """Resend a new OTP
+    
+    Args:
+        user_uid: User's unique ID
+        user_email: User's email address
+        user_name: User's full name
+        purpose: Either 'login' or 'password_reset'
+    """
     # Generate new OTP
     new_otp = generate_otp(settings.OTP_LENGTH)
     
     # Send email
-    if send_otp_email(user_email, user_name, new_otp):
+    if send_otp_email(user_email, user_name, new_otp, purpose=purpose):
         # Store in database
-        if store_otp(user_uid, new_otp):
+        if store_otp(user_uid, new_otp, purpose=purpose):
             return {'success': True, 'message': 'New OTP sent successfully'}
         else:
             return {'success': False, 'message': 'Failed to store OTP'}

@@ -39,6 +39,7 @@ class LoginForm(forms.Form):
     
     def __init__(self, *args, **kwargs):
         self.user = None
+        self.auth_result = None
         super().__init__(*args, **kwargs)
     
     def clean(self):
@@ -48,22 +49,32 @@ class LoginForm(forms.Form):
         password = cleaned_data.get('password')
         
         if email and password:
-            self.user = FirebaseUser.authenticate(email, password)
-            if not self.user:
-                raise forms.ValidationError(
-                    "Invalid email or password. Please try again."
-                )
+            self.auth_result = FirebaseUser.authenticate(email, password)
             
-            if not self.user.is_active:
-                raise forms.ValidationError(
-                    "This account has been deactivated."
-                )
+            if self.auth_result.get('success'):
+                self.user = self.auth_result.get('user')
+            else:
+                error_type = self.auth_result.get('error')
+                message = self.auth_result.get('message')
+                
+                # Store auth result for later use
+                if error_type == 'account_locked':
+                    self.locked_until = self.auth_result.get('locked_until')
+                    self.remaining_seconds = self.auth_result.get('remaining_seconds')
+                elif error_type == 'account_deactivated':
+                    self.is_deactivated = True
+                
+                raise forms.ValidationError(message)
         
         return cleaned_data
     
     def get_user(self):
         """Get authenticated user"""
         return self.user
+    
+    def get_auth_result(self):
+        """Get full authentication result"""
+        return self.auth_result
 
 
 class UserManagementForm(forms.Form):

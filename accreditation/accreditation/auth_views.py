@@ -11,6 +11,7 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.views.decorators.http import require_http_methods
 import json
+from firebase_admin import firestore
 from accreditation.forms import LoginForm
 from accreditation.firebase_auth import FirebaseUser, AnonymousUser
 from accreditation.decorators import login_required, qa_head_required, qa_admin_required
@@ -22,7 +23,7 @@ from accreditation.dashboard_views import get_qa_admin_dashboard_data
 @never_cache
 @csrf_protect
 def login_view(request):
-    """Login view"""
+    """Login view with security features"""
     # Redirect if user is already authenticated
     if hasattr(request, 'user') and request.user.is_authenticated:
         # Redirect based on user role
@@ -31,11 +32,17 @@ def login_view(request):
         else:
             return redirect('dashboard:home')
     
+    locked_until = None
+    remaining_seconds = None
+    is_deactivated = False
+    
     if request.method == 'POST':
         form = LoginForm(request.POST)
         if form.is_valid():
             user = form.get_user()
-            if user:
+            auth_result = form.get_auth_result()
+            
+            if user and auth_result.get('success'):
                 # Store additional user fields for profile
                 from accreditation.firebase_utils import get_document
                 user_doc = get_document('users', user.id, request=request)
@@ -105,16 +112,22 @@ def login_view(request):
                         return redirect('dashboard:dept_home')
                     else:
                         return redirect('dashboard:home')
-            else:
-                messages.error(request, 'Authentication failed. Please try again.')
         else:
-            messages.error(request, 'Please correct the errors below.')
+            # Form has errors - check if it's a lockout or deactivation
+            if hasattr(form, 'locked_until'):
+                locked_until = form.locked_until
+                remaining_seconds = form.remaining_seconds
+            if hasattr(form, 'is_deactivated'):
+                is_deactivated = form.is_deactivated
     else:
         form = LoginForm()
     
     context = {
         'form': form,
         'title': 'PLP Accreditation System - Login',
+        'locked_until': locked_until,
+        'remaining_seconds': remaining_seconds,
+        'is_deactivated': is_deactivated,
     }
     
     return render(request, 'auth/login.html', context)
@@ -367,3 +380,224 @@ class FirebaseAuthMiddleware:
         
         response = self.get_response(request)
         return response
+
+
+# ================== FORGOT PASSWORD FLOW ==================
+
+@never_cache
+def forgot_password_view(request):
+    """Display forgot password form"""
+    return render(request, 'auth/forgot_password.html', {
+        'title': 'Forgot Password'
+    })
+
+
+@require_http_methods(["POST"])
+def forgot_password_send_otp(request):
+    """Send OTP for password reset"""
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip().lower()
+        
+        if not email:
+            return JsonResponse({'success': False, 'message': 'Email is required'})
+        
+        # Check if user exists in Firestore
+        from accreditation.firebase_utils import query_documents
+        users = query_documents('users', [('email', '==', email)])
+        
+        if not users:
+            return JsonResponse({'success': False, 'message': 'No account found with this email address'})
+        
+        user = users[0]
+        user_id = user.get('id')
+        user_name = user.get('name') or f"{user.get('first_name', '')} {user.get('last_name', '')}".strip()
+        
+        # Generate and send OTP
+        otp = generate_otp(6)
+        
+        if send_otp_email(email, user_name, otp, purpose='password_reset'):
+            if store_otp(user_id, otp, purpose='password_reset'):
+                # Store session data for verification
+                request.session['forgot_password_user_id'] = user_id
+                request.session['forgot_password_email'] = email
+                request.session['forgot_password_name'] = user_name
+                request.session['forgot_password_otp_sent'] = True
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Verification code sent to your email',
+                    'redirect': '/auth/forgot-password/verify-otp/'
+                })
+            else:
+                return JsonResponse({'success': False, 'message': 'Failed to generate OTP. Please try again.'})
+        else:
+            return JsonResponse({'success': False, 'message': 'Failed to send email. Please try again.'})
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid request format'})
+    except Exception as e:
+        print(f"Error in forgot password OTP: {e}")
+        return JsonResponse({'success': False, 'message': 'An error occurred. Please try again.'})
+
+
+@never_cache
+def forgot_password_verify_otp(request):
+    """Display OTP verification page for password reset"""
+    if not request.session.get('forgot_password_otp_sent'):
+        return redirect('auth:forgot_password')
+    
+    return render(request, 'auth/forgot_password_verify_otp.html', {
+        'title': 'Verify OTP',
+        'user_email': request.session.get('forgot_password_email', '')
+    })
+
+
+@require_http_methods(["POST"])
+def forgot_password_verify_otp(request):
+    """Verify OTP for password reset"""
+    try:
+        data = json.loads(request.body)
+        otp = data.get('otp', '').strip()
+        
+        if not otp:
+            return JsonResponse({'success': False, 'message': 'OTP is required'})
+        
+        if not request.session.get('forgot_password_otp_sent'):
+            return JsonResponse({'success': False, 'message': 'Invalid session. Please start over.'})
+        
+        user_id = request.session.get('forgot_password_user_id')
+        
+        if not user_id:
+            return JsonResponse({'success': False, 'message': 'Session expired. Please start over.'})
+        
+        # Verify OTP
+        result = verify_otp(user_id, otp, purpose='password_reset')
+        
+        if result.get('success'):
+            # Mark OTP as verified
+            request.session['forgot_password_otp_verified'] = True
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'OTP verified successfully',
+                'redirect': '/auth/forgot-password/reset/'
+            })
+        else:
+            return JsonResponse(result)
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid request format'})
+    except Exception as e:
+        print(f"Error verifying OTP: {e}")
+        return JsonResponse({'success': False, 'message': 'Verification error. Please try again.'})
+
+
+@require_http_methods(["POST"])
+def forgot_password_resend_otp(request):
+    """Resend OTP for password reset"""
+    if not request.session.get('forgot_password_otp_sent'):
+        return JsonResponse({'success': False, 'message': 'Invalid session'}, status=400)
+    
+    user_id = request.session.get('forgot_password_user_id')
+    user_email = request.session.get('forgot_password_email')
+    user_name = request.session.get('forgot_password_name')
+    
+    if not all([user_id, user_email, user_name]):
+        return JsonResponse({'success': False, 'message': 'Session expired. Please start over.'})
+    
+    result = resend_otp(user_id, user_email, user_name, purpose='password_reset')
+    return JsonResponse(result)
+
+
+@never_cache
+def reset_password_view(request):
+    """Display reset password form"""
+    if not request.session.get('forgot_password_otp_verified'):
+        return redirect('auth:forgot_password')
+    
+    return render(request, 'auth/reset_password.html', {
+        'title': 'Reset Password'
+    })
+
+
+@require_http_methods(["POST"])
+def reset_password_submit(request):
+    """Submit new password"""
+    try:
+        data = json.loads(request.body)
+        new_password = data.get('new_password', '')
+        confirm_password = data.get('confirm_password', '')
+        
+        if not all([new_password, confirm_password]):
+            return JsonResponse({'success': False, 'message': 'All fields are required'})
+        
+        if new_password != confirm_password:
+            return JsonResponse({'success': False, 'message': 'Passwords do not match'})
+        
+        # Validate password strength
+        if len(new_password) < 8:
+            return JsonResponse({'success': False, 'message': 'Password must be at least 8 characters'})
+        
+        if not any(c.isupper() for c in new_password):
+            return JsonResponse({'success': False, 'message': 'Password must contain at least one uppercase letter'})
+        
+        if not any(c.islower() for c in new_password):
+            return JsonResponse({'success': False, 'message': 'Password must contain at least one lowercase letter'})
+        
+        if not any(c.isdigit() for c in new_password):
+            return JsonResponse({'success': False, 'message': 'Password must contain at least one number'})
+        
+        if not request.session.get('forgot_password_otp_verified'):
+            return JsonResponse({'success': False, 'message': 'Invalid session. Please start over.'})
+        
+        user_id = request.session.get('forgot_password_user_id')
+        
+        if not user_id:
+            return JsonResponse({'success': False, 'message': 'Session expired. Please start over.'})
+        
+        # Update password in Firestore
+        from accreditation.firebase_utils import update_document
+        from django.contrib.auth.hashers import make_password
+        
+        hashed_password = make_password(new_password)
+        
+        update_data = {
+            'password': hashed_password,
+            'is_password_changed': True,
+            'updated_at': firestore.SERVER_TIMESTAMP
+        }
+        
+        if update_document('users', user_id, update_data):
+            # Clear forgot password session data
+            request.session.pop('forgot_password_user_id', None)
+            request.session.pop('forgot_password_email', None)
+            request.session.pop('forgot_password_name', None)
+            request.session.pop('forgot_password_otp_sent', None)
+            request.session.pop('forgot_password_otp_verified', None)
+            
+            # Log audit event
+            try:
+                from accreditation.firebase_utils import get_document
+                user_doc = get_document('users', user_id)
+                if user_doc:
+                    ip = get_client_ip(request)
+                    log_audit(user_doc, action_type='password_reset', resource_type='user', 
+                             resource_id=user_id, details='Password reset successfully via forgot password flow', 
+                             status='success', ip=ip)
+            except Exception:
+                pass
+            
+            return JsonResponse({
+                'success': True,
+                'message': 'Password reset successfully. You can now login with your new password.',
+                'redirect': '/auth/login/'
+            })
+        else:
+            return JsonResponse({'success': False, 'message': 'Failed to update password. Please try again.'})
+            
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid request format'})
+    except Exception as e:
+        print(f"Error resetting password: {e}")
+        return JsonResponse({'success': False, 'message': 'An error occurred. Please try again.'})

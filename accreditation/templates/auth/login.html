@@ -203,10 +203,57 @@
             transform: translateY(0);
         }
 
+        .login-btn:disabled {
+            background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
+            cursor: not-allowed;
+            opacity: 0.5;
+            position: relative;
+        }
+
+        .login-btn:disabled:hover {
+            background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
+            transform: none;
+            box-shadow: none;
+        }
+
         .alert {
             border-radius: 10px;
             margin-bottom: 20px;
             font-size: 14px;
+        }
+
+        #lockoutTimer {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            font-size: 14px;
+            margin-top: 8px;
+            color: #fff;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        #lockoutTimer i {
+            font-size: 16px;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.7;
+                transform: scale(1.1);
+            }
+        }
+
+        .login-btn.locked {
+            background: linear-gradient(135deg, #81c784 0%, #66bb6a 100%);
+            opacity: 0.6;
+            cursor: not-allowed;
         }
 
         /* Responsive Design */
@@ -317,7 +364,7 @@
                             Remember Me
                         </label>
                     </div>
-                    <a href="#" class="forgot-password">Forgot Password</a>
+                    <a href="{% url 'auth:forgot_password' %}" class="forgot-password">Forgot Password</a>
                 </div>
 
                 <!-- Form Errors -->
@@ -330,10 +377,45 @@
                 {% endif %}
 
                 <!-- Login Button -->
-                <button type="submit" class="login-btn">
-                    LOGIN
+                <button type="submit" class="login-btn" id="loginBtn">
+                    <span id="loginText">LOGIN</span>
+                    <span id="lockoutTimer" style="display: none;">
+                        <i class="fas fa-clock"></i>
+                        <span id="timerText"></span>
+                    </span>
                 </button>
             </form>
+        </div>
+    </div>
+
+    <!-- Account Deactivated Modal -->
+    <div class="modal fade" id="deactivatedModal" tabindex="-1" aria-labelledby="deactivatedModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deactivatedModalLabel">
+                        <i class="fas fa-ban me-2"></i>Account Deactivated
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="text-center mb-3">
+                        <i class="fas fa-exclamation-triangle text-danger" style="font-size: 60px;"></i>
+                    </div>
+                    <p class="text-center">
+                        Your account has been <strong>deactivated</strong> due to multiple failed login attempts.
+                    </p>
+                    <p class="text-center text-muted">
+                        Please contact the system administrator to reactivate your account.
+                    </p>
+                    <div class="alert alert-warning">
+                        <i class="fas fa-info-circle me-2"></i>
+                        For security purposes, accounts are automatically deactivated after 6 failed login attempts.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -342,6 +424,49 @@
     
     <!-- Custom JavaScript -->
     <script>
+        // Lockout timer functionality
+        {% if locked_until and remaining_seconds %}
+        let remainingSeconds = {{ remaining_seconds }};
+        const loginBtn = document.getElementById('loginBtn');
+        const lockoutTimer = document.getElementById('lockoutTimer');
+        const loginText = document.getElementById('loginText');
+        const timerText = document.getElementById('timerText');
+        
+        function updateTimer() {
+            if (remainingSeconds > 0) {
+                const minutes = Math.floor(remainingSeconds / 60);
+                const seconds = remainingSeconds % 60;
+                timerText.textContent = `LOCKED - ${minutes}:${seconds.toString().padStart(2, '0')}`;
+                lockoutTimer.style.display = 'flex';
+                loginText.style.display = 'none';
+                loginBtn.disabled = true;
+                loginBtn.classList.add('locked');
+                remainingSeconds--;
+                setTimeout(updateTimer, 1000);
+            } else {
+                lockoutTimer.style.display = 'none';
+                loginText.style.display = 'block';
+                loginBtn.disabled = false;
+                loginBtn.classList.remove('locked');
+                // Reload page to clear lock state
+                window.location.reload();
+            }
+        }
+        
+        // Start timer on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            updateTimer();
+        });
+        {% endif %}
+        
+        // Show deactivation modal
+        {% if is_deactivated %}
+        document.addEventListener('DOMContentLoaded', function() {
+            const deactivatedModal = new bootstrap.Modal(document.getElementById('deactivatedModal'));
+            deactivatedModal.show();
+        });
+        {% endif %}
+        
         function togglePassword() {
             const passwordField = document.getElementById('{{ form.password.id_for_label }}');
             const toggleIcon = document.querySelector('.toggle-password');

@@ -428,7 +428,7 @@
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:dept_home' %}" class="sidebar-link {% if active_page == 'dept_home' %}active{% endif %}">
                     <i class="fas fa-home"></i>
-                    Home
+                    Accreditation System
                 </a>
             </li>
             {% endif %}
@@ -454,14 +454,14 @@
             {% endif %}
             
             <!-- Mission, Vision & Core Values (Department Users only) -->
-            {% if user.role == 'department_user' %}
+            <!-- {% if user.role == 'department_user' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:mission_vision' %}" class="sidebar-link {% if active_page == 'mission_vision' %}active{% endif %}">
                     <i class="fas fa-eye"></i>
                     Mission /    Vision
                 </a>
             </li>
-            {% endif %}
+            {% endif %} -->
             
             <!-- Dashboard (Hidden for department_user) -->
             {% if user.role != 'department_user' %}

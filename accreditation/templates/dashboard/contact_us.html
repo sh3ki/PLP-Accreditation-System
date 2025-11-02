@@ -28,7 +28,7 @@
     
     .contact-content {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 1fr;
         gap: 30px;
         margin-bottom: 40px;
     }
@@ -170,6 +170,12 @@
         box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
     }
     
+    .form-control[readonly] {
+        background: #f5f5f5;
+        cursor: not-allowed;
+        color: #666;
+    }
+    
     textarea.form-control {
         resize: vertical;
         min-height: 120px;
@@ -241,7 +247,7 @@
         <div class="contact-info-card">
             <h3>
                 <i class="fas fa-building"></i>
-                QA Office
+                Contact Information
             </h3>
             
             <div class="contact-item">
@@ -251,7 +257,7 @@
                 <div class="contact-item-content">
                     <div class="contact-item-label">Email</div>
                     <div class="contact-item-value">
-                        <a href="mailto:qa@plpasig.edu.ph">qa@plpasig.edu.ph</a>
+                        <a href="mailto:inquiry@plpasig.edu.ph">inquiry@plpasig.edu.ph</a>
                     </div>
                 </div>
             </div>
@@ -263,7 +269,7 @@
                 <div class="contact-item-content">
                     <div class="contact-item-label">Phone</div>
                     <div class="contact-item-value">
-                        <a href="tel:+6326437000">(02) 8643-7000</a>
+                        <a href="tel:+63286431014">2-8643-1014</a>
                     </div>
                 </div>
             </div>
@@ -275,9 +281,7 @@
                 <div class="contact-item-content">
                     <div class="contact-item-label">Location</div>
                     <div class="contact-item-value">
-                        Quality Assurance Office<br>
-                        Pamantasan ng Lungsod ng Pasig<br>
-                        Kapasigan, Pasig City
+                        12-B Alcalde Jose, Pasig, 1600 Metro Manila
                     </div>
                 </div>
             </div>
@@ -286,50 +290,6 @@
                 <h4><i class="fas fa-clock"></i> Office Hours</h4>
                 <p><strong>Monday - Friday:</strong> 8:00 AM - 5:00 PM</p>
                 <p><strong>Saturday - Sunday:</strong> Closed</p>
-            </div>
-        </div>
-        
-        <!-- Quick Contacts -->
-        <div class="contact-info-card">
-            <h3>
-                <i class="fas fa-users"></i>
-                Quick Contacts
-            </h3>
-            
-            <div class="contact-item">
-                <div class="contact-item-icon">
-                    <i class="fas fa-user-tie"></i>
-                </div>
-                <div class="contact-item-content">
-                    <div class="contact-item-label">QA Head</div>
-                    <div class="contact-item-value">
-                        <a href="mailto:qahead@plpasig.edu.ph">qahead@plpasig.edu.ph</a>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="contact-item">
-                <div class="contact-item-icon">
-                    <i class="fas fa-user-cog"></i>
-                </div>
-                <div class="contact-item-content">
-                    <div class="contact-item-label">QA Admin</div>
-                    <div class="contact-item-value">
-                        <a href="mailto:qaadmin@plpasig.edu.ph">qaadmin@plpasig.edu.ph</a>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="contact-item">
-                <div class="contact-item-icon">
-                    <i class="fas fa-question-circle"></i>
-                </div>
-                <div class="contact-item-content">
-                    <div class="contact-item-label">Technical Support</div>
-                    <div class="contact-item-value">
-                        <a href="mailto:support@plpasig.edu.ph">support@plpasig.edu.ph</a>
-                    </div>
-                </div>
             </div>
         </div>
         
@@ -348,14 +308,14 @@
                         <label class="form-label">
                             Your Name <span class="required">*</span>
                         </label>
-                        <input type="text" name="name" class="form-control" required value="{{ user.first_name }} {{ user.last_name }}">
+                        <input type="text" name="name" class="form-control" required value="{{ user.first_name }} {{ user.last_name }}" readonly>
                     </div>
                     
                     <div class="form-group">
                         <label class="form-label">
                             Your Email <span class="required">*</span>
                         </label>
-                        <input type="email" name="email" class="form-control" required value="{{ user.email }}">
+                        <input type="email" name="email" class="form-control" required value="{{ user.email }}" readonly>
                     </div>
                 </div>
                 

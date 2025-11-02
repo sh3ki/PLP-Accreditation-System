@@ -28,6 +28,17 @@ import secrets
 from datetime import datetime
 
 
+def get_session_user_dict(request):
+    """
+    Safely get user dict from session, ensuring it's always a dict.
+    Prevents 'list' object has no attribute 'get' errors.
+    """
+    session_user = request.session.get('user', {})
+    if not isinstance(session_user, dict):
+        return {}
+    return session_user
+
+
 def hash_password(raw_password):
     """Hash a password using PBKDF2"""
     salt = secrets.token_hex(16)
@@ -40,15 +51,18 @@ def hash_password(raw_password):
 
 def get_user_from_session(request):
     """Build user object from session data"""
+    # Get user data from session, ensuring it's a dict
+    session_user = get_session_user_dict(request)
+    
     return {
         'id': request.session.get('user_id'),
         'email': request.session.get('user_email'),
         'role': request.session.get('user_role'),
         'name': request.session.get('user_name'),
-        'first_name': request.session.get('user', {}).get('first_name', ''),
-        'middle_name': request.session.get('user', {}).get('middle_name', ''),
-        'last_name': request.session.get('user', {}).get('last_name', ''),
-        'profile_image_url': request.session.get('user', {}).get('profile_image_url', ''),
+        'first_name': session_user.get('first_name', ''),
+        'middle_name': session_user.get('middle_name', ''),
+        'last_name': session_user.get('last_name', ''),
+        'profile_image_url': session_user.get('profile_image_url', ''),
     }
 
 
@@ -2267,6 +2281,14 @@ def update_personal_info_view(request):
         import json
         from datetime import datetime
         data = json.loads(request.body)
+        
+        # Check if user role is department_user or qa_admin - they cannot edit name fields
+        user_role = user.get('role', '')
+        if user_role in ['department_user', 'qa_admin']:
+            return JsonResponse({
+                'success': False, 
+                'message': 'Department users and QA admins cannot modify their name. Please contact the administrator.'
+            })
         
         first_name = data.get('first_name', '').strip()
         middle_name = data.get('middle_name', '').strip()
