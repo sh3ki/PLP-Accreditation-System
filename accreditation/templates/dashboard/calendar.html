@@ -293,6 +293,118 @@
         color: #999;
     }
     
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+        .calendar-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        
+        .calendar-title {
+            font-size: 22px;
+        }
+        
+        .filter-tabs {
+            width: 100%;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+            gap: 5px;
+        }
+        
+        .filter-tab {
+            padding: 8px 15px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        .calendar-controls {
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .calendar-navigation {
+            width: 100%;
+            justify-content: space-between;
+        }
+        
+        .current-month {
+            font-size: 18px;
+            min-width: auto;
+        }
+        
+        .nav-button {
+            padding: 6px 10px;
+            font-size: 13px;
+        }
+        
+        .calendar-actions {
+            width: 100%;
+            flex-direction: column;
+        }
+        
+        .search-container {
+            width: 100%;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+        
+        .btn-add-event {
+            width: 100%;
+            justify-content: center;
+        }
+        
+        .calendar-grid {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .calendar-table {
+            min-width: 100%;
+        }
+        
+        .calendar-day {
+            min-height: 80px;
+            padding: 5px;
+        }
+        
+        .day-number {
+            font-size: 12px;
+        }
+        
+        .event-item {
+            font-size: 11px;
+            padding: 3px 6px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .calendar-title {
+            font-size: 20px;
+        }
+        
+        .current-month {
+            font-size: 16px;
+        }
+        
+        .calendar-day {
+            min-height: 60px;
+            padding: 3px;
+        }
+        
+        .day-number {
+            font-size: 11px;
+        }
+        
+        .event-item {
+            font-size: 10px;
+            padding: 2px 4px;
+        }
+    }
+    
     /* Event Modal */
     .modal {
         display: none;

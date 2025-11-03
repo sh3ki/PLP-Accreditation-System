@@ -47,6 +47,12 @@ def login_view(request):
                 from accreditation.firebase_utils import get_document
                 user_doc = get_document('users', user.id, request=request)
                 
+                # Ensure user_doc is a dict, not a list
+                if isinstance(user_doc, list) and len(user_doc) > 0:
+                    user_doc = user_doc[0]
+                elif not isinstance(user_doc, dict):
+                    user_doc = {}
+                
                 # Check if this is first login (password not changed)
                 if not user.is_password_changed:
                     # MANDATORY OTP VERIFICATION FOR FIRST LOGIN

@@ -1,6 +1,7 @@
 """
 Dashboard views for PLP Accreditation System
 Unified dashboard with role-based access control
+Updated: 2025-11-03 - Fixed list/dict handling
 """
 
 from django.shortcuts import render, redirect
@@ -25,6 +26,7 @@ from accreditation.document_validator import validate_document_header
 import json
 import hashlib
 import secrets
+import traceback
 from datetime import datetime
 
 
@@ -37,6 +39,35 @@ def get_session_user_dict(request):
     if not isinstance(session_user, dict):
         return {}
     return session_user
+
+
+def safe_get_document(collection, doc_id, request=None):
+    """
+    Safely get a document from Firestore, ensuring it's always a dict.
+    Handles cases where get_document returns a list instead of dict.
+    
+    Args:
+        collection: Firestore collection name
+        doc_id: Document ID
+        request: Optional request object for caching
+        
+    Returns:
+        dict: Document data or empty dict if not found
+    """
+    doc = get_document(collection, doc_id, request=request)
+    
+    # Handle list response
+    if isinstance(doc, list):
+        if len(doc) > 0:
+            return doc[0] if isinstance(doc[0], dict) else {}
+        return {}
+    
+    # Handle dict response
+    if isinstance(doc, dict):
+        return doc
+    
+    # Handle None or other types
+    return {}
 
 
 def hash_password(raw_password):
@@ -2065,7 +2096,7 @@ def settings_view(request):
     from accreditation.firebase_utils import get_document
     from accreditation.firebase_auth import UserRole
     from datetime import datetime
-    user_doc = get_document('users', user['id'])
+    user_doc = safe_get_document('users', user['id'])
     
     if user_doc:
         # Get department information if user has a department
@@ -2361,7 +2392,7 @@ def change_password_view(request):
             return JsonResponse({'success': False, 'message': 'Password must be at least 8 characters long'})
         
         # Get user from database
-        user_doc = get_document('users', user['id'])
+        user_doc = safe_get_document('users', user['id'])
         
         if not user_doc:
             return JsonResponse({'success': False, 'message': 'User not found'})
@@ -2578,7 +2609,7 @@ def user_edit_view(request, user_id):
     
     try:
         # Get the user to edit
-        user_to_edit = get_document('users', user_id)
+        user_to_edit = safe_get_document('users', user_id)
         if not user_to_edit:
             return JsonResponse({
                 'success': False, 
@@ -2651,7 +2682,7 @@ def user_delete_view(request, user_id):
     
     try:
         # Get the user to delete
-        user_to_delete = get_document('users', user_id)
+        user_to_delete = safe_get_document('users', user_id)
         if not user_to_delete:
             return JsonResponse({
                 'success': False, 
@@ -2679,6 +2710,11 @@ def user_delete_view(request, user_id):
         })
         
     except Exception as e:
+        # Print full traceback for debugging
+        print("="*80)
+        print("ERROR in user_delete_view:")
+        print(traceback.format_exc())
+        print("="*80)
         return JsonResponse({
             'success': False, 
             'message': f'Error deleting user: {str(e)}'
@@ -2699,7 +2735,7 @@ def user_toggle_status_view(request, user_id):
         is_active = data.get('is_active', True)
         
         # Get the user to update
-        user_to_update = get_document('users', user_id)
+        user_to_update = safe_get_document('users', user_id)
         if not user_to_update:
             return JsonResponse({
                 'success': False, 
@@ -2728,6 +2764,11 @@ def user_toggle_status_view(request, user_id):
             'message': 'Invalid request data.'
         }, status=400)
     except Exception as e:
+        # Print full traceback for debugging
+        print("="*80)
+        print("ERROR in user_toggle_status_view:")
+        print(traceback.format_exc())
+        print("="*80)
         return JsonResponse({
             'success': False, 
             'message': f'Error updating user status: {str(e)}'
@@ -2743,7 +2784,7 @@ def user_get_view(request, user_id):
         return JsonResponse({'success': False, 'message': 'Access denied.'}, status=403)
     
     try:
-        user_data = get_document('users', user_id)
+        user_data = safe_get_document('users', user_id)
         if not user_data:
             return JsonResponse({
                 'success': False, 
@@ -2759,6 +2800,11 @@ def user_get_view(request, user_id):
         })
         
     except Exception as e:
+        # Print full traceback for debugging
+        print("="*80)
+        print("ERROR in user_get_view:")
+        print(traceback.format_exc())
+        print("="*80)
         return JsonResponse({
             'success': False, 
             'message': f'Error retrieving user: {str(e)}'
@@ -6971,7 +7017,7 @@ def get_qa_admin_dashboard_data(user):
             if user_identifier not in users_cache:
                 try:
                     # First try to get by ID
-                    user_doc = get_document('users', user_identifier)
+                    user_doc = safe_get_document('users', user_identifier)
                     
                     # If not found by ID, search by email
                     if not user_doc:
@@ -7991,7 +8037,7 @@ def my_accreditation_view_document(request, dept_id, prog_id, type_id, area_id, 
 
 
 @login_required
-@require_http_methods(["POST"])
+@require_http_methods(["GET"])
 def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
 
     """Download document with audit logging - My Accreditation version"""
@@ -8046,6 +8092,202 @@ def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_
     except Exception as e:
         print(f"Error downloading document: {str(e)}")
         return JsonResponse({'success': False, 'error': 'An error occurred while preparing the download'})
+
+
+@require_http_methods(["GET"])
+def accreditation_download_document(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
+    """Download document - Accreditation (QA Head) version"""
+    from .audit_utils import log_audit
+    from django.http import FileResponse, HttpResponse
+    import requests
+    import tempfile
+    import os
+    import subprocess
+    import platform
+    
+    try:
+        user = get_user_from_session(request)
+        
+        # Only QA Head can download from this view
+        if user.get('role') != 'qa_head':
+            return JsonResponse({'success': False, 'error': 'Unauthorized access'})
+        
+        # Get document
+        document = get_document('documents', document_id)
+        if not document:
+            return JsonResponse({'success': False, 'error': 'Document not found'})
+        
+        # Verify document belongs to this checklist
+        if document.get('checklist_id') != checklist_id:
+            return JsonResponse({'success': False, 'error': 'Invalid document'})
+        
+        # Only allow download of approved documents
+        if document.get('status') != 'approved':
+            return JsonResponse({'success': False, 'error': 'Only approved documents can be downloaded'})
+        
+        # Get document info
+        download_url = document.get('file_url', '')
+        if not download_url:
+            return JsonResponse({'success': False, 'error': 'Document file not found'})
+        
+        document_name = document.get('name', 'document')
+        document_format = document.get('format', 'docx').lower()
+        is_required = document.get('is_required', False)
+        
+        print(f"Download request - Name: {document_name}, Format: {document_format}, Required: {is_required}")
+        
+        # Convert to PDF for ALL required documents with DOCX/DOC format
+        should_convert = (is_required or is_required is None) and document_format in ['doc', 'docx']
+        
+        if should_convert:
+            print(f"Converting {document_name}.{document_format} to PDF using LibreOffice...")
+            try:
+                # Download the DOCX file from Cloudinary
+                response = requests.get(download_url, timeout=30)
+                response.raise_for_status()
+                
+                # Create temporary files
+                temp_docx = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
+                temp_dir = tempfile.mkdtemp()
+                
+                # Save DOCX content
+                temp_docx.write(response.content)
+                temp_docx.close()
+                
+                # Detect LibreOffice path based on OS
+                system = platform.system()
+                if system == 'Windows':
+                    # Common Windows paths
+                    libreoffice_paths = [
+                        r'C:\Program Files\LibreOffice\program\soffice.exe',
+                        r'C:\Program Files (x86)\LibreOffice\program\soffice.exe',
+                    ]
+                else:
+                    # Linux/Mac paths
+                    libreoffice_paths = [
+                        '/usr/bin/libreoffice',
+                        '/usr/bin/soffice',
+                        '/snap/bin/libreoffice',
+                    ]
+                
+                # Find available LibreOffice
+                libreoffice_cmd = None
+                for path in libreoffice_paths:
+                    if os.path.exists(path):
+                        libreoffice_cmd = path
+                        break
+                
+                if not libreoffice_cmd:
+                    # Try to find in PATH
+                    try:
+                        result = subprocess.run(['which', 'libreoffice'], capture_output=True, text=True)
+                        if result.returncode == 0:
+                            libreoffice_cmd = result.stdout.strip()
+                    except:
+                        pass
+                
+                if not libreoffice_cmd:
+                    print("LibreOffice not found, falling back to original file")
+                    raise Exception("LibreOffice not installed")
+                
+                # Convert DOCX to PDF using LibreOffice headless mode
+                # This preserves ALL formatting, images, headers, footers, etc.
+                cmd = [
+                    libreoffice_cmd,
+                    '--headless',
+                    '--convert-to', 'pdf',
+                    '--outdir', temp_dir,
+                    temp_docx.name
+                ]
+                
+                print(f"Running LibreOffice conversion: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                
+                if result.returncode != 0:
+                    print(f"LibreOffice conversion failed: {result.stderr}")
+                    raise Exception(f"Conversion failed: {result.stderr}")
+                
+                # Find the generated PDF file
+                pdf_filename = os.path.splitext(os.path.basename(temp_docx.name))[0] + '.pdf'
+                pdf_path = os.path.join(temp_dir, pdf_filename)
+                
+                if not os.path.exists(pdf_path):
+                    print(f"PDF file not found at {pdf_path}")
+                    raise Exception("PDF file not generated")
+                
+                # Log audit trail
+                try:
+                    log_audit(
+                        user, 
+                        action_type='download', 
+                        resource_type='document', 
+                        resource_id=document_id, 
+                        details=f"Downloaded document as PDF: {document_name} from {dept_id}/{prog_id}", 
+                        status='success'
+                    )
+                except Exception as audit_error:
+                    print(f"Audit logging failed (non-critical): {audit_error}")
+                
+                # Read PDF file
+                with open(pdf_path, 'rb') as pdf_file:
+                    pdf_content = pdf_file.read()
+                
+                # Clean up temporary files
+                os.unlink(temp_docx.name)
+                os.unlink(pdf_path)
+                os.rmdir(temp_dir)
+                
+                # Return PDF file
+                response = HttpResponse(pdf_content, content_type='application/pdf')
+                response['Content-Disposition'] = f'attachment; filename="{document_name}.pdf"'
+                print(f"Successfully converted {document_name} to PDF using LibreOffice, returning file")
+                return response
+                
+            except Exception as convert_error:
+                import traceback
+                print(f"PDF conversion error: {convert_error}")
+                print(f"Traceback: {traceback.format_exc()}")
+                # Fall back to original file if conversion fails
+                print("PDF conversion failed, downloading original file")
+        
+        # For non-required or non-DOCX files, return original URL
+        # Modify Cloudinary URL to force download
+        if 'cloudinary.com' in download_url:
+            if '/upload/' in download_url:
+                download_url = download_url.replace('/upload/', '/upload/fl_attachment/')
+                
+                if '?' in download_url:
+                    download_url += f'&filename={document_name}.{document_format}'
+                else:
+                    download_url += f'?filename={document_name}.{document_format}'
+        
+        # Log audit trail
+        try:
+            log_audit(
+                user, 
+                action_type='download', 
+                resource_type='document', 
+                resource_id=document_id, 
+                details=f"Downloaded document: {document_name} from {dept_id}/{prog_id}", 
+                status='success'
+            )
+        except Exception as audit_error:
+            print(f"Audit logging failed (non-critical): {audit_error}")
+        
+        # Return success with download URL
+        return JsonResponse({
+            'success': True,
+            'download_url': download_url,
+            'document_name': f"{document_name}.{document_format}",
+            'direct_download': True
+        })
+        
+    except Exception as e:
+        import traceback
+        error_msg = str(e)
+        print(f"Error downloading document (accreditation_download_document): {error_msg}")
+        print(f"Traceback: {traceback.format_exc()}")
+        return JsonResponse({'success': False, 'error': f'Error: {error_msg}'})
 
 
 @login_required

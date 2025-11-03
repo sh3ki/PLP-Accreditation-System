@@ -198,8 +198,17 @@ class FirebaseUser:
         """
         Authenticate user with email and password
         Implements login security with lockout and deactivation
+        
+        Logic:
+        - First 3 failures: Lock for 3 minutes
+        - After unlock, next 3 failures: Permanent deactivation
         """
         from accreditation.firebase_utils import update_document, get_document
+        from datetime import datetime, timedelta
+        import pytz
+        
+        # Use Asia/Manila timezone
+        manila_tz = pytz.timezone('Asia/Manila')
         
         user = cls.get_by_email(email)
         
@@ -217,52 +226,53 @@ class FirebaseUser:
         
         failed_attempts = user_doc.get('failed_login_attempts', 0)
         locked_until = user_doc.get('locked_until')
+        has_been_locked_once = user_doc.get('has_been_locked_once', False)
+        
+        # Get current time in Manila timezone
+        now = datetime.now(manila_tz)
         
         # Check if account is currently locked
         if locked_until:
-            from datetime import datetime
-            
-            # Convert locked_until to a timezone-aware datetime
+            # Convert locked_until to Manila timezone-aware datetime
             if isinstance(locked_until, str):
                 try:
-                    locked_until = datetime.fromisoformat(locked_until.replace('Z', '+00:00'))
+                    locked_until_dt = datetime.fromisoformat(locked_until.replace('Z', '+00:00'))
+                    # Convert to Manila timezone
+                    locked_until_dt = locked_until_dt.astimezone(manila_tz)
                 except:
-                    locked_until = None
+                    locked_until_dt = None
             elif hasattr(locked_until, 'timestamp'):
-                # Firestore timestamp
-                locked_until = datetime.fromtimestamp(locked_until.timestamp())
+                # Firestore timestamp - convert to Manila timezone
+                locked_until_dt = datetime.fromtimestamp(locked_until.timestamp(), tz=manila_tz)
+            else:
+                locked_until_dt = None
             
-            # Make sure we're comparing timezone-aware datetimes
-            if locked_until:
-                # Remove timezone info for comparison
-                if locked_until.tzinfo is not None:
-                    locked_until = locked_until.replace(tzinfo=None)
-                
-                now = datetime.now()
-                
-                if now < locked_until:
-                    # Account is still locked
-                    remaining_seconds = int((locked_until - now).total_seconds())
-                    return {
-                        'success': False, 
-                        'error': 'account_locked', 
-                        'message': f'Too many failed attempts. Please try again in {remaining_seconds} seconds.',
-                        'locked_until': locked_until.isoformat(),
-                        'remaining_seconds': remaining_seconds
-                    }
-                else:
-                    # Lock has expired, clear it
-                    update_document('users', user.id, {
-                        'locked_until': None
-                    })
+            if locked_until_dt and now < locked_until_dt:
+                # Account is still locked
+                remaining_seconds = int((locked_until_dt - now).total_seconds())
+                return {
+                    'success': False, 
+                    'error': 'account_locked', 
+                    'message': f'Too many failed attempts. Please try again in {remaining_seconds} seconds.',
+                    'locked_until': locked_until_dt.isoformat(),
+                    'remaining_seconds': remaining_seconds
+                }
+            elif locked_until_dt and now >= locked_until_dt:
+                # Lock has expired - clear it and reset counter for the new cycle
+                update_document('users', user.id, {
+                    'locked_until': None,
+                    'failed_login_attempts': 0
+                })
+                failed_attempts = 0
         
         # Check password
         if user.check_password(password):
-            # Successful login - reset failed attempts
+            # Successful login - reset everything
             update_document('users', user.id, {
                 'failed_login_attempts': 0,
                 'locked_until': None,
-                'last_login': datetime.now()
+                'has_been_locked_once': False,
+                'last_login': now
             })
             user.update_last_login()
             return {'success': True, 'user': user}
@@ -270,44 +280,48 @@ class FirebaseUser:
             # Failed login - increment counter
             failed_attempts += 1
             
-            from datetime import datetime, timedelta
-            
-            if failed_attempts >= 6:
-                # 6 or more failures - Deactivate account permanently
-                update_document('users', user.id, {
-                    'failed_login_attempts': failed_attempts,
-                    'is_active': False,
-                    'locked_until': None,
-                    'deactivated_at': datetime.now(),
-                    'deactivation_reason': 'Multiple failed login attempts'
-                })
-                return {'success': False, 'error': 'account_deactivated', 'message': 'Your account has been deactivated due to multiple failed login attempts. Please contact admin for activation.'}
-            elif failed_attempts >= 3:
-                # 3-5 failures - Lock for 3 minutes
-                locked_until = datetime.now() + timedelta(minutes=3)
-                update_document('users', user.id, {
-                    'failed_login_attempts': failed_attempts,
-                    'locked_until': locked_until
-                })
-                return {
-                    'success': False, 
-                    'error': 'account_locked', 
-                    'message': 'Too many failed attempts. Your account has been locked for 3 minutes.',
-                    'locked_until': locked_until.isoformat(),
-                    'remaining_seconds': 180
-                }
+            if failed_attempts >= 3:
+                if has_been_locked_once:
+                    # Second time reaching 3 failures - PERMANENT DEACTIVATION
+                    update_document('users', user.id, {
+                        'failed_login_attempts': failed_attempts,
+                        'is_active': False,
+                        'locked_until': None,
+                        'deactivated_at': now,
+                        'deactivation_reason': 'Multiple failed login attempts after previous lockout'
+                    })
+                    return {
+                        'success': False, 
+                        'error': 'account_deactivated', 
+                        'message': 'Your account has been permanently deactivated due to multiple failed login attempts. Please contact admin for activation.'
+                    }
+                else:
+                    # First time reaching 3 failures - Lock for 3 minutes
+                    locked_until = now + timedelta(minutes=3)
+                    update_document('users', user.id, {
+                        'failed_login_attempts': failed_attempts,
+                        'locked_until': locked_until,
+                        'has_been_locked_once': True
+                    })
+                    return {
+                        'success': False, 
+                        'error': 'account_locked', 
+                        'message': 'Too many failed attempts. Your account has been locked for 3 minutes.',
+                        'locked_until': locked_until.isoformat(),
+                        'remaining_seconds': 180
+                    }
             else:
-                # 1-2 failures - just increment counter
+                # 1-2 failures - just increment and warn
+                remaining_attempts = 3 - failed_attempts
                 update_document('users', user.id, {
                     'failed_login_attempts': failed_attempts
                 })
-                remaining_attempts = 3 - failed_attempts
                 return {
-                    'success': False, 
-                    'error': 'invalid_credentials', 
-                    'message': f'Invalid email or password. {remaining_attempts} attempt(s) remaining before lockout.'
+                    'success': False,
+                    'error': 'invalid_credentials',
+                    'message': f'Invalid email or password. You have {remaining_attempts} attempt{"s" if remaining_attempts > 1 else ""} remaining before lockout.',
+                    'remaining_attempts': remaining_attempts
                 }
-    
     
     @classmethod
     def get_all_users(cls, role=None):

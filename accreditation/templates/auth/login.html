@@ -51,16 +51,16 @@
         }
 
         .logo-container {
-            position: absolute;
-            top: 70px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 3;
+            text-align: center;
+            margin-bottom: 20px;
         }
 
         .logo-img {
-            height: 120px;
+            height: 100px;
             width: auto;
+            margin-top: -50px;
+            position: relative;
+            z-index: 10;
         }
 
         .login-card {
@@ -68,12 +68,13 @@
             z-index: 2;
             background: rgba(255, 255, 255, 0.95);
             border-radius: 20px;
-            padding: 40px;
+            padding: 30px 40px 40px 40px;
             width: 400px;
             max-width: 90vw;
             box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
+            padding-top: 60px;
         }
 
         .user-icon {
@@ -256,19 +257,29 @@
             cursor: not-allowed;
         }
 
+        .forgot-password.disabled {
+            pointer-events: none;
+            opacity: 0.4;
+            cursor: not-allowed;
+            color: #999 !important;
+            text-decoration: none !important;
+        }
+
+        .form-control.locked {
+            pointer-events: none;
+            opacity: 0.6;
+            background: #f5f5f5 !important;
+        }
+
         /* Responsive Design */
         @media (max-width: 768px) {
-            .logo-container {
-                top: 30px;
-            }
-            
             .logo-img {
                 height: 80px;
+                margin-top: -40px;
             }
             
             .login-card {
-                margin-top: 120px;
-                padding: 30px 25px;
+                padding: 50px 25px 30px 25px;
                 width: 350px;
             }
             
@@ -283,9 +294,18 @@
         }
 
         @media (max-width: 480px) {
+            .logo-img {
+                height: 70px;
+                margin-top: -35px;
+            }
+            
             .login-card {
                 width: 320px;
-                padding: 25px 20px;
+                padding: 45px 20px 25px 20px;
+            }
+            
+            .login-title {
+                font-size: 18px;
             }
             
             .remember-forgot {
@@ -301,17 +321,14 @@
     {% include 'components/toast_notifications.html' %}
     
     <div class="login-container">
-        <!-- Logo -->
-        <div class="logo-container">
-            <img src="https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284239/PLP_LOGO_ujtdgd.png" 
-                 alt="PLP Logo" 
-                 class="logo-img">
-        </div>
-
         <!-- Login Card -->
         <div class="login-card">
-            <!-- User Icon -->
-            <div style="margin-bottom: 60px;"></div>
+            <!-- Logo -->
+            <div class="logo-container">
+                <img src="https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284239/PLP_LOGO_ujtdgd.png" 
+                     alt="PLP Logo" 
+                     class="logo-img">
+            </div>
 
             <!-- Title -->
             <h1 class="login-title">PLP Accreditation System</h1>
@@ -431,6 +448,40 @@
         const lockoutTimer = document.getElementById('lockoutTimer');
         const loginText = document.getElementById('loginText');
         const timerText = document.getElementById('timerText');
+        const emailInput = document.getElementById('{{ form.email.id_for_label }}');
+        const passwordInput = document.getElementById('{{ form.password.id_for_label }}');
+        const forgotPasswordLink = document.querySelector('.forgot-password');
+        const rememberCheckbox = document.getElementById('{{ form.remember_me.id_for_label }}');
+        
+        function disableForm() {
+            // Disable all form elements
+            emailInput.classList.add('locked');
+            passwordInput.classList.add('locked');
+            emailInput.disabled = true;
+            passwordInput.disabled = true;
+            if (rememberCheckbox) rememberCheckbox.disabled = true;
+            
+            // Disable forgot password link
+            if (forgotPasswordLink) {
+                forgotPasswordLink.classList.add('disabled');
+                forgotPasswordLink.setAttribute('tabindex', '-1');
+            }
+        }
+        
+        function enableForm() {
+            // Enable all form elements
+            emailInput.classList.remove('locked');
+            passwordInput.classList.remove('locked');
+            emailInput.disabled = false;
+            passwordInput.disabled = false;
+            if (rememberCheckbox) rememberCheckbox.disabled = false;
+            
+            // Enable forgot password link
+            if (forgotPasswordLink) {
+                forgotPasswordLink.classList.remove('disabled');
+                forgotPasswordLink.removeAttribute('tabindex');
+            }
+        }
         
         function updateTimer() {
             if (remainingSeconds > 0) {
@@ -441,6 +492,7 @@
                 loginText.style.display = 'none';
                 loginBtn.disabled = true;
                 loginBtn.classList.add('locked');
+                disableForm();
                 remainingSeconds--;
                 setTimeout(updateTimer, 1000);
             } else {
@@ -448,6 +500,7 @@
                 loginText.style.display = 'block';
                 loginBtn.disabled = false;
                 loginBtn.classList.remove('locked');
+                enableForm();
                 // Reload page to clear lock state
                 window.location.reload();
             }

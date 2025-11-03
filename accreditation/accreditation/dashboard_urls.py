@@ -102,6 +102,7 @@ urlpatterns = [
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/proxy/', dashboard_views.document_proxy_view, name='document_proxy'),
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/update-status/', dashboard_views.document_update_status_view, name='document_update_status'),
     path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/delete/', dashboard_views.document_delete_view, name='document_delete'),
+    path('accreditation/department/<str:dept_id>/programs/<str:prog_id>/types/<str:type_id>/areas/<str:area_id>/checklists/<str:checklist_id>/documents/<str:document_id>/download/', dashboard_views.accreditation_download_document, name='accreditation_download_document'),
     
     # System Appearance
     path('settings/appearance/', dashboard_views.system_appearance_view, name='system_appearance'),

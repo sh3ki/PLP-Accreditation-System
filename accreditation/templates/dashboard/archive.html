@@ -248,6 +248,120 @@
         margin: 0;
     }
     
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+        .archive-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 15px;
+        }
+        
+        .archive-title {
+            font-size: 22px;
+        }
+        
+        .filter-tabs {
+            width: 100%;
+            overflow-x: auto;
+            flex-wrap: nowrap;
+            -webkit-overflow-scrolling: touch;
+            gap: 5px;
+        }
+        
+        .filter-tab {
+            padding: 8px 15px;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+        }
+        
+        .archive-item {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 12px;
+            padding: 15px;
+        }
+        
+        .item-info {
+            width: 100%;
+        }
+        
+        .item-logo {
+            width: 40px;
+            height: 40px;
+        }
+        
+        .item-name {
+            font-size: 15px;
+        }
+        
+        .item-meta {
+            font-size: 12px;
+        }
+        
+        .item-actions {
+            width: 100%;
+            justify-content: flex-start;
+        }
+        
+        .program-hierarchy {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+        
+        .breadcrumb-item {
+            font-size: 13px;
+        }
+        
+        .search-container {
+            width: 100%;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .archive-title {
+            font-size: 20px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+        }
+        
+        .filter-tab {
+            padding: 6px 12px;
+            font-size: 12px;
+        }
+        
+        .item-logo {
+            width: 35px;
+            height: 35px;
+        }
+        
+        .item-name {
+            font-size: 14px;
+        }
+        
+        .action-icon {
+            width: 32px;
+            height: 32px;
+            font-size: 14px;
+        }
+    }
+    
     .search-container {
         position: relative;
     }

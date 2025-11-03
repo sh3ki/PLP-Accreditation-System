@@ -403,6 +403,213 @@
         border-radius: 4px;
         cursor: pointer;
     }
+    
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+        }
+        
+        .page-title-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .page-title {
+            font-size: 22px;
+        }
+        
+        .breadcrumb {
+            font-size: 13px;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+        }
+        
+        .action-buttons-group {
+            width: 100%;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .search-container {
+            width: 100%;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+        
+        .btn-action-header,
+        .btn-back {
+            width: 100%;
+            justify-content: center;
+            font-size: 14px;
+            padding: 12px 20px;
+        }
+        
+        .program-item,
+        .area-item,
+        .checklist-item {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+            padding: 15px;
+        }
+        
+        .program-info,
+        .area-info,
+        .checklist-info {
+            width: 100%;
+        }
+        
+        .program-name,
+        .area-name,
+        .checklist-name {
+            font-size: 15px;
+        }
+        
+        .program-details,
+        .area-details,
+        .checklist-description {
+            font-size: 13px;
+        }
+        
+        .program-progress,
+        .area-progress,
+        .checklist-progress {
+            width: 100%;
+            flex: 1 1 auto;
+        }
+        
+        .program-actions,
+        .area-actions,
+        .checklist-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+        
+        .program-chevron,
+        .area-chevron,
+        .checklist-chevron {
+            margin-left: auto;
+        }
+        
+        /* Department items mobile styling */
+        .department-item {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+            padding: 15px;
+        }
+        
+        .department-info {
+            width: 100%;
+            gap: 12px;
+        }
+        
+        .department-logo {
+            width: 50px;
+            height: 50px;
+        }
+        
+        .department-name {
+            font-size: 15px;
+        }
+        
+        .department-progress {
+            width: 100%;
+            flex: 1 1 auto;
+        }
+        
+        .department-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+        
+        .department-chevron {
+            margin-left: auto;
+        }
+        
+        /* Tab navigation */
+        .nav-tabs {
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        .nav-tabs .nav-link {
+            white-space: nowrap;
+            font-size: 13px;
+            padding: 10px 15px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .page-title {
+            font-size: 20px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+        }
+        
+        .breadcrumb {
+            font-size: 12px;
+        }
+        
+        .btn-action-header,
+        .btn-back {
+            font-size: 13px;
+            padding: 10px 16px;
+        }
+        
+        .program-name,
+        .area-name,
+        .checklist-name {
+            font-size: 14px;
+        }
+        
+        .program-details,
+        .area-details,
+        .checklist-description {
+            font-size: 12px;
+        }
+        
+        .progress-percentage {
+            font-size: 12px;
+            min-width: 38px;
+        }
+        
+        .btn-action {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+        
+        .department-logo {
+            width: 45px;
+            height: 45px;
+        }
+        
+        .department-name {
+            font-size: 14px;
+        }
+        
+        .nav-tabs .nav-link {
+            font-size: 12px;
+            padding: 8px 12px;
+        }
+    }
 </style>
 
 <div class="settings-header">

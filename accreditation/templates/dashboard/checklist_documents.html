@@ -304,6 +304,15 @@
         background: #5a6268;
     }
     
+    .btn-download {
+        background: #17a2b8;
+        color: white;
+    }
+    
+    .btn-download:hover {
+        background: #138496;
+    }
+    
     .btn-navigate {
         background: var(--plp-green);
         color: white;
@@ -595,6 +604,11 @@
                             <i class="fas fa-comment"></i>
                         </button>
                     {% endif %}
+                    {% if required_document.status == 'approved' and user.role == 'qa_head' %}
+                        <button class="btn-action btn-download" onclick="event.stopPropagation(); downloadDocument('{{ required_document.id }}', '{{ required_document.name|escapejs }}')" title="Download">
+                            <i class="fas fa-download"></i>
+                        </button>
+                    {% endif %}
                     {% if user.role == 'qa_head' or user.role == 'qa_admin' %}
                         {% if required_document.status == 'submitted' %}
                             <button class="btn-action btn-approve" onclick="event.stopPropagation(); approveDocument('{{ required_document.id }}', '{{ required_document.name|escapejs }}')" title="Approve">
@@ -677,6 +691,11 @@
                             {% if doc.status == 'disapproved' %}
                                 <button class="btn-action btn-comment" onclick="event.stopPropagation(); viewComment('{{ doc.comment|escapejs }}', '{{ doc.name|escapejs }}')" title="View Comment">
                                     <i class="fas fa-comment"></i>
+                                </button>
+                            {% endif %}
+                            {% if doc.status == 'approved' and user.role == 'qa_head' %}
+                                <button class="btn-action btn-download" onclick="event.stopPropagation(); downloadDocument('{{ doc.id }}', '{{ doc.name|escapejs }}')" title="Download">
+                                    <i class="fas fa-download"></i>
                                 </button>
                             {% endif %}
                             {% if user.role == 'qa_head' or user.role == 'qa_admin' %}
@@ -950,6 +969,98 @@ function viewComment(comment, documentName) {
         onConfirm: () => {
             // Just close the modal
         }
+    });
+}
+
+// Download document with audit logging
+function downloadDocument(documentId, documentName) {
+    console.log('Downloading document:', documentId, documentName);
+    
+    // Show loading toast
+    Toast.info('Preparing download...');
+    
+    // Call download API endpoint
+    fetch(`/dashboard/accreditation/department/${departmentId}/programs/${programId}/types/${typeId}/areas/${areaId}/checklists/${checklistId}/documents/${documentId}/download/`, {
+        method: 'GET',
+        headers: {
+            'X-CSRFToken': getCookie('csrftoken')
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        // Check if response is a file (PDF conversion) or JSON (URL redirect)
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/pdf')) {
+            // Direct PDF download from server
+            return response.blob().then(blob => {
+                const blobUrl = window.URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = blobUrl;
+                link.download = documentName.replace(/\.(docx?|DOCX?)$/, '') + '.pdf'; // Replace extension with .pdf
+                
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                window.URL.revokeObjectURL(blobUrl);
+                
+                Toast.success(`Document "${documentName}" converted to PDF and download started!`);
+                console.log('PDF download initiated successfully, audit logged');
+            });
+        } else {
+            // JSON response with Cloudinary URL
+            return response.json();
+        }
+    })
+    .then(data => {
+        // Only process if it's JSON data (not already handled as PDF blob)
+        if (data && typeof data === 'object') {
+            console.log('Download response:', data);
+            
+            if (data.success) {
+                // Fetch the file as a blob to ensure proper filename
+                fetch(data.download_url)
+                    .then(response => response.blob())
+                    .then(blob => {
+                        // Create a blob URL
+                        const blobUrl = window.URL.createObjectURL(blob);
+                        
+                        // Create a temporary anchor element for download
+                        const link = document.createElement('a');
+                        link.href = blobUrl;
+                        link.download = data.document_name; // This will work with blob URLs
+                        
+                        // Append to body, click, and remove
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        
+                        // Clean up the blob URL
+                        window.URL.revokeObjectURL(blobUrl);
+                        
+                        // Show success message
+                        Toast.success(`Document "${data.document_name}" download started!`);
+                        
+                        console.log('Download initiated successfully, audit logged');
+                    })
+                    .catch(error => {
+                        console.error('Blob download error:', error);
+                        Toast.error('Failed to download file');
+                    });
+            } else {
+                // Show error from backend
+                Toast.error(data.error || 'Failed to download document');
+                console.error('Download failed:', data.error);
+            }
+        }
+    })
+    .catch(error => {
+        Toast.error('An error occurred while downloading');
+        console.error('Download error:', error);
     });
 }
 

@@ -50,7 +50,17 @@ class FirestoreCache:
             
             # Return specific document or all documents
             if doc_id:
-                return cache_entry['data'].get(doc_id)
+                # Handle case where data is a list instead of dict
+                data = cache_entry['data']
+                if isinstance(data, list):
+                    # Search for the document in the list
+                    for item in data:
+                        if isinstance(item, dict) and item.get('id') == doc_id:
+                            return item
+                    return None
+                elif isinstance(data, dict):
+                    return data.get(doc_id)
+                return None
             return cache_entry['data']
     
     def set(self, collection: str, data: Any, ttl: Optional[int] = None):

@@ -451,6 +451,116 @@
         border-radius: 4px;
         cursor: pointer;
     }
+    
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+        }
+        
+        .page-title {
+            font-size: 22px;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+        }
+        
+        .action-buttons-group {
+            width: 100%;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .search-container {
+            width: 100%;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+        
+        .btn-action-header {
+            width: 100%;
+            justify-content: center;
+            font-size: 14px;
+            padding: 12px 20px;
+        }
+        
+        .type-item {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+            padding: 15px;
+        }
+        
+        .type-info {
+            width: 100%;
+        }
+        
+        .type-name {
+            font-size: 15px;
+        }
+        
+        .type-description {
+            font-size: 13px;
+        }
+        
+        .type-progress {
+            width: 100%;
+            flex: 1 1 auto;
+        }
+        
+        .type-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+        
+        .type-chevron {
+            margin-left: auto;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .page-title {
+            font-size: 20px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+        }
+        
+        .btn-action-header {
+            font-size: 13px;
+            padding: 10px 16px;
+        }
+        
+        .type-name {
+            font-size: 14px;
+        }
+        
+        .type-description {
+            font-size: 12px;
+        }
+        
+        .progress-percentage {
+            font-size: 12px;
+            min-width: 38px;
+        }
+        
+        .btn-action {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+    }
 
 </style>
 

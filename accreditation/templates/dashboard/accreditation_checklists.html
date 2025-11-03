@@ -461,6 +461,132 @@
         border-radius: 4px;
         cursor: pointer;
     }
+    
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+        .page-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+        }
+        
+        .page-title-section {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 10px;
+        }
+        
+        .page-title {
+            font-size: 22px;
+        }
+        
+        .breadcrumb {
+            font-size: 13px;
+        }
+        
+        .section-header {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+        }
+        
+        .section-title {
+            font-size: 18px;
+        }
+        
+        .action-buttons-group {
+            width: 100%;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .search-container {
+            width: 100%;
+        }
+        
+        .search-input {
+            width: 100%;
+        }
+        
+        .btn-action-header,
+        .btn-back {
+            width: 100%;
+            justify-content: center;
+            font-size: 14px;
+            padding: 12px 20px;
+        }
+        
+        .checklist-item {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 15px;
+            padding: 15px;
+        }
+        
+        .checklist-info {
+            width: 100%;
+        }
+        
+        .checklist-name {
+            font-size: 15px;
+        }
+        
+        .checklist-description {
+            font-size: 13px;
+        }
+        
+        .checklist-progress {
+            width: 100%;
+            flex: 1 1 auto;
+        }
+        
+        .checklist-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+        
+        .checklist-chevron {
+            margin-left: auto;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .page-title {
+            font-size: 20px;
+        }
+        
+        .section-title {
+            font-size: 16px;
+        }
+        
+        .breadcrumb {
+            font-size: 12px;
+        }
+        
+        .btn-action-header,
+        .btn-back {
+            font-size: 13px;
+            padding: 10px 16px;
+        }
+        
+        .checklist-name {
+            font-size: 14px;
+        }
+        
+        .checklist-description {
+            font-size: 12px;
+        }
+        
+        .progress-percentage {
+            font-size: 12px;
+            min-width: 38px;
+        }
+        
+        .btn-action {
+            padding: 5px 10px;
+            font-size: 12px;
+        }
+    }
 
 </style>
 

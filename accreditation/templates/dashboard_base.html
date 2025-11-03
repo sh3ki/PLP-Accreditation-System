@@ -73,6 +73,7 @@
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f5f5f5;
             color: #333;
+            overflow-x: hidden;
         }
 
         /* Header */
@@ -243,6 +244,8 @@
             padding: 20px;
             min-height: calc(100vh - var(--header-height));
             background: #f5f5f5;
+            overflow-x: hidden;
+            max-width: 100%;
         }
 
         .dashboard-title {
@@ -369,7 +372,252 @@
             }
             
             .header-right {
+                gap: 8px;
+            }
+            
+            .brand-name {
+                font-size: 13px;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 150px;
+            }
+            
+            .logo-section {
+                gap: 8px;
+            }
+            
+            .logo-section img {
+                height: 38px;
+                width: 38px;
+            }
+            
+            .header-icon {
+                width: 38px;
+                height: 38px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .header {
+                padding: 0 8px;
+            }
+            
+            .brand-name {
+                font-size: 11px;
+                max-width: 120px;
+            }
+            
+            .logo-section {
+                gap: 6px;
+            }
+            
+            .logo-section img {
+                height: 32px;
+                width: 32px;
+            }
+            
+            .header-icon {
+                width: 32px;
+                height: 32px;
+            }
+            
+            .header-right {
+                gap: 6px;
+            }
+            
+            .main-content {
+                padding: 15px 10px;
+            }
+            
+            .dashboard-title {
+                font-size: 20px;
+            }
+            
+            .stat-card {
+                min-width: 100%;
+            }
+            
+            .chart-container {
+                min-width: 100%;
+            }
+        }
+        
+        /* Mobile Menu Toggle */
+        .mobile-menu-toggle {
+            display: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: white;
+        }
+        
+        .mobile-menu-toggle:hover {
+            background: rgba(255,255,255,0.3);
+        }
+        
+        @media (max-width: 768px) {
+            .mobile-menu-toggle {
+                display: flex;
+            }
+        }
+        
+        /* Mobile Overlay */
+        .mobile-overlay {
+            display: none;
+            position: fixed;
+            top: var(--header-height);
+            left: 0;
+            width: 100%;
+        /* Universal Mobile Responsive Styles for ALL Dashboard Pages */
+        @media (max-width: 768px) {
+            /* Tables - Make scrollable */
+            .table-responsive,
+            .content-section > table,
+            table {
+                display: block;
+                width: 100%;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+            }
+            
+            table {
+                min-width: 600px;
+            }
+            
+            /* Ensure table wrapper is scrollable */
+            .content-section {
+                overflow-x: auto;
+            }
+            
+            /* Cards and Sections */
+            .content-section,
+            .card,
+            .info-card {
+                margin-bottom: 15px;
+            }
+            
+            /* Forms */
+            .form-row {
+                flex-direction: column;
+            }
+            
+            .form-group {
+                margin-bottom: 15px;
+            }
+            
+            /* Buttons */
+            .btn-group {
+                flex-direction: column;
                 gap: 10px;
+            }
+            
+            .action-buttons {
+                flex-wrap: wrap;
+                gap: 5px;
+            }
+            
+            /* Modals */
+            .modal-dialog {
+                margin: 10px;
+                max-width: calc(100% - 20px);
+            }
+            
+            .modal-content {
+                max-height: calc(100vh - 20px);
+                overflow-y: auto;
+            }
+            
+            /* Search and Filter Bars */
+            .search-bar,
+            .filter-bar {
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            /* Grid Layouts */
+            .row {
+                margin-left: 0;
+                margin-right: 0;
+            }
+            
+            .col,
+            [class*="col-"] {
+                padding-left: 10px;
+                padding-right: 10px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            /* Extra small screens */
+            .content-section,
+            .card {
+                padding: 15px;
+                border-radius: 8px;
+            }
+            
+            .section-title,
+            h1, h2 {
+                font-size: 18px;
+            }
+            
+            h3, h4 {
+                font-size: 16px;
+            }
+            
+            /* Tables - Stack on very small screens */
+            .table-mobile-stack {
+                display: block;
+                width: 100%;
+            }
+            
+            .table-mobile-stack thead {
+                display: none;
+            }
+            
+            .table-mobile-stack tr {
+                display: block;
+                margin-bottom: 15px;
+                border: 1px solid #dee2e6;
+                border-radius: 8px;
+                padding: 10px;
+                background: white;
+            }
+            
+            .table-mobile-stack td {
+                display: block;
+                text-align: left;
+                padding: 8px 10px;
+                border: none;
+                border-bottom: 1px solid #f0f0f0;
+            }
+            
+            .table-mobile-stack td:last-child {
+                border-bottom: none;
+            }
+            
+            .table-mobile-stack td:before {
+                content: attr(data-label);
+                font-weight: bold;
+                display: inline-block;
+                width: 120px;
+                margin-right: 10px;
+            }
+            
+            /* Buttons - Full width */
+            .btn-block-mobile {
+                width: 100%;
+                margin-bottom: 10px;
+            }
+            
+            /* Action buttons - Stack vertically */
+            .action-icon {
+                margin: 2px;
             }
         }
 
@@ -400,10 +648,17 @@
 
     <!-- Header -->
     <header class="header">
-        <div class="logo-section">
-            <img src="https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284239/PLP_LOGO_ujtdgd.png"
-                 alt="PLP Logo">
-            <span class="brand-name">PLP Accreditation System</span>
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <!-- Mobile Menu Toggle -->
+            <div class="mobile-menu-toggle" onclick="toggleMobileMenu()">
+                <i class="fas fa-bars"></i>
+            </div>
+            
+            <div class="logo-section">
+                <img src="https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284239/PLP_LOGO_ujtdgd.png"
+                     alt="PLP Logo">
+                <span class="brand-name">PLP Accreditation System</span>
+            </div>
         </div>
         
         <div class="header-right">
@@ -421,7 +676,7 @@
     </header>
 
     <!-- Sidebar -->
-    <nav class="sidebar">
+    <nav class="sidebar" id="sidebar">
         <ul class="sidebar-menu">
             <!-- Home (Department Users only) -->
             {% if user.role == 'department_user' %}
@@ -604,6 +859,9 @@
         </ul>
     </nav>
 
+    <!-- Mobile Overlay -->
+    <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobileMenu()"></div>
+
     <!-- Main Content -->
     <main class="main-content">
         {% block content %}
@@ -686,6 +944,33 @@
     </main>
 
     <script>
+        // Mobile Menu Toggle
+        function toggleMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+        
+        function closeMobileMenu() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('mobileOverlay');
+            sidebar.classList.remove('show');
+            overlay.classList.remove('show');
+        }
+        
+        // Close mobile menu when clicking on a link
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebarLinks = document.querySelectorAll('.sidebar-link');
+            sidebarLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        closeMobileMenu();
+                    }
+                });
+            });
+        });
+        
         // Dropdown toggle function
         function toggleDropdown(element) {
             element.classList.toggle('open');
@@ -1215,6 +1500,74 @@
                 }
             `;
         }
+    </script>
+
+    <!-- Auto-Logout on Inactivity (5 minutes) -->
+    <script>
+        (function() {
+            const INACTIVITY_TIMEOUT = 5 * 60 * 1000; // 5 minutes in milliseconds
+            let inactivityTimer;
+            
+            // Function to reset the timer
+            function resetInactivityTimer() {
+                clearTimeout(inactivityTimer);
+                inactivityTimer = setTimeout(logoutUser, INACTIVITY_TIMEOUT);
+            }
+            
+            // Function to logout the user
+            function logoutUser() {
+                // Show a brief notification
+                if (typeof showToast === 'function') {
+                    showToast('Session expired due to inactivity', 'warning');
+                }
+                
+                // Redirect to logout URL after a brief delay
+                setTimeout(function() {
+                    window.location.href = '{% url "auth:logout" %}';
+                }, 500);
+            }
+            
+            // Events that indicate user activity
+            const activityEvents = [
+                'mousedown',
+                'mousemove',
+                'keypress',
+                'scroll',
+                'touchstart',
+                'click'
+            ];
+            
+            // Attach event listeners to detect user activity
+            activityEvents.forEach(function(eventName) {
+                document.addEventListener(eventName, resetInactivityTimer, true);
+            });
+            
+            // Start the timer when page loads
+            resetInactivityTimer();
+            
+            // Optional: Warn user 30 seconds before logout
+            const WARNING_TIME = 30 * 1000; // 30 seconds before logout
+            let warningTimer;
+            
+            function resetWarningTimer() {
+                clearTimeout(warningTimer);
+                warningTimer = setTimeout(function() {
+                    if (typeof showToast === 'function') {
+                        showToast('Your session will expire in 30 seconds due to inactivity', 'warning');
+                    }
+                }, INACTIVITY_TIMEOUT - WARNING_TIME);
+            }
+            
+            // Reset warning timer along with inactivity timer
+            const originalReset = resetInactivityTimer;
+            resetInactivityTimer = function() {
+                originalReset();
+                resetWarningTimer();
+            };
+            
+            // Start warning timer
+            resetWarningTimer();
+        })();
     </script>
 
     <!-- Bootstrap 5 JS -->
