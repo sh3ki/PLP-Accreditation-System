@@ -8039,13 +8039,12 @@ def my_accreditation_view_document(request, dept_id, prog_id, type_id, area_id, 
 @login_required
 # @require_http_methods(["GET"])
 def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
-    """Download document with PDF conversion - My Accreditation version"""
+    """Download document with PDF conversion using CloudConvert - My Accreditation version"""
     from .audit_utils import log_audit
     from django.http import HttpResponse
     import requests
-    import tempfile
+    import time
     import os
-    import subprocess
     
     try:
         user = get_user_from_session(request)
@@ -8071,76 +8070,119 @@ def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_
         document_name = document.get('name', 'document')
         document_format = document.get('format', 'docx').lower()
         
-        # Convert DOCX/DOC to PDF
+        # Convert DOCX/DOC to PDF using CloudConvert
         should_convert = document_format in ['doc', 'docx']
         
         if should_convert:
-            print(f"[MY_ACC] Converting {document_name}.{document_format} to PDF...")
+            print(f"[CLOUDCONVERT] Converting {document_name}.{document_format} to PDF...")
             try:
-                # Download the DOCX file
-                print(f"[MY_ACC] Downloading from: {download_url}")
-                response = requests.get(download_url, timeout=30)
+                # Get CloudConvert API key from environment
+                cloudconvert_api_key = os.environ.get('CLOUDCONVERT_API_KEY')
+                if not cloudconvert_api_key:
+                    raise Exception("CloudConvert API key not configured")
+                
+                # Step 1: Create a job
+                print(f"[CLOUDCONVERT] Creating conversion job...")
+                job_payload = {
+                    "tasks": {
+                        "import-my-file": {
+                            "operation": "import/url",
+                            "url": download_url
+                        },
+                        "convert-my-file": {
+                            "operation": "convert",
+                            "input": "import-my-file",
+                            "output_format": "pdf"
+                        },
+                        "export-my-file": {
+                            "operation": "export/url",
+                            "input": "convert-my-file"
+                        }
+                    }
+                }
+                
+                headers = {
+                    "Authorization": f"Bearer {cloudconvert_api_key}",
+                    "Content-Type": "application/json"
+                }
+                
+                response = requests.post(
+                    "https://api.cloudconvert.com/v2/jobs",
+                    json=job_payload,
+                    headers=headers,
+                    timeout=30
+                )
                 response.raise_for_status()
-                print(f"[MY_ACC] Downloaded {len(response.content)} bytes")
+                job_data = response.json()
+                job_id = job_data['data']['id']
+                print(f"[CLOUDCONVERT] Job created: {job_id}")
                 
-                # Create temporary files
-                temp_docx = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{document_format}', mode='wb')
-                temp_docx.write(response.content)
-                temp_docx.close()
-                print(f"[MY_ACC] Saved to temp: {temp_docx.name}")
+                # Step 2: Wait for job to complete
+                max_wait = 60  # seconds
+                start_time = time.time()
                 
-                # Convert using unoconv or soffice
-                output_pdf = temp_docx.name.replace(f'.{document_format}', '.pdf')
-                
-                if os.path.exists('/usr/bin/unoconv'):
-                    cmd = ['/usr/bin/unoconv', '-f', 'pdf', '-o', output_pdf, temp_docx.name]
-                    print(f"[MY_ACC] Using unoconv: {' '.join(cmd)}")
-                else:
-                    cmd = ['/usr/bin/soffice', '--headless', '--convert-to', 'pdf',
-                           '--outdir', os.path.dirname(temp_docx.name), temp_docx.name]
-                    output_pdf = temp_docx.name.rsplit('.', 1)[0] + '.pdf'
-                    print(f"[MY_ACC] Using soffice: {' '.join(cmd)}")
-                
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
-                print(f"[MY_ACC] Return code: {result.returncode}")
-                print(f"[MY_ACC] Stdout: {result.stdout}")
-                print(f"[MY_ACC] Stderr: {result.stderr}")
-                
-                if os.path.exists(output_pdf):
-                    print(f"[MY_ACC] PDF created: {output_pdf}, {os.path.getsize(output_pdf)} bytes")
+                while time.time() - start_time < max_wait:
+                    print(f"[CLOUDCONVERT] Checking job status...")
+                    status_response = requests.get(
+                        f"https://api.cloudconvert.com/v2/jobs/{job_id}",
+                        headers=headers,
+                        timeout=30
+                    )
+                    status_response.raise_for_status()
+                    status_data = status_response.json()
                     
-                    # Read PDF
-                    with open(output_pdf, 'rb') as pdf_file:
-                        pdf_content = pdf_file.read()
+                    job_status = status_data['data']['status']
+                    print(f"[CLOUDCONVERT] Job status: {job_status}")
                     
-                    # Cleanup
-                    os.unlink(temp_docx.name)
-                    os.unlink(output_pdf)
+                    if job_status == 'finished':
+                        # Find export task
+                        export_task = None
+                        for task in status_data['data']['tasks']:
+                            if task['operation'] == 'export/url' and task['status'] == 'finished':
+                                export_task = task
+                                break
+                        
+                        if export_task and 'result' in export_task and 'files' in export_task['result']:
+                            pdf_url = export_task['result']['files'][0]['url']
+                            print(f"[CLOUDCONVERT] PDF ready: {pdf_url}")
+                            
+                            # Download the PDF
+                            pdf_response = requests.get(pdf_url, timeout=30)
+                            pdf_response.raise_for_status()
+                            pdf_content = pdf_response.content
+                            print(f"[CLOUDCONVERT] Downloaded PDF: {len(pdf_content)} bytes")
+                            
+                            # Log audit
+                            try:
+                                log_audit(
+                                    user_id=user.get('id'),
+                                    user_email=user.get('email'),
+                                    action='DOWNLOAD_DOCUMENT',
+                                    target_type='document',
+                                    target_id=document_id,
+                                    details={'document_name': f"{document_name}.pdf (converted)", 'page': 'my_accreditation'}
+                                )
+                            except: pass
+                            
+                            http_response = HttpResponse(pdf_content, content_type='application/pdf')
+                            http_response['Content-Disposition'] = f'attachment; filename="{document_name}.pdf"'
+                            print(f"[CLOUDCONVERT] Returning PDF successfully")
+                            return http_response
+                        else:
+                            raise Exception("Export task not found or incomplete")
                     
-                    # Log audit
-                    try:
-                        log_audit(
-                            user_id=user.get('id'),
-                            user_email=user.get('email'),
-                            action='DOWNLOAD_DOCUMENT',
-                            target_type='document',
-                            target_id=document_id,
-                            details={'document_name': f"{document_name}.pdf (converted)", 'page': 'my_accreditation'}
-                        )
-                    except: pass
+                    elif job_status == 'error':
+                        raise Exception(f"CloudConvert job failed: {status_data['data'].get('message', 'Unknown error')}")
                     
-                    http_response = HttpResponse(pdf_content, content_type='application/pdf')
-                    http_response['Content-Disposition'] = f'attachment; filename="{document_name}.pdf"'
-                    print(f"[MY_ACC] Returning PDF successfully")
-                    return http_response
-                else:
-                    print(f"[MY_ACC] PDF not created!")
-                    raise Exception("PDF not created")
+                    # Wait before checking again
+                    time.sleep(2)
+                
+                raise Exception("CloudConvert job timeout")
                     
             except Exception as convert_error:
                 import traceback
-                print(f"[MY_ACC] Conversion failed: {convert_error}")
-                print(f"[MY_ACC] Traceback:\n{traceback.format_exc()}")
+                print(f"[CLOUDCONVERT] Conversion failed: {convert_error}")
+                print(f"[CLOUDCONVERT] Traceback:\n{traceback.format_exc()}")
                 # Fall through to return original DOCX
         
         # For non-DOCX or if conversion failed, return original file URL
