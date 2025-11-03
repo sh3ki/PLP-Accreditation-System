@@ -8136,8 +8136,100 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
         
         print(f"Download request - Name: {document_name}, Format: {document_format}, Required: {is_required}")
         
-        # Convert to PDF for ALL DOCX/DOC documents using LibreOffice
+        # Convert to PDF for ALL DOCX/DOC documents using online API
         should_convert = document_format in ['doc', 'docx']
+        
+        if should_convert:
+            print(f"Converting {document_name}.{document_format} to PDF using online converter...")
+            try:
+                # Use CloudConvert free API for DOCX to PDF conversion
+                # Sign up at https://cloudconvert.com for free API key (25 conversions/day free)
+                import requests
+                from django.http import HttpResponse
+                
+                # Download the DOCX file first
+                print(f"Downloading DOCX from: {download_url}")
+                docx_response = requests.get(download_url, timeout=30)
+                docx_response.raise_for_status()
+                print(f"Downloaded {len(docx_response.content)} bytes")
+                
+                # Use CloudConvert API to convert DOCX to PDF
+                # This is a free online service - no installation needed!
+                cloudconvert_api_key = os.getenv('CLOUDCONVERT_API_KEY', '')
+                
+                if cloudconvert_api_key:
+                    print("Using CloudConvert API for conversion...")
+                    # CloudConvert API implementation
+                    # Step 1: Create a job
+                    job_response = requests.post(
+                        'https://api.cloudconvert.com/v2/jobs',
+                        headers={'Authorization': f'Bearer {cloudconvert_api_key}'},
+                        json={
+                            'tasks': {
+                                'import-docx': {
+                                    'operation': 'import/url',
+                                    'url': download_url
+                                },
+                                'convert-to-pdf': {
+                                    'operation': 'convert',
+                                    'input': 'import-docx',
+                                    'output_format': 'pdf'
+                                },
+                                'export-pdf': {
+                                    'operation': 'export/url',
+                                    'input': 'convert-to-pdf'
+                                }
+                            }
+                        }
+                    )
+                    
+                    if job_response.status_code == 201:
+                        job_data = job_response.json()
+                        export_task = job_data['data']['tasks'][2]  # export-pdf task
+                        
+                        # Wait for conversion to complete
+                        import time
+                        max_wait = 30  # 30 seconds max
+                        waited = 0
+                        while waited < max_wait:
+                            status_response = requests.get(
+                                f"https://api.cloudconvert.com/v2/tasks/{export_task['id']}",
+                                headers={'Authorization': f'Bearer {cloudconvert_api_key}'}
+                            )
+                            task_status = status_response.json()['data']
+                            
+                            if task_status['status'] == 'finished':
+                                pdf_url = task_status['result']['files'][0]['url']
+                                pdf_response = requests.get(pdf_url)
+                                
+                                if pdf_response.status_code == 200:
+                                    # Log audit
+                                    try:
+                                        log_audit(user, action_type='download', resource_type='document', 
+                                                 resource_id=document_id, 
+                                                 details=f"Downloaded as PDF: {document_name}", 
+                                                 status='success')
+                                    except: pass
+                                    
+                                    http_response = HttpResponse(pdf_response.content, content_type='application/pdf')
+                                    http_response['Content-Disposition'] = f'attachment; filename="{document_name}.pdf"'
+                                    print(f"Successfully converted using CloudConvert")
+                                    return http_response
+                                break
+                            elif task_status['status'] == 'error':
+                                raise Exception(f"CloudConvert error: {task_status.get('message', 'Unknown error')}")
+                            
+                            time.sleep(1)
+                            waited += 1
+                else:
+                    print("No CloudConvert API key, using fallback method...")
+                    # Fallback: Use free online converter without API key
+                    # We'll use a simple POST to a free conversion service
+                    raise Exception("No API key available")
+                    
+            except Exception as api_error:
+                print(f"Online conversion failed: {api_error}")
+                # Continue to try LibreOffice as fallback
         
         if should_convert:
             print(f"Converting {document_name}.{document_format} to PDF using LibreOffice...")
