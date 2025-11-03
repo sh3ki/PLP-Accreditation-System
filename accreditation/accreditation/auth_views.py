@@ -274,14 +274,20 @@ def verify_otp_submit(request):
         
         user_id = request.session.get('pending_otp_user_id')
         
+        print(f"[OTP_VERIFY] Verifying OTP for user_id: {user_id}, entered_otp: {entered_otp}")
+        
         # Verify OTP
         result = verify_otp(user_id, entered_otp)
+        
+        print(f"[OTP_VERIFY] Result: {result}")
         
         if result['success']:
             # OTP verified successfully
             # Get user document
             from accreditation.firebase_utils import get_document
             user_doc = get_document('users', user_id, request=request)
+            
+            print(f"[OTP_VERIFY] User doc found: {user_doc is not None}")
             
             # Complete login session
             request.session['user_id'] = user_id
@@ -326,18 +332,24 @@ def verify_otp_submit(request):
             else:
                 redirect_url = '/dashboard/'
             
+            print(f"[OTP_VERIFY] Success! Redirecting to: {redirect_url}")
+            
             return JsonResponse({
                 'success': True, 
                 'message': 'OTP verified successfully',
                 'redirect': redirect_url
             })
         else:
+            print(f"[OTP_VERIFY] Verification failed: {result.get('message')}")
             return JsonResponse(result)
     
-    except json.JSONDecodeError:
+    except json.JSONDecodeError as e:
+        print(f"[OTP_VERIFY] JSON decode error: {e}")
         return JsonResponse({'success': False, 'message': 'Invalid request format'})
     except Exception as e:
-        print(f"Error in OTP verification: {e}")
+        import traceback
+        print(f"[OTP_VERIFY] ERROR: {e}")
+        print(f"[OTP_VERIFY] Traceback:\n{traceback.format_exc()}")
         return JsonResponse({'success': False, 'message': 'Verification error. Please try again.'})
 
 
