@@ -8136,8 +8136,8 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
         
         print(f"Download request - Name: {document_name}, Format: {document_format}, Required: {is_required}")
         
-        # Convert to PDF for ALL required documents with DOCX/DOC format
-        should_convert = (is_required or is_required is None) and document_format in ['doc', 'docx']
+        # Convert to PDF for ALL DOCX/DOC documents (not just required ones)
+        should_convert = document_format in ['doc', 'docx']
         
         if should_convert:
             print(f"Converting {document_name}.{document_format} to PDF using LibreOffice...")
@@ -8183,12 +8183,19 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
                         result = subprocess.run(['which', 'libreoffice'], capture_output=True, text=True)
                         if result.returncode == 0:
                             libreoffice_cmd = result.stdout.strip()
-                    except:
-                        pass
+                        else:
+                            # Also try soffice
+                            result = subprocess.run(['which', 'soffice'], capture_output=True, text=True)
+                            if result.returncode == 0:
+                                libreoffice_cmd = result.stdout.strip()
+                    except Exception as which_error:
+                        print(f"Error finding LibreOffice in PATH: {which_error}")
                 
                 if not libreoffice_cmd:
-                    print("LibreOffice not found, falling back to original file")
-                    raise Exception("LibreOffice not installed")
+                    print("ERROR: LibreOffice not found on system. Checked paths:")
+                    for path in libreoffice_paths:
+                        print(f"  - {path}: {'EXISTS' if os.path.exists(path) else 'NOT FOUND'}")
+                    raise Exception("LibreOffice not installed. Please install: apt-get install libreoffice-writer")
                 
                 # Convert DOCX to PDF using LibreOffice headless mode
                 # This preserves ALL formatting, images, headers, footers, etc.
