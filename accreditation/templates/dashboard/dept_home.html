@@ -104,6 +104,11 @@
     
     /* Responsive */
     @media (max-width: 768px) {
+        /* CRITICAL: Remove sidebar margin on mobile */
+        .main-content {
+            margin-left: 0 !important;
+        }
+        
         .welcome-title {
             font-size: 28px;
         }
@@ -129,9 +134,19 @@
         .welcome-section {
             padding: 40px 15px;
         }
+        
+        .user-greeting {
+            font-size: 16px;
+            padding: 10px 20px;
+        }
     }
     
     @media (max-width: 480px) {
+        /* CRITICAL: Remove sidebar margin on mobile */
+        .main-content {
+            margin-left: 0 !important;
+        }
+        
         .welcome-title {
             font-size: 24px;
         }
@@ -156,6 +171,11 @@
         
         .welcome-section {
             padding: 30px 10px;
+        }
+        
+        .user-greeting {
+            font-size: 14px;
+            padding: 8px 15px;
         }
     }
 </style>
