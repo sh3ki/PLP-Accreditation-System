@@ -8039,9 +8039,13 @@ def my_accreditation_view_document(request, dept_id, prog_id, type_id, area_id, 
 @login_required
 # @require_http_methods(["GET"])
 def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
-
-    """Download document with audit logging - My Accreditation version"""
+    """Download document with PDF conversion - My Accreditation version"""
     from .audit_utils import log_audit
+    from django.http import HttpResponse
+    import requests
+    import tempfile
+    import os
+    import subprocess
     
     try:
         user = get_user_from_session(request)
@@ -8059,11 +8063,87 @@ def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_
         if document.get('status') != 'approved':
             return JsonResponse({'success': False, 'error': 'Only approved documents can be downloaded'})
         
-        # Get document URL
+        # Get document info
         download_url = document.get('file_url', '')
         if not download_url:
             return JsonResponse({'success': False, 'error': 'Document file not found'})
         
+        document_name = document.get('name', 'document')
+        document_format = document.get('format', 'docx').lower()
+        
+        # Convert DOCX/DOC to PDF
+        should_convert = document_format in ['doc', 'docx']
+        
+        if should_convert:
+            print(f"[MY_ACC] Converting {document_name}.{document_format} to PDF...")
+            try:
+                # Download the DOCX file
+                print(f"[MY_ACC] Downloading from: {download_url}")
+                response = requests.get(download_url, timeout=30)
+                response.raise_for_status()
+                print(f"[MY_ACC] Downloaded {len(response.content)} bytes")
+                
+                # Create temporary files
+                temp_docx = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{document_format}', mode='wb')
+                temp_docx.write(response.content)
+                temp_docx.close()
+                print(f"[MY_ACC] Saved to temp: {temp_docx.name}")
+                
+                # Convert using unoconv or soffice
+                output_pdf = temp_docx.name.replace(f'.{document_format}', '.pdf')
+                
+                if os.path.exists('/usr/bin/unoconv'):
+                    cmd = ['/usr/bin/unoconv', '-f', 'pdf', '-o', output_pdf, temp_docx.name]
+                    print(f"[MY_ACC] Using unoconv: {' '.join(cmd)}")
+                else:
+                    cmd = ['/usr/bin/soffice', '--headless', '--convert-to', 'pdf',
+                           '--outdir', os.path.dirname(temp_docx.name), temp_docx.name]
+                    output_pdf = temp_docx.name.rsplit('.', 1)[0] + '.pdf'
+                    print(f"[MY_ACC] Using soffice: {' '.join(cmd)}")
+                
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                print(f"[MY_ACC] Return code: {result.returncode}")
+                print(f"[MY_ACC] Stdout: {result.stdout}")
+                print(f"[MY_ACC] Stderr: {result.stderr}")
+                
+                if os.path.exists(output_pdf):
+                    print(f"[MY_ACC] PDF created: {output_pdf}, {os.path.getsize(output_pdf)} bytes")
+                    
+                    # Read PDF
+                    with open(output_pdf, 'rb') as pdf_file:
+                        pdf_content = pdf_file.read()
+                    
+                    # Cleanup
+                    os.unlink(temp_docx.name)
+                    os.unlink(output_pdf)
+                    
+                    # Log audit
+                    try:
+                        log_audit(
+                            user_id=user.get('id'),
+                            user_email=user.get('email'),
+                            action='DOWNLOAD_DOCUMENT',
+                            target_type='document',
+                            target_id=document_id,
+                            details={'document_name': f"{document_name}.pdf (converted)", 'page': 'my_accreditation'}
+                        )
+                    except: pass
+                    
+                    http_response = HttpResponse(pdf_content, content_type='application/pdf')
+                    http_response['Content-Disposition'] = f'attachment; filename="{document_name}.pdf"'
+                    print(f"[MY_ACC] Returning PDF successfully")
+                    return http_response
+                else:
+                    print(f"[MY_ACC] PDF not created!")
+                    raise Exception("PDF not created")
+                    
+            except Exception as convert_error:
+                import traceback
+                print(f"[MY_ACC] Conversion failed: {convert_error}")
+                print(f"[MY_ACC] Traceback:\n{traceback.format_exc()}")
+                # Fall through to return original DOCX
+        
+        # For non-DOCX or if conversion failed, return original file URL
         # Log audit trail
         log_audit(
             user_id=user.get('id'),
@@ -8086,11 +8166,13 @@ def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_
         return JsonResponse({
             'success': True,
             'download_url': download_url,
-            'document_name': document.get('name')
+            'document_name': f"{document_name}.{document_format}"
         })
         
     except Exception as e:
-        print(f"Error downloading document: {str(e)}")
+        import traceback
+        print(f"Error in my_accreditation_download_document: {str(e)}")
+        print(traceback.format_exc())
         return JsonResponse({'success': False, 'error': 'An error occurred while preparing the download'})
 
 
