@@ -451,54 +451,57 @@ def forgot_password_send_otp(request):
 
 @never_cache
 def forgot_password_verify_otp(request):
-    """Display OTP verification page for password reset"""
-    if not request.session.get('forgot_password_otp_sent'):
-        return redirect('auth:forgot_password')
-    
-    return render(request, 'auth/forgot_password_verify_otp.html', {
-        'title': 'Verify OTP',
-        'user_email': request.session.get('forgot_password_email', '')
-    })
-
-
-@require_http_methods(["POST"])
-def forgot_password_verify_otp(request):
-    """Verify OTP for password reset"""
-    try:
-        data = json.loads(request.body)
-        otp = data.get('otp', '').strip()
-        
-        if not otp:
-            return JsonResponse({'success': False, 'message': 'OTP is required'})
-        
+    """Display OTP verification page for password reset OR verify OTP"""
+    # GET request - show the page
+    if request.method == 'GET':
         if not request.session.get('forgot_password_otp_sent'):
-            return JsonResponse({'success': False, 'message': 'Invalid session. Please start over.'})
+            return redirect('auth:forgot_password')
         
-        user_id = request.session.get('forgot_password_user_id')
-        
-        if not user_id:
-            return JsonResponse({'success': False, 'message': 'Session expired. Please start over.'})
-        
-        # Verify OTP
-        result = verify_otp(user_id, otp, purpose='password_reset')
-        
-        if result.get('success'):
-            # Mark OTP as verified
-            request.session['forgot_password_otp_verified'] = True
+        return render(request, 'auth/forgot_password_verify_otp.html', {
+            'title': 'Verify OTP',
+            'user_email': request.session.get('forgot_password_email', '')
+        })
+    
+    # POST request - verify OTP
+    elif request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            otp = data.get('otp', '').strip()
             
-            return JsonResponse({
-                'success': True,
-                'message': 'OTP verified successfully',
-                'redirect': '/auth/forgot-password/reset/'
-            })
-        else:
-            return JsonResponse(result)
+            if not otp:
+                return JsonResponse({'success': False, 'message': 'OTP is required'})
             
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'message': 'Invalid request format'})
-    except Exception as e:
-        print(f"Error verifying OTP: {e}")
-        return JsonResponse({'success': False, 'message': 'Verification error. Please try again.'})
+            if not request.session.get('forgot_password_otp_sent'):
+                return JsonResponse({'success': False, 'message': 'Invalid session. Please start over.'})
+            
+            user_id = request.session.get('forgot_password_user_id')
+            
+            if not user_id:
+                return JsonResponse({'success': False, 'message': 'Session expired. Please start over.'})
+            
+            # Verify OTP
+            result = verify_otp(user_id, otp, purpose='password_reset')
+            
+            if result.get('success'):
+                # Mark OTP as verified
+                request.session['forgot_password_otp_verified'] = True
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'OTP verified successfully',
+                    'redirect': '/auth/forgot-password/reset/'
+                })
+            else:
+                return JsonResponse(result)
+                
+        except json.JSONDecodeError:
+            return JsonResponse({'success': False, 'message': 'Invalid request format'})
+        except Exception as e:
+            print(f"Error verifying OTP: {e}")
+            return JsonResponse({'success': False, 'message': 'Verification error. Please try again.'})
+    
+    # Other methods not allowed
+    return JsonResponse({'success': False, 'message': 'Method not allowed'}, status=405)
 
 
 @require_http_methods(["POST"])
