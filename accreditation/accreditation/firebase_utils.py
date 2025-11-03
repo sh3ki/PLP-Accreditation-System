@@ -10,6 +10,52 @@ from django.conf import settings
 from datetime import datetime
 from typing import Dict, List, Optional, Any
 import json
+import time
+from google.api_core.exceptions import ResourceExhausted, DeadlineExceeded
+from functools import wraps
+
+
+def retry_on_quota_exceeded(max_retries=3, initial_delay=1):
+    """
+    Decorator to retry Firestore operations when quota is exceeded
+    Uses exponential backoff
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            delay = initial_delay
+            last_exception = None
+            
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except ResourceExhausted as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        print(f"Quota exceeded, retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(delay)
+                        delay *= 2  # Exponential backoff
+                    else:
+                        # On final attempt, raise a more user-friendly error
+                        raise Exception("Firebase quota exceeded. Please try again in a few moments or contact support.")
+                except DeadlineExceeded as e:
+                    last_exception = e
+                    if attempt < max_retries - 1:
+                        print(f"Request timeout, retrying in {delay}s (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(delay)
+                        delay *= 2
+                    else:
+                        raise Exception("Request timeout. Please try again.")
+                except Exception as e:
+                    # For other exceptions, don't retry
+                    raise e
+            
+            # If we got here, all retries failed
+            if last_exception:
+                raise last_exception
+        
+        return wrapper
+    return decorator
 
 
 class FirestoreHelper:
@@ -63,6 +109,7 @@ class FirestoreHelper:
             raise Exception(f"Error creating document: {e}")
     
     # READ operations
+    @retry_on_quota_exceeded(max_retries=3, initial_delay=1)
     def get_document(self, collection_name: str, document_id: str) -> Optional[Dict[str, Any]]:
         """
         Get a single document from Firestore
@@ -89,6 +136,7 @@ class FirestoreHelper:
         except Exception as e:
             raise Exception(f"Error getting document: {e}")
     
+    @retry_on_quota_exceeded(max_retries=3, initial_delay=1)
     def get_all_documents(self, collection_name: str, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Get all documents from a collection
@@ -120,6 +168,7 @@ class FirestoreHelper:
         except Exception as e:
             raise Exception(f"Error getting documents: {e}")
     
+    @retry_on_quota_exceeded(max_retries=3, initial_delay=1)
     def query_documents(self, collection_name: str, field: str, operator: str, value: Any, limit: Optional[int] = None) -> List[Dict[str, Any]]:
         """
         Query documents based on field conditions
