@@ -332,7 +332,8 @@ try:
         CACHE_TTL,
         DEFAULT_TTL,
     )
-    CACHING_ENABLED = True
+    # CACHING DISABLED - Causes stale data issues
+    CACHING_ENABLED = False
 except ImportError:
     CACHING_ENABLED = False
 

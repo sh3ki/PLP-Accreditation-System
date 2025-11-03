@@ -57,7 +57,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'accreditation.cache_middleware.FirestoreCacheMiddleware',  # Enable Firestore request-level caching
+    # 'accreditation.cache_middleware.FirestoreCacheMiddleware',  # DISABLED - Causes stale data
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
