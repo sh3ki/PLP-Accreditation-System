@@ -8037,7 +8037,7 @@ def my_accreditation_view_document(request, dept_id, prog_id, type_id, area_id, 
 
 
 @login_required
-@require_http_methods(["GET"])
+# @require_http_methods(["GET"])
 def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_id, checklist_id, document_id):
 
     """Download document with audit logging - My Accreditation version"""
