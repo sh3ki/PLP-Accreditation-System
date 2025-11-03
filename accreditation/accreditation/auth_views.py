@@ -443,7 +443,9 @@ def forgot_password_send_otp(request):
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'message': 'Invalid request format'})
     except Exception as e:
+        import traceback
         print(f"Error in forgot password OTP: {e}")
+        print(traceback.format_exc())
         return JsonResponse({'success': False, 'message': 'An error occurred. Please try again.'})
 
 
