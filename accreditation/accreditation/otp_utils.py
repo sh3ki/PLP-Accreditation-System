@@ -227,10 +227,21 @@ def verify_otp(user_uid, entered_otp, purpose='login'):
         if otp_data.get('verified', False):
             return {'success': False, 'message': 'OTP already used. Please request a new one.'}
         
-        # Check expiry
+        # Check expiry - handle both datetime and Firestore timestamp
         expires_at = otp_data.get('expires_at')
-        if expires_at and datetime.now() > expires_at:
-            return {'success': False, 'message': 'OTP has expired. Please request a new one.'}
+        if expires_at:
+            # Convert Firestore timestamp to datetime if needed
+            if hasattr(expires_at, 'timestamp'):
+                # It's a Firestore timestamp, convert to datetime
+                from datetime import timezone
+                expires_at = datetime.fromtimestamp(expires_at.timestamp(), tz=timezone.utc)
+                current_time = datetime.now(timezone.utc)
+            else:
+                # It's already a datetime object
+                current_time = datetime.now()
+            
+            if current_time > expires_at:
+                return {'success': False, 'message': 'OTP has expired. Please request a new one.'}
         
         # Check attempts (max 5 attempts)
         attempts = otp_data.get('attempts', 0)
@@ -253,7 +264,9 @@ def verify_otp(user_uid, entered_otp, purpose='login'):
             }
     
     except Exception as e:
+        import traceback
         print(f"Error verifying OTP: {e}")
+        print(f"Traceback:\n{traceback.format_exc()}")
         return {'success': False, 'message': 'Verification error. Please try again.'}
 
 
