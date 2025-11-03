@@ -8136,69 +8136,41 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
         
         print(f"Download request - Name: {document_name}, Format: {document_format}, Required: {is_required}")
         
-        # Convert to PDF for ALL DOCX/DOC documents (not just required ones)
+        # Convert to PDF for ALL DOCX/DOC documents using LibreOffice
         should_convert = document_format in ['doc', 'docx']
         
         if should_convert:
             print(f"Converting {document_name}.{document_format} to PDF using LibreOffice...")
             try:
+                from django.http import FileResponse, HttpResponse
+                import requests
+                import tempfile
+                import os
+                import subprocess
+                
                 # Download the DOCX file from Cloudinary
+                print(f"Downloading DOCX from: {download_url}")
                 response = requests.get(download_url, timeout=30)
                 response.raise_for_status()
+                print(f"Downloaded {len(response.content)} bytes")
                 
                 # Create temporary files
-                temp_docx = tempfile.NamedTemporaryFile(delete=False, suffix='.docx')
+                temp_docx = tempfile.NamedTemporaryFile(delete=False, suffix=f'.{document_format}')
                 temp_dir = tempfile.mkdtemp()
                 
                 # Save DOCX content
                 temp_docx.write(response.content)
                 temp_docx.close()
+                print(f"Saved to temp file: {temp_docx.name}")
                 
-                # Detect LibreOffice path based on OS
-                system = platform.system()
-                if system == 'Windows':
-                    # Common Windows paths
-                    libreoffice_paths = [
-                        r'C:\Program Files\LibreOffice\program\soffice.exe',
-                        r'C:\Program Files (x86)\LibreOffice\program\soffice.exe',
-                    ]
-                else:
-                    # Linux/Mac paths
-                    libreoffice_paths = [
-                        '/usr/bin/libreoffice',
-                        '/usr/bin/soffice',
-                        '/snap/bin/libreoffice',
-                    ]
+                # Use libreoffice for conversion
+                libreoffice_cmd = '/usr/bin/libreoffice'
                 
-                # Find available LibreOffice
-                libreoffice_cmd = None
-                for path in libreoffice_paths:
-                    if os.path.exists(path):
-                        libreoffice_cmd = path
-                        break
-                
-                if not libreoffice_cmd:
-                    # Try to find in PATH
-                    try:
-                        result = subprocess.run(['which', 'libreoffice'], capture_output=True, text=True)
-                        if result.returncode == 0:
-                            libreoffice_cmd = result.stdout.strip()
-                        else:
-                            # Also try soffice
-                            result = subprocess.run(['which', 'soffice'], capture_output=True, text=True)
-                            if result.returncode == 0:
-                                libreoffice_cmd = result.stdout.strip()
-                    except Exception as which_error:
-                        print(f"Error finding LibreOffice in PATH: {which_error}")
-                
-                if not libreoffice_cmd:
-                    print("ERROR: LibreOffice not found on system. Checked paths:")
-                    for path in libreoffice_paths:
-                        print(f"  - {path}: {'EXISTS' if os.path.exists(path) else 'NOT FOUND'}")
-                    raise Exception("LibreOffice not installed. Please install: apt-get install libreoffice-writer")
+                if not os.path.exists(libreoffice_cmd):
+                    print(f"LibreOffice not found at {libreoffice_cmd}")
+                    raise Exception("LibreOffice not installed")
                 
                 # Convert DOCX to PDF using LibreOffice headless mode
-                # This preserves ALL formatting, images, headers, footers, etc.
                 cmd = [
                     libreoffice_cmd,
                     '--headless',
@@ -8207,20 +8179,28 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
                     temp_docx.name
                 ]
                 
-                print(f"Running LibreOffice conversion: {' '.join(cmd)}")
-                result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
+                print(f"Running conversion command: {' '.join(cmd)}")
+                result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+                print(f"LibreOffice stdout: {result.stdout}")
+                print(f"LibreOffice stderr: {result.stderr}")
+                print(f"LibreOffice return code: {result.returncode}")
                 
                 if result.returncode != 0:
-                    print(f"LibreOffice conversion failed: {result.stderr}")
-                    raise Exception(f"Conversion failed: {result.stderr}")
+                    raise Exception(f"Conversion failed with code {result.returncode}: {result.stderr}")
                 
                 # Find the generated PDF file
-                pdf_filename = os.path.splitext(os.path.basename(temp_docx.name))[0] + '.pdf'
-                pdf_path = os.path.join(temp_dir, pdf_filename)
+                base_name = os.path.splitext(os.path.basename(temp_docx.name))[0]
+                pdf_path = os.path.join(temp_dir, f"{base_name}.pdf")
                 
+                print(f"Looking for PDF at: {pdf_path}")
                 if not os.path.exists(pdf_path):
-                    print(f"PDF file not found at {pdf_path}")
-                    raise Exception("PDF file not generated")
+                    # List files in temp_dir
+                    files_in_dir = os.listdir(temp_dir)
+                    print(f"Files in temp dir: {files_in_dir}")
+                    raise Exception(f"PDF file not generated at {pdf_path}")
+                
+                pdf_size = os.path.getsize(pdf_path)
+                print(f"PDF file found, size: {pdf_size} bytes")
                 
                 # Log audit trail
                 try:
@@ -8239,23 +8219,29 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
                 with open(pdf_path, 'rb') as pdf_file:
                     pdf_content = pdf_file.read()
                 
+                print(f"Read PDF content, {len(pdf_content)} bytes")
+                
                 # Clean up temporary files
-                os.unlink(temp_docx.name)
-                os.unlink(pdf_path)
-                os.rmdir(temp_dir)
+                try:
+                    os.unlink(temp_docx.name)
+                    os.unlink(pdf_path)
+                    os.rmdir(temp_dir)
+                    print("Cleaned up temporary files")
+                except Exception as cleanup_error:
+                    print(f"Cleanup error (non-critical): {cleanup_error}")
                 
                 # Return PDF file
-                response = HttpResponse(pdf_content, content_type='application/pdf')
-                response['Content-Disposition'] = f'attachment; filename="{document_name}.pdf"'
-                print(f"Successfully converted {document_name} to PDF using LibreOffice, returning file")
-                return response
+                http_response = HttpResponse(pdf_content, content_type='application/pdf')
+                http_response['Content-Disposition'] = f'attachment; filename="{document_name}.pdf"'
+                print(f"Successfully converted and returning PDF: {document_name}.pdf")
+                return http_response
                 
             except Exception as convert_error:
                 import traceback
-                print(f"PDF conversion error: {convert_error}")
-                print(f"Traceback: {traceback.format_exc()}")
+                print(f"PDF CONVERSION ERROR: {convert_error}")
+                print(f"Full traceback:\n{traceback.format_exc()}")
                 # Fall back to original file if conversion fails
-                print("PDF conversion failed, downloading original file")
+                print("Falling back to original DOCX file")
         
         # For non-required or non-DOCX files, return original URL
         # Modify Cloudinary URL to force download
