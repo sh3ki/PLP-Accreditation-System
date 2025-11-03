@@ -1,0 +1,78 @@
+name: Deploy to Hostinger VPS
+
+on:
+  push:
+    branches:
+      - master  # Triggers on push to master branch
+  workflow_dispatch:  # Allows manual trigger from GitHub Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 🚀 Deploy to Production Server
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          password: ${{ secrets.SERVER_PASSWORD }}
+          port: 22
+          script: |
+            echo "============================================="
+            echo "🚀 Starting Automated Deployment"
+            echo "============================================="
+            
+            # Navigate to project directory
+            cd /home/plpadmin/PLP-Accreditation-System/accreditation
+            
+            # Pull latest changes from GitHub
+            echo "📥 Pulling latest code from GitHub..."
+            sudo -u plpadmin git pull origin master
+            
+            # Activate virtual environment
+            echo "🔧 Activating virtual environment..."
+            source /home/plpadmin/venv/bin/activate
+            
+            # Install/Update dependencies
+            echo "📦 Installing dependencies..."
+            pip install -r requirements.txt
+            pip install python-docx reportlab  # For PDF conversion
+            
+            # Install LibreOffice for PDF conversion (if not already installed)
+            if ! command -v libreoffice &> /dev/null; then
+                echo "📄 Installing LibreOffice for PDF conversion..."
+                apt-get update -qq
+                apt-get install -y -qq libreoffice
+            fi
+            
+            # Collect static files
+            echo "📁 Collecting static files..."
+            python manage.py collectstatic --noinput
+            
+            # Run migrations (if any)
+            echo "🗄️ Running database migrations..."
+            python manage.py migrate --noinput
+            
+            # Restart Gunicorn service
+            echo "🔄 Restarting Gunicorn..."
+            supervisorctl restart plp_accreditation
+            
+            # Restart Nginx
+            echo "🌐 Reloading Nginx..."
+            systemctl reload nginx
+            
+            # Clear any cached data (optional)
+            echo "🧹 Clearing cache..."
+            python manage.py shell -c "from django.core.cache import cache; cache.clear()" || true
+            
+            echo "============================================="
+            echo "✅ Deployment completed successfully!"
+            echo "============================================="
+            echo ""
+            echo "📊 Service Status:"
+            supervisorctl status plp_accreditation
+            systemctl status nginx --no-pager -l | head -5
+            echo ""
+            echo "🌍 Your app is live at: http://72.60.41.211"
+            echo "============================================="
