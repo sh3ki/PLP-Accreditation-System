@@ -32,7 +32,7 @@ jobs:
             
             # Activate virtual environment
             echo "🔧 Activating virtual environment..."
-            source /home/plpadmin/venv/bin/activate
+            source /home/plpadmin/PLP-Accreditation-System/accreditation/venv/bin/activate
             
             # Install/Update dependencies
             echo "📦 Installing dependencies..."
