@@ -410,7 +410,7 @@ def forgot_password_send_otp(request):
         
         # Check if user exists in Firestore
         from accreditation.firebase_utils import query_documents
-        users = query_documents('users', [('email', '==', email)])
+        users = query_documents('users', 'email', '==', email)
         
         if not users:
             return JsonResponse({'success': False, 'message': 'No account found with this email address'})
