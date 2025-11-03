@@ -115,6 +115,18 @@
         border-bottom: none;
     }
     
+    /* Disabled departments - grayed out and unclickable */
+    .department-item.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        pointer-events: none;
+        background: #f5f5f5;
+    }
+    
+    .department-item.disabled:hover {
+        background: #f5f5f5;
+    }
+    
     .department-info {
         display: flex;
         align-items: center;
@@ -637,7 +649,7 @@
         {% if departments %}
             {% for dept in departments %}
             {% if not dept.is_archived %}
-            <div class="department-item" data-id="{{ dept.code }}" onclick="navigateToDepartmentPrograms('{{ dept.code }}', event)">
+            <div class="department-item {% if user_department_id and dept.id != user_department_id %}disabled{% endif %}" data-id="{{ dept.code }}" onclick="navigateToDepartmentPrograms('{{ dept.code }}', event)">
                 <div class="department-info">
                     <img src="{{ dept.logo_url|default:'https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg' }}" alt="{{ dept.name }}" class="department-logo" onerror="this.src='https://res.cloudinary.com/dygrh6ztt/image/upload/v1761284240/default-profile-account-unknown-icon-black-silhouette-free-vector_jdlpve.jpg'">
                     <span class="department-name">{{ dept.name }}</span>
