@@ -86,15 +86,15 @@ def add_footer_code_to_document(file, metadata, original_filename):
         # Get document number and version
         checklist_id = metadata.get('checklist_id')
         document_name = metadata.get('document_name', original_filename)
-        doc_number, version = get_document_number_and_version(checklist_id, document_name)
+        doc_number, version_string = get_document_number_and_version(checklist_id, document_name)
         
         # Format timestamp: MM:DD:YYYY-HH:MM:SS
         now = datetime.now()
         timestamp = now.strftime('%m:%d:%Y-%H:%M:%S')
         
         # Construct the footer code
-        # Format: {TYPE_SHORT}-{DEPT_CODE}-{PROG_CODE}-{AREA_NAME}-{CHECKLIST_NUM}-{DOC_NUM}v.{VERSION}.0 {TIMESTAMP}
-        footer_code = f"{type_short}-{dept_code}-{program_code}-{area_name}-{checklist_num}-{doc_number}v.{version}.0 {timestamp}"
+        # Format: {TYPE_SHORT}-{DEPT_CODE}-{PROG_CODE}-{AREA_NAME}-{CHECKLIST_NUM}-{DOC_NUM}-1v.0.0 {TIMESTAMP}
+        footer_code = f"{type_short}-{dept_code}-{program_code}-{area_name}-{checklist_num}-{doc_number}-{version_string} {timestamp}"
         
         # Add footer to all sections
         for section in doc.sections:
@@ -172,87 +172,51 @@ def count_existing_required_documents(dept_id, prog_id, type_id, area_id, checkl
 
 def get_document_number_and_version(checklist_id, document_name):
     """
-    Get document number and version for footer based on existing documents in checklist.
+    Get document number and version for footer based on REQUIRED documents in checklist.
     
     Logic:
-    - Each unique document name gets a sequential number (1, 2, 3...)
-    - Same document name uploaded again increments version (v.0.0 -> v.1.0 -> v.2.0)
+    - Count ONLY required documents (is_required=True)
+    - Each new required document upload gets the next sequential number
+    - Version is always 1v.0.0 for all documents
     
     Args:
         checklist_id: Checklist ID
         document_name: Original document name
         
     Returns:
-        tuple: (document_number, version)
+        tuple: (document_number, version_string)
         
     Example:
-        First upload of "syllabus.pdf" -> (1, 0)
-        First upload of "curriculum.docx" -> (2, 0)
-        Second upload of "syllabus.pdf" -> (1, 1)
-        First upload of "assessment.xlsx" -> (3, 0)
-        Third upload of "syllabus.pdf" -> (1, 2)
+        First required doc upload -> (1, "1v.0.0")
+        Second required doc upload (even same name) -> (2, "1v.0.0")
+        Third required doc upload -> (3, "1v.0.0")
     """
     try:
         from accreditation.firebase_utils import get_all_documents
         
-        print(f"[VERSION DEBUG] Getting version for: checklist_id={checklist_id}, document_name={document_name}")
+        print(f"[DOC NUMBER DEBUG] Getting doc number for: checklist_id={checklist_id}, document_name={document_name}")
         
-        # Get all documents in this checklist
+        # Get ONLY required documents in this checklist
         all_documents = get_all_documents('documents')
         checklist_docs = [
             d for d in all_documents 
             if d.get('checklist_id') == checklist_id 
+            and d.get('is_required', False) == True
             and d.get('is_active', True)
             and not d.get('is_archived', False)
         ]
         
-        print(f"[VERSION DEBUG] Found {len(checklist_docs)} documents in checklist")
+        print(f"[DOC NUMBER DEBUG] Found {len(checklist_docs)} required documents in checklist")
         
-        # Sort by uploaded_at to maintain order
-        checklist_docs.sort(key=lambda x: x.get('uploaded_at', ''))
+        # The next document number is simply the count + 1
+        doc_number = len(checklist_docs) + 1
+        version_string = "1v.0.0"
         
-        # Track unique document names and their numbers
-        doc_name_mapping = {}  # {doc_name: number}
-        doc_name_versions = {}  # {doc_name: version}
-        current_number = 1
-        
-        # Build mapping of existing documents
-        for doc in checklist_docs:
-            existing_name = doc.get('name', '')
-            
-            print(f"[VERSION DEBUG] Processing existing doc: {existing_name}")
-            
-            if existing_name not in doc_name_mapping:
-                # New document name - assign next number
-                doc_name_mapping[existing_name] = current_number
-                doc_name_versions[existing_name] = 0
-                print(f"[VERSION DEBUG] Assigned number {current_number} to '{existing_name}'")
-                current_number += 1
-            else:
-                # Same document name - increment version
-                doc_name_versions[existing_name] += 1
-                print(f"[VERSION DEBUG] Incremented version to {doc_name_versions[existing_name]} for '{existing_name}'")
-        
-        print(f"[VERSION DEBUG] Document name mapping: {doc_name_mapping}")
-        print(f"[VERSION DEBUG] Document versions: {doc_name_versions}")
-        
-        # Check if current document name already exists
-        if document_name in doc_name_mapping:
-            # Same name - use existing number and increment version
-            doc_number = doc_name_mapping[document_name]
-            version = doc_name_versions[document_name] + 1  # Increment for new upload
-            print(f"[VERSION DEBUG] Existing document: number={doc_number}, version={version}")
-        else:
-            # New name - assign next number with version 0
-            doc_number = current_number
-            version = 0
-            print(f"[VERSION DEBUG] New document: number={doc_number}, version={version}")
-        
-        print(f"[VERSION DEBUG] Final result: ({doc_number}, {version})")
-        return doc_number, version
+        print(f"[DOC NUMBER DEBUG] Next required document number: {doc_number}, version: {version_string}")
+        return doc_number, version_string
         
     except Exception as e:
-        print(f"Error getting document number and version: {str(e)}")
+        print(f"Error getting document number: {str(e)}")
         import traceback
         traceback.print_exc()
-        return 1, 0  # Default to first document, version 0
+        return 1, "1v.0.0"  # Default to first document

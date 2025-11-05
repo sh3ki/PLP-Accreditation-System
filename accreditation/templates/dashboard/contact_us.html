@@ -333,9 +333,13 @@
                     <textarea name="message" class="form-control" required placeholder="Type your message here..."></textarea>
                 </div>
                 
-                <button type="submit" class="btn-submit">
+                <button type="submit" class="btn-submit" id="submitBtn">
                     <i class="fas fa-paper-plane"></i>
-                    Send Message
+                    <span class="btn-text">Send Message</span>
+                    <span class="btn-loading" style="display: none;">
+                        <i class="fas fa-spinner fa-spin"></i>
+                        Sending...
+                    </span>
                 </button>
             </form>
         </div>
@@ -347,6 +351,14 @@ document.getElementById('contactForm').addEventListener('submit', function(e) {
     e.preventDefault();
     
     const formData = new FormData(this);
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = submitBtn.querySelector('.btn-text');
+    const btnLoading = submitBtn.querySelector('.btn-loading');
+    
+    // Disable button and show loading state
+    submitBtn.disabled = true;
+    btnText.style.display = 'none';
+    btnLoading.style.display = 'inline';
     
     fetch(this.action, {
         method: 'POST',
@@ -370,6 +382,12 @@ document.getElementById('contactForm').addEventListener('submit', function(e) {
     .catch(error => {
         Toast.error('An error occurred. Please try again.');
         console.error('Error:', error);
+    })
+    .finally(() => {
+        // Re-enable button and restore original state
+        submitBtn.disabled = false;
+        btnText.style.display = 'inline';
+        btnLoading.style.display = 'none';
     });
 });
 </script>

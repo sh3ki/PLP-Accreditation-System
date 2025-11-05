@@ -534,6 +534,85 @@
         color: #666;
         margin-top: 5px;
     }
+    
+    /* Pagination Styles */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 20px;
+        gap: 15px;
+        flex-wrap: wrap;
+        margin-top: 15px;
+    }
+    
+    .pagination-info {
+        font-size: 13px;
+        color: #666;
+        margin-right: 10px;
+    }
+    
+    .pagination {
+        display: flex;
+        gap: 6px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .page-btn {
+        min-width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #ddd;
+        background: white;
+        color: #333;
+        cursor: pointer;
+        border-radius: 6px;
+        font-size: 13px;
+        font-weight: 500;
+        transition: all 0.3s;
+        text-decoration: none;
+        padding: 0 10px;
+    }
+    
+    .page-btn:hover:not(.active):not(.disabled) {
+        background: var(--plp-green);
+        color: white;
+        border-color: var(--plp-green);
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+    }
+    
+    .page-btn.active {
+        background: var(--plp-green);
+        color: white;
+        border-color: var(--plp-green);
+        cursor: default;
+        font-weight: 600;
+    }
+    
+    .page-btn.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        background: #f5f5f5;
+    }
+    
+    .page-btn.ellipsis {
+        cursor: default;
+        border: none;
+        background: transparent;
+    }
+    
+    .page-btn.ellipsis:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .page-btn i {
+        font-size: 11px;
+    }
 </style>
 
 <!-- Breadcrumb -->
@@ -590,7 +669,21 @@
                         <div class="document-name">{{ required_document.name }}</div>
                         <div class="document-meta">
                             <span><i class="fas fa-file"></i> {{ required_document.format|upper }}</span>
-                            <span><i class="fas fa-user"></i> {{ required_document.uploaded_by }}</span>
+                            <span><i class="fas fa-user"></i> {{ required_document.uploaded_by }}
+                                {% if required_document.uploader_role %}
+                                    <strong>
+                                    {% if required_document.uploader_role == 'qa_head' %}
+                                        (QA Head)
+                                    {% elif required_document.uploader_role == 'qa_admin' %}
+                                        (QA Admin)
+                                    {% elif required_document.uploader_role == 'department_user' %}
+                                        (Department User)
+                                    {% else %}
+                                        ({{ required_document.uploader_role|title }})
+                                    {% endif %}
+                                    </strong>
+                                {% endif %}
+                            </span>
                             <span><i class="fas fa-clock"></i> {{ required_document.created_at|date:"M d, Y" }}</span>
                             <span class="document-badge badge-{{ required_document.status }}">{{ required_document.status|title }}</span>
                             <span class="document-badge badge-required">Required</span>
@@ -619,6 +712,42 @@
                 <i class="fas fa-file-upload"></i>
                 <p>No required document uploaded yet</p>
             </div>
+        {% endif %}
+        
+        <!-- Required Documents Pagination -->
+        {% if req_total_pages > 1 %}
+        <div class="pagination-container">
+            <div class="pagination">
+                <!-- Previous Button -->
+                <a href="?accreditation_type_id={{ accreditation_type_id }}&area_id={{ area_id }}&checklist_id={{ checklist_id }}&req_page={{ req_previous_page }}&add_page={{ add_current_page }}" 
+                   class="page-btn {% if not req_has_previous %}disabled{% endif %}"
+                   {% if not req_has_previous %}onclick="return false;"{% endif %}>
+                    <i class="fas fa-chevron-left"></i> Previous
+                </a>
+                
+                <!-- Page Numbers -->
+                {% for page in req_page_range %}
+                    {% if page == '...' %}
+                        <span class="page-btn ellipsis">...</span>
+                    {% else %}
+                        <a href="?accreditation_type_id={{ accreditation_type_id }}&area_id={{ area_id }}&checklist_id={{ checklist_id }}&req_page={{ page }}&add_page={{ add_current_page }}" 
+                           class="page-btn {% if page == req_current_page %}active{% endif %}">
+                            {{ page }}
+                        </a>
+                    {% endif %}
+                {% endfor %}
+                
+                <!-- Next Button -->
+                <a href="?accreditation_type_id={{ accreditation_type_id }}&area_id={{ area_id }}&checklist_id={{ checklist_id }}&req_page={{ req_next_page }}&add_page={{ add_current_page }}" 
+                   class="page-btn {% if not req_has_next %}disabled{% endif %}"
+                   {% if not req_has_next %}onclick="return false;"{% endif %}>
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+            <div class="pagination-info">
+                Page {{ req_current_page }} of {{ req_total_pages }} • {{ total_required }} Required Documents
+            </div>
+        </div>
         {% endif %}
     </div>
     
@@ -666,7 +795,21 @@
                                 <div class="document-name">{{ doc.name }}</div>
                                 <div class="document-meta">
                                     <span><i class="fas fa-file"></i> {{ doc.format|upper }}</span>
-                                    <span><i class="fas fa-user"></i> {{ doc.uploaded_by }}</span>
+                                    <span><i class="fas fa-user"></i> {{ doc.uploaded_by }}
+                                        {% if doc.uploader_role %}
+                                            <strong>
+                                            {% if doc.uploader_role == 'qa_head' %}
+                                                (QA Head)
+                                            {% elif doc.uploader_role == 'qa_admin' %}
+                                                (QA Admin)
+                                            {% elif doc.uploader_role == 'department_user' %}
+                                                (Department User)
+                                            {% else %}
+                                                ({{ doc.uploader_role|title }})
+                                            {% endif %}
+                                            </strong>
+                                        {% endif %}
+                                    </span>
                                     <span><i class="fas fa-clock"></i> {{ doc.created_at|date:"M d, Y" }}</span>
                                     <span class="document-badge badge-{{ doc.status }}">{{ doc.status|title }}</span>
                                     <span class="document-badge badge-optional">Optional</span>
@@ -696,6 +839,42 @@
                 <i class="fas fa-folder-open"></i>
                 <p>No additional documents uploaded yet</p>
             </div>
+        {% endif %}
+        
+        <!-- Additional Documents Pagination -->
+        {% if add_total_pages > 1 %}
+        <div class="pagination-container">
+            <div class="pagination">
+                <!-- Previous Button -->
+                <a href="?accreditation_type_id={{ accreditation_type_id }}&area_id={{ area_id }}&checklist_id={{ checklist_id }}&req_page={{ req_current_page }}&add_page={{ add_previous_page }}" 
+                   class="page-btn {% if not add_has_previous %}disabled{% endif %}"
+                   {% if not add_has_previous %}onclick="return false;"{% endif %}>
+                    <i class="fas fa-chevron-left"></i> Previous
+                </a>
+                
+                <!-- Page Numbers -->
+                {% for page in add_page_range %}
+                    {% if page == '...' %}
+                        <span class="page-btn ellipsis">...</span>
+                    {% else %}
+                        <a href="?accreditation_type_id={{ accreditation_type_id }}&area_id={{ area_id }}&checklist_id={{ checklist_id }}&req_page={{ req_current_page }}&add_page={{ page }}" 
+                           class="page-btn {% if page == add_current_page %}active{% endif %}">
+                            {{ page }}
+                        </a>
+                    {% endif %}
+                {% endfor %}
+                
+                <!-- Next Button -->
+                <a href="?accreditation_type_id={{ accreditation_type_id }}&area_id={{ area_id }}&checklist_id={{ checklist_id }}&req_page={{ req_current_page }}&add_page={{ add_next_page }}" 
+                   class="page-btn {% if not add_has_next %}disabled{% endif %}"
+                   {% if not add_has_next %}onclick="return false;"{% endif %}>
+                    Next <i class="fas fa-chevron-right"></i>
+                </a>
+            </div>
+            <div class="pagination-info">
+                Page {{ add_current_page }} of {{ add_total_pages }} • {{ total_additional }} Additional Documents
+            </div>
+        </div>
         {% endif %}
     </div>
 </div>

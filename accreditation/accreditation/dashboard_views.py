@@ -869,7 +869,7 @@ def reports_view(request):
         
         reports_history.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         
-        # Calculate stats
+        # Calculate stats (using all reports)
         total_reports = len(reports_history)
         
         # Reports this month
@@ -886,16 +886,51 @@ def reports_view(request):
         # Active users generating reports
         active_users = len(set(r.get('generated_by') for r in reports_history if r.get('generated_by')))
         
+        # Pagination - 20 reports per page
+        from math import ceil
+        page = int(request.GET.get('page', 1))
+        per_page = 10
+        total_pages = ceil(len(reports_history) / per_page) if reports_history else 1
+        
+        # Ensure page is within valid range
+        if page < 1:
+            page = 1
+        elif page > total_pages:
+            page = total_pages
+        
+        # Calculate slice indices
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        
+        # Slice the reports for current page
+        paginated_reports = reports_history[start_idx:end_idx]
+        
+        # Calculate page range for pagination UI
+        page_range = []
+        if total_pages <= 7:
+            page_range = list(range(1, total_pages + 1))
+        else:
+            if page <= 4:
+                page_range = list(range(1, 6)) + ['...', total_pages]
+            elif page >= total_pages - 3:
+                page_range = [1, '...'] + list(range(total_pages - 4, total_pages + 1))
+            else:
+                page_range = [1, '...'] + list(range(page - 1, page + 2)) + ['...', total_pages]
+        
     except Exception as e:
         print(f"Error fetching reports data: {str(e)}")
         departments = []
         programs = []
         types = []
         reports_history = []
+        paginated_reports = []
         total_reports = 0
         reports_this_month = 0
         total_storage = 0
         active_users = 0
+        page = 1
+        total_pages = 1
+        page_range = [1]
     
     context = {
         'active_page': 'reports',
@@ -903,11 +938,18 @@ def reports_view(request):
         'departments': departments,
         'programs': programs,
         'types': types,
-        'reports_history': reports_history,
+        'reports_history': paginated_reports,  # Use paginated reports
         'total_reports': total_reports,
         'reports_this_month': reports_this_month,
         'total_storage': round(total_storage, 2),
         'active_users': active_users,
+        'current_page': page,
+        'total_pages': total_pages,
+        'page_range': page_range,
+        'has_previous': page > 1,
+        'has_next': page < total_pages,
+        'previous_page': page - 1,
+        'next_page': page + 1,
     }
     return render(request, 'dashboard/reports.html', context)
 
@@ -2101,10 +2143,36 @@ def settings_view(request):
     if user_doc:
         # Get department information if user has a department
         department_name = 'N/A'
-        if user_doc.get('department_id'):
-            dept_doc = get_document('departments', user_doc['department_id'])
+        
+        # Check for department field (could be department_id, dept_id, or department)
+        department_value = user_doc.get('department_id') or user_doc.get('dept_id') or user_doc.get('department')
+        
+        print(f"DEBUG - Profile Settings: user_doc keys: {user_doc.keys()}")
+        print(f"DEBUG - Profile Settings: department_value: {department_value}")
+        
+        if department_value:
+            # Check if it's a department ID or department code
+            dept_doc = get_document('departments', department_value)
+            print(f"DEBUG - Profile Settings: dept_doc from ID: {dept_doc}")
+            
             if dept_doc:
+                # Found by ID
                 department_name = dept_doc.get('name', 'N/A')
+                print(f"DEBUG - Profile Settings: department_name from ID: {department_name}")
+            else:
+                # Not found by ID, might be a code - search by code
+                all_departments = get_all_documents('departments')
+                for dept in all_departments:
+                    if dept.get('code') == department_value:
+                        department_name = dept.get('name', department_value)
+                        print(f"DEBUG - Profile Settings: department_name from code: {department_name}")
+                        break
+                else:
+                    # If still not found, just use the value as-is
+                    department_name = department_value
+                    print(f"DEBUG - Profile Settings: Using department value as-is: {department_name}")
+        else:
+            print(f"DEBUG - Profile Settings: No department field found for user")
         
         # Get role display name
         role_display = UserRole.get_role_display(user.get('role', ''))
@@ -2369,9 +2437,10 @@ def change_password_view(request):
     
     try:
         import json
+        import hashlib
+        import secrets
         from datetime import datetime
         from accreditation.firebase_utils import get_document, update_document
-        from werkzeug.security import check_password_hash, generate_password_hash
         
         data = json.loads(request.body)
         
@@ -2397,18 +2466,70 @@ def change_password_view(request):
         if not user_doc:
             return JsonResponse({'success': False, 'message': 'User not found'})
         
-        # Verify current password
-        if not check_password_hash(user_doc.get('password', ''), current_password):
+        # Verify current password using PBKDF2-HMAC-SHA256
+        stored_password = user_doc.get('password_hash') or user_doc.get('password', '')
+        
+        print(f"DEBUG - Password verification")
+        print(f"DEBUG - User ID: {user['id']}")
+        print(f"DEBUG - Stored password field: {'password_hash' if user_doc.get('password_hash') else 'password'}")
+        print(f"DEBUG - Stored password starts with: {stored_password[:20] if stored_password else 'EMPTY'}...")
+        
+        if not stored_password:
+            return JsonResponse({'success': False, 'message': 'No password set for this user'})
+        
+        # Check if password matches (handle both password_hash and password fields)
+        password_verified = False
+        
+        # Try PBKDF2 format first (salt$hash)
+        if '$' in stored_password:
+            try:
+                salt, stored_hash = stored_password.split('$', 1)
+                password_hash = hashlib.pbkdf2_hmac('sha256',
+                                                   current_password.encode('utf-8'),
+                                                   salt.encode('utf-8'),
+                                                   100000)
+                computed_hash = password_hash.hex()
+                print(f"DEBUG - PBKDF2 verification:")
+                print(f"DEBUG - Salt: {salt[:10]}...")
+                print(f"DEBUG - Stored hash: {stored_hash[:20]}...")
+                print(f"DEBUG - Computed hash: {computed_hash[:20]}...")
+                print(f"DEBUG - Hashes match: {computed_hash == stored_hash}")
+                
+                if computed_hash == stored_hash:
+                    password_verified = True
+                    print(f"DEBUG - Password verified via PBKDF2!")
+            except Exception as e:
+                print(f"Error verifying PBKDF2 password: {str(e)}")
+        
+        # If not verified and looks like werkzeug hash, try that
+        if not password_verified:
+            try:
+                from werkzeug.security import check_password_hash
+                if check_password_hash(stored_password, current_password):
+                    password_verified = True
+                    print(f"DEBUG - Password verified via Werkzeug!")
+            except:
+                pass
+        
+        print(f"DEBUG - Final password verification result: {password_verified}")
+        
+        if not password_verified:
             return JsonResponse({'success': False, 'message': 'Current password is incorrect'})
         
-        # Hash new password
-        hashed_password = generate_password_hash(new_password)
+        # Hash new password using PBKDF2-HMAC-SHA256
+        salt = secrets.token_hex(16)
+        password_hash = hashlib.pbkdf2_hmac('sha256', 
+                                          new_password.encode('utf-8'),
+                                          salt.encode('utf-8'),
+                                          100000)
+        hashed_password = f"{salt}${password_hash.hex()}"
         
         # Update password and last password change timestamp
         update_data = {
-            'password': hashed_password,
+            'password_hash': hashed_password,
             'last_password_change': datetime.now(),
-            'updated_at': datetime.now()
+            'updated_at': datetime.now(),
+            'is_password_changed': True
         }
         
         success = update_document('users', user['id'], update_data)
@@ -2423,6 +2544,8 @@ def change_password_view(request):
             
     except Exception as e:
         print(f"Error changing password: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return JsonResponse({'success': False, 'message': 'An error occurred'})
 
 
@@ -3622,7 +3745,7 @@ def remove_background(request):
 
 @login_required
 @require_http_methods(["POST"])
-def change_password_view(request):
+def change_password_first_time_view(request):
     """Handle password change for first-time login"""
     user = get_user_from_session(request)
     
@@ -5859,6 +5982,14 @@ def checklist_documents_view(request, dept_id, prog_id, type_id, area_id, checkl
             and not doc.get('is_archived', False)
         ]
         
+        # Add uploader role to each document
+        all_users = get_all_documents('users')
+        user_roles = {user.get('email'): user.get('role', 'Unknown') for user in all_users}
+        
+        for doc in documents:
+            uploader_email = doc.get('uploaded_by', '')
+            doc['uploader_role'] = user_roles.get(uploader_email, 'Unknown')
+        
         # Separate required and additional documents
         required_documents = [doc for doc in documents if doc.get('is_required', False)]
         additional_documents = [doc for doc in documents if not doc.get('is_required', False)]
@@ -5869,8 +6000,63 @@ def checklist_documents_view(request, dept_id, prog_id, type_id, area_id, checkl
         # Sort additional documents by creation date
         additional_documents.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         
+        # Pagination for required documents - 10 per page
+        from math import ceil
+        req_page = int(request.GET.get('req_page', 1))
+        req_per_page = 10
+        total_required = len(required_documents)
+        req_total_pages = ceil(total_required / req_per_page) if required_documents else 1
+        
+        if req_page < 1:
+            req_page = 1
+        elif req_page > req_total_pages:
+            req_page = req_total_pages
+        
+        req_start_idx = (req_page - 1) * req_per_page
+        req_end_idx = req_start_idx + req_per_page
+        paginated_required = required_documents[req_start_idx:req_end_idx]
+        
+        # Calculate page range for required documents
+        req_page_range = []
+        if req_total_pages <= 7:
+            req_page_range = list(range(1, req_total_pages + 1))
+        else:
+            if req_page <= 4:
+                req_page_range = list(range(1, 6)) + ['...', req_total_pages]
+            elif req_page >= req_total_pages - 3:
+                req_page_range = [1, '...'] + list(range(req_total_pages - 4, req_total_pages + 1))
+            else:
+                req_page_range = [1, '...'] + list(range(req_page - 1, req_page + 2)) + ['...', req_total_pages]
+        
+        # Pagination for additional documents - 10 per page
+        add_page = int(request.GET.get('add_page', 1))
+        add_per_page = 10
+        total_additional = len(additional_documents)
+        add_total_pages = ceil(total_additional / add_per_page) if additional_documents else 1
+        
+        if add_page < 1:
+            add_page = 1
+        elif add_page > add_total_pages:
+            add_page = add_total_pages
+        
+        add_start_idx = (add_page - 1) * add_per_page
+        add_end_idx = add_start_idx + add_per_page
+        paginated_additional = additional_documents[add_start_idx:add_end_idx]
+        
+        # Calculate page range for additional documents
+        add_page_range = []
+        if add_total_pages <= 7:
+            add_page_range = list(range(1, add_total_pages + 1))
+        else:
+            if add_page <= 4:
+                add_page_range = list(range(1, 6)) + ['...', add_total_pages]
+            elif add_page >= add_total_pages - 3:
+                add_page_range = [1, '...'] + list(range(add_total_pages - 4, add_total_pages + 1))
+            else:
+                add_page_range = [1, '...'] + list(range(add_page - 1, add_page + 2)) + ['...', add_total_pages]
+        
         # Get the most recent required document for backward compatibility
-        required_document = required_documents[0] if required_documents else None
+        required_document = paginated_required[0] if paginated_required else None
         
     except Exception as e:
         print(f"Error fetching documents: {str(e)}")
@@ -5886,13 +6072,31 @@ def checklist_documents_view(request, dept_id, prog_id, type_id, area_id, checkl
         'area': area,
         'checklist': checklist,
         'required_document': required_document,
-        'required_documents': required_documents,
-        'additional_documents': additional_documents,
+        'required_documents': paginated_required,
+        'additional_documents': paginated_additional,
         'dept_id': dept_id,
         'prog_id': prog_id,
         'type_id': type_id,
         'area_id': area_id,
         'checklist_id': checklist_id,
+        # Required documents pagination
+        'total_required': total_required,
+        'req_current_page': req_page,
+        'req_total_pages': req_total_pages,
+        'req_page_range': req_page_range,
+        'req_has_previous': req_page > 1,
+        'req_has_next': req_page < req_total_pages,
+        'req_previous_page': req_page - 1,
+        'req_next_page': req_page + 1,
+        # Additional documents pagination
+        'total_additional': total_additional,
+        'add_current_page': add_page,
+        'add_total_pages': add_total_pages,
+        'add_page_range': add_page_range,
+        'add_has_previous': add_page > 1,
+        'add_has_next': add_page < add_total_pages,
+        'add_previous_page': add_page - 1,
+        'add_next_page': add_page + 1,
     }
     return render(request, 'dashboard/checklist_documents.html', context)
 
@@ -6959,16 +7163,56 @@ def audit_trail_view(request):
         record_modification_count = 0
         today_count = 0
     
+    # Pagination - 10 logs per page
+    from math import ceil
+    page = int(request.GET.get('page', 1))
+    per_page = 10
+    total_logs = len(audit_logs)
+    total_pages = ceil(total_logs / per_page) if audit_logs else 1
+    
+    # Ensure page is within valid range
+    if page < 1:
+        page = 1
+    elif page > total_pages:
+        page = total_pages
+    
+    # Calculate slice indices
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    
+    # Slice the logs for current page
+    paginated_logs = audit_logs[start_idx:end_idx]
+    
+    # Calculate page range for pagination UI
+    page_range = []
+    if total_pages <= 7:
+        page_range = list(range(1, total_pages + 1))
+    else:
+        if page <= 4:
+            page_range = list(range(1, 6)) + ['...', total_pages]
+        elif page >= total_pages - 3:
+            page_range = [1, '...'] + list(range(total_pages - 4, total_pages + 1))
+        else:
+            page_range = [1, '...'] + list(range(page - 1, page + 2)) + ['...', total_pages]
+    
     context = {
         'active_page': 'audit',
         'user': user,
-        'logs': audit_logs,  # Changed from 'audit_logs' to 'logs' to match template
+        'logs': paginated_logs,  # Use paginated logs
         'document_upload_count': document_upload_count,
         'record_modification_count': record_modification_count,
         'today_count': today_count,
+        'total_logs': total_logs,
+        'current_page': page,
+        'total_pages': total_pages,
+        'page_range': page_range,
+        'has_previous': page > 1,
+        'has_next': page < total_pages,
+        'previous_page': page - 1,
+        'next_page': page + 1,
     }
     
-    print(f"DEBUG: Context has {len(audit_logs)} logs")
+    print(f"DEBUG: Context has {len(paginated_logs)} logs (page {page} of {total_pages})")
     print(f"DEBUG: Stats - Today: {today_count}, Docs: {document_upload_count}, Records: {record_modification_count}")
     
     return render(request, 'dashboard/audit.html', context)
@@ -8140,6 +8384,14 @@ def my_accreditation_checklist_documents_view(request, dept_id, prog_id, type_id
             and not doc.get('is_archived', False)
         ]
         
+        # Add uploader role to each document
+        all_users = get_all_documents('users')
+        user_roles = {user.get('email'): user.get('role', 'Unknown') for user in all_users}
+        
+        for doc in documents:
+            uploader_email = doc.get('uploaded_by', '')
+            doc['uploader_role'] = user_roles.get(uploader_email, 'Unknown')
+        
         # Separate required and additional documents
         required_documents = [doc for doc in documents if doc.get('is_required', False)]
         additional_documents = [doc for doc in documents if not doc.get('is_required', False)]
@@ -8150,8 +8402,63 @@ def my_accreditation_checklist_documents_view(request, dept_id, prog_id, type_id
         # Sort additional documents by creation date
         additional_documents.sort(key=lambda x: x.get('created_at', ''), reverse=True)
         
+        # Pagination for required documents - 10 per page
+        from math import ceil
+        req_page = int(request.GET.get('req_page', 1))
+        req_per_page = 10
+        total_required = len(required_documents)
+        req_total_pages = ceil(total_required / req_per_page) if required_documents else 1
+        
+        if req_page < 1:
+            req_page = 1
+        elif req_page > req_total_pages:
+            req_page = req_total_pages
+        
+        req_start_idx = (req_page - 1) * req_per_page
+        req_end_idx = req_start_idx + req_per_page
+        paginated_required = required_documents[req_start_idx:req_end_idx]
+        
+        # Calculate page range for required documents
+        req_page_range = []
+        if req_total_pages <= 7:
+            req_page_range = list(range(1, req_total_pages + 1))
+        else:
+            if req_page <= 4:
+                req_page_range = list(range(1, 6)) + ['...', req_total_pages]
+            elif req_page >= req_total_pages - 3:
+                req_page_range = [1, '...'] + list(range(req_total_pages - 4, req_total_pages + 1))
+            else:
+                req_page_range = [1, '...'] + list(range(req_page - 1, req_page + 2)) + ['...', req_total_pages]
+        
+        # Pagination for additional documents - 10 per page
+        add_page = int(request.GET.get('add_page', 1))
+        add_per_page = 10
+        total_additional = len(additional_documents)
+        add_total_pages = ceil(total_additional / add_per_page) if additional_documents else 1
+        
+        if add_page < 1:
+            add_page = 1
+        elif add_page > add_total_pages:
+            add_page = add_total_pages
+        
+        add_start_idx = (add_page - 1) * add_per_page
+        add_end_idx = add_start_idx + add_per_page
+        paginated_additional = additional_documents[add_start_idx:add_end_idx]
+        
+        # Calculate page range for additional documents
+        add_page_range = []
+        if add_total_pages <= 7:
+            add_page_range = list(range(1, add_total_pages + 1))
+        else:
+            if add_page <= 4:
+                add_page_range = list(range(1, 6)) + ['...', add_total_pages]
+            elif add_page >= add_total_pages - 3:
+                add_page_range = [1, '...'] + list(range(add_total_pages - 4, add_total_pages + 1))
+            else:
+                add_page_range = [1, '...'] + list(range(add_page - 1, add_page + 2)) + ['...', add_total_pages]
+        
         # Get the most recent required document for backward compatibility
-        required_document = required_documents[0] if required_documents else None
+        required_document = paginated_required[0] if paginated_required else None
         
     except Exception as e:
         print(f"Error fetching documents: {str(e)}")
@@ -8170,8 +8477,8 @@ def my_accreditation_checklist_documents_view(request, dept_id, prog_id, type_id
         'area': area,
         'checklist': checklist,
         'required_document': required_document,
-        'required_documents': required_documents,
-        'additional_documents': additional_documents,
+        'required_documents': paginated_required,
+        'additional_documents': paginated_additional,
         'dept_id': dept_id,
         'prog_id': prog_id,
         'type_id': type_id,
@@ -8179,6 +8486,24 @@ def my_accreditation_checklist_documents_view(request, dept_id, prog_id, type_id
         'checklist_id': checklist_id,
         'is_user_department': is_user_department,
         'user_department_id': user_department_id,
+        # Required documents pagination
+        'total_required': total_required,
+        'req_current_page': req_page,
+        'req_total_pages': req_total_pages,
+        'req_page_range': req_page_range,
+        'req_has_previous': req_page > 1,
+        'req_has_next': req_page < req_total_pages,
+        'req_previous_page': req_page - 1,
+        'req_next_page': req_page + 1,
+        # Additional documents pagination
+        'total_additional': total_additional,
+        'add_current_page': add_page,
+        'add_total_pages': add_total_pages,
+        'add_page_range': add_page_range,
+        'add_has_previous': add_page > 1,
+        'add_has_next': add_page < add_total_pages,
+        'add_previous_page': add_page - 1,
+        'add_next_page': add_page + 1,
     }
     return render(request, 'dashboard/my_accreditation_checklist_documents.html', context)
 
@@ -8809,16 +9134,13 @@ Pamantasan ng Lungsod ng Pasig
         
         # Log audit trail
         log_audit(
-            user_id=user.get('id'),
-            user_email=user.get('email'),
-            action='CONTACT_SUBMIT',
-            target_type='contact_message',
-            target_id=doc_id,
-            details={
-                'subject': subject,
-                'page': 'contact_us'
-            },
-            ip_address=get_client_ip(request)
+            user=user,
+            action_type='create',
+            resource_type='contact_message',
+            resource_id=doc_id,
+            details=f"Contact form submitted: {subject}",
+            status='success',
+            ip=get_client_ip(request)
         )
         
         return JsonResponse({

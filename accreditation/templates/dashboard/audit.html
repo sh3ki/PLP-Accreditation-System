@@ -319,6 +319,84 @@
         .search-and-filters { flex-direction: column; align-items: stretch; }
         .search-container { max-width: 100%; }
     }
+    
+    /* Pagination Styles */
+    .pagination-container {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        padding: 30px 20px 20px;
+        gap: 15px;
+        flex-wrap: wrap;
+    }
+    
+    .pagination-info {
+        font-size: 14px;
+        color: #666;
+        margin-right: 10px;
+    }
+    
+    .pagination {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+    
+    .page-btn {
+        min-width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid #ddd;
+        background: white;
+        color: #333;
+        cursor: pointer;
+        border-radius: 6px;
+        font-size: 14px;
+        font-weight: 500;
+        transition: all 0.3s;
+        text-decoration: none;
+        padding: 0 12px;
+    }
+    
+    .page-btn:hover:not(.active):not(.disabled) {
+        background: var(--plp-green);
+        color: white;
+        border-color: var(--plp-green);
+        transform: translateY(-2px);
+        box-shadow: 0 2px 8px rgba(76, 175, 80, 0.3);
+    }
+    
+    .page-btn.active {
+        background: var(--plp-green);
+        color: white;
+        border-color: var(--plp-green);
+        cursor: default;
+        font-weight: 600;
+    }
+    
+    .page-btn.disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        background: #f5f5f5;
+    }
+    
+    .page-btn.ellipsis {
+        cursor: default;
+        border: none;
+        background: transparent;
+    }
+    
+    .page-btn.ellipsis:hover {
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .page-btn i {
+        font-size: 12px;
+    }
 </style>
 
 <div class="settings-header">
@@ -330,7 +408,7 @@
         <div class="stat-icon green"><i class="fas fa-clipboard-list"></i></div>
         <div class="stat-info">
             <div class="stat-label">Total Logs</div>
-            <div class="stat-value" id="total-logs">{{ logs|length|default:0 }}</div>
+            <div class="stat-value" id="total-logs">{{ total_logs|default:0 }}</div>
             <div class="stat-subtext">All recorded actions</div>
         </div>
     </div>
@@ -447,6 +525,38 @@
         <i class="fas fa-clipboard-list"></i>
         <h3>No Audit Logs Found</h3>
         <p>System activity will appear here once users start interacting with the application.</p>
+    </div>
+    {% endif %}
+    
+    <!-- Pagination -->
+    {% if logs %}
+    <div class="pagination-container">
+        <div class="pagination-info">
+            <i class="fas fa-info-circle"></i>
+            Showing page {{ current_page }} of {{ total_pages }} ({{ total_logs }} total logs)
+        </div>
+        <div class="pagination">
+            <!-- Previous Button -->
+            <a href="?page={{ previous_page }}" class="page-btn {% if not has_previous %}disabled{% endif %}" {% if not has_previous %}onclick="return false;"{% endif %}>
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            
+            <!-- Page Numbers -->
+            {% for page_num in page_range %}
+                {% if page_num == '...' %}
+                    <span class="page-btn ellipsis">...</span>
+                {% else %}
+                    <a href="?page={{ page_num }}" class="page-btn {% if page_num == current_page %}active{% endif %}">
+                        {{ page_num }}
+                    </a>
+                {% endif %}
+            {% endfor %}
+            
+            <!-- Next Button -->
+            <a href="?page={{ next_page }}" class="page-btn {% if not has_next %}disabled{% endif %}" {% if not has_next %}onclick="return false;"{% endif %}>
+                <i class="fas fa-chevron-right"></i>
+            </a>
+        </div>
     </div>
     {% endif %}
 </div>

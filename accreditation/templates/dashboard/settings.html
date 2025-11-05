@@ -470,6 +470,7 @@
                 </div>
             </div>
             
+            {% if user.role != 'department_user' and user.role != 'qa_admin' %}
             <div class="form-actions">
                 <button type="button" class="btn btn-secondary" onclick="resetPersonalInfoForm()">
                     <i class="fas fa-undo"></i>
@@ -480,6 +481,7 @@
                     Save Changes
                 </button>
             </div>
+            {% endif %}
         </form>
     </div>
     
