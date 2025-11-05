@@ -795,12 +795,15 @@
             </li>
             {% endif %}
             
+            <!-- Archive (Hidden for department_user) -->
+            {% if user.role != 'department_user' %}
             <li class="sidebar-item">
                 <a href="{% url 'dashboard:archive' %}" class="sidebar-link {% if active_page == 'archive' %}active{% endif %}">
                     <i class="fas fa-archive"></i>
                     Archive
                 </a>
             </li>
+            {% endif %}
             
             <!-- Profile Settings (Basic - for all users) -->
             <li class="sidebar-item">

@@ -224,9 +224,13 @@ class FirestoreHelper:
             update_data['updated_at'] = datetime.now()
             
             doc_ref = self.db.collection(collection_name).document(document_id)
-            doc_ref.update(update_data)
+            
+            # Use set with merge=True to update or create if doesn't exist
+            doc_ref.set(update_data, merge=True)
+            print(f"Successfully updated document {document_id} in {collection_name}")
             return True
         except Exception as e:
+            print(f"Error updating document {document_id} in {collection_name}: {e}")
             raise Exception(f"Error updating document: {e}")
     
     # DELETE operations
@@ -495,13 +499,19 @@ def create_document(collection_name: str, document_data: Dict[str, Any], documen
 
 def update_document(collection_name: str, document_id: str, update_data: Dict[str, Any]) -> bool:
     """Update a document in Firestore and invalidate cache"""
-    result = firestore_helper.update_document(collection_name, document_id, update_data)
-    
-    # Invalidate cache for this collection
-    if CACHING_ENABLED:
-        invalidate_collection_cache(collection_name)
-    
-    return result
+    try:
+        result = firestore_helper.update_document(collection_name, document_id, update_data)
+        
+        # Invalidate cache for this collection
+        if CACHING_ENABLED:
+            invalidate_collection_cache(collection_name)
+        
+        return result
+    except Exception as e:
+        print(f"Error in update_document wrapper: {e}")
+        import traceback
+        traceback.print_exc()
+        return False
 
 
 def delete_document(collection_name: str, document_id: str) -> bool:

@@ -583,41 +583,52 @@ def reset_password_submit(request):
         from accreditation.firebase_utils import update_document
         from django.contrib.auth.hashers import make_password
         
-        hashed_password = make_password(new_password)
-        
-        update_data = {
-            'password': hashed_password,
-            'is_password_changed': True,
-            'updated_at': firestore.SERVER_TIMESTAMP
-        }
-        
-        if update_document('users', user_id, update_data):
-            # Clear forgot password session data
-            request.session.pop('forgot_password_user_id', None)
-            request.session.pop('forgot_password_email', None)
-            request.session.pop('forgot_password_name', None)
-            request.session.pop('forgot_password_otp_sent', None)
-            request.session.pop('forgot_password_otp_verified', None)
+        try:
+            hashed_password = make_password(new_password)
             
-            # Log audit event
-            try:
-                from accreditation.firebase_utils import get_document
-                user_doc = get_document('users', user_id)
-                if user_doc:
-                    ip = get_client_ip(request)
-                    log_audit(user_doc, action_type='password_reset', resource_type='user', 
-                             resource_id=user_id, details='Password reset successfully via forgot password flow', 
-                             status='success', ip=ip)
-            except Exception:
-                pass
+            update_data = {
+                'password': hashed_password,
+                'is_password_changed': True
+            }
             
-            return JsonResponse({
-                'success': True,
-                'message': 'Password reset successfully. You can now login with your new password.',
-                'redirect': '/auth/login/'
-            })
-        else:
-            return JsonResponse({'success': False, 'message': 'Failed to update password. Please try again.'})
+            print(f"Attempting to update password for user_id: {user_id}")
+            success = update_document('users', user_id, update_data)
+            print(f"Update result: {success}")
+            
+            if success:
+                # Clear forgot password session data
+                request.session.pop('forgot_password_user_id', None)
+                request.session.pop('forgot_password_email', None)
+                request.session.pop('forgot_password_name', None)
+                request.session.pop('forgot_password_otp_sent', None)
+                request.session.pop('forgot_password_otp_verified', None)
+                
+                # Log audit event
+                try:
+                    from accreditation.firebase_utils import get_document
+                    user_doc = get_document('users', user_id)
+                    if user_doc:
+                        ip = get_client_ip(request)
+                        log_audit(user_doc, action_type='password_reset', resource_type='user', 
+                                 resource_id=user_id, details='Password reset successfully via forgot password flow', 
+                                 status='success', ip=ip)
+                except Exception as audit_error:
+                    print(f"Audit log error (non-critical): {audit_error}")
+                
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Password reset successfully. You can now login with your new password.',
+                    'redirect': '/auth/login/'
+                })
+            else:
+                print(f"Update returned False for user_id: {user_id}")
+                return JsonResponse({'success': False, 'message': 'Failed to update password. Please try again.'})
+        except Exception as update_error:
+            print(f"Error during password update: {update_error}")
+            import traceback
+            traceback.print_exc()
+            return JsonResponse({'success': False, 'message': f'Database error: {str(update_error)}'})
+
             
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'message': 'Invalid request format'})
