@@ -2842,12 +2842,192 @@ def accreditation_settings_view(request):
         print(f"Error fetching departments: {str(e)}")
         departments = []
     
+    from datetime import date
     context = {
         'active_page': 'accreditation_settings',
         'user': user,
         'departments': departments,
+        'today': date.today(),
     }
     return render(request, 'dashboard/accreditation_settings.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def set_deadline_view(request):
+    """Set accreditation deadline"""
+    user = get_user_from_session(request)
+    
+    # Check if user is QA Head or QA Admin
+    if user.get('role') not in ['qa_head', 'qa_admin']:
+        return JsonResponse({'success': False, 'message': 'Access denied.'})
+    
+    try:
+        data = json.loads(request.body)
+        deadline_date = data.get('deadline_date')
+        
+        if not deadline_date:
+            return JsonResponse({'success': False, 'message': 'Deadline date is required.'})
+        
+        # Validate date format
+        from datetime import datetime
+        try:
+            datetime.strptime(deadline_date, '%Y-%m-%d')
+        except ValueError:
+            return JsonResponse({'success': False, 'message': 'Invalid date format.'})
+        
+        # Save to system_settings collection
+        from accreditation.firebase_utils import get_all_documents, update_document, create_document, query_documents
+        
+        # Check if system_settings document exists
+        settings_docs = get_all_documents('system_settings')
+        
+        if settings_docs and len(settings_docs) > 0:
+            # Update existing document
+            settings_id = settings_docs[0].get('id')
+            update_document('system_settings', settings_id, {
+                'accreditation_deadline': deadline_date
+            })
+        else:
+            # Create new document
+            create_document('system_settings', {
+                'accreditation_deadline': deadline_date
+            })
+        
+        # Create or update calendar event for the deadline
+        import uuid
+        
+        # Check if "Accreditation Deadline" event already exists
+        existing_events = query_documents('calendar_events', 'title', '==', 'Accreditation Deadline')
+        
+        event_data = {
+            'event_type': 'schedules',
+            'title': 'Accreditation Deadline',
+            'date': deadline_date,
+            'description': 'Final deadline for accreditation submissions',
+            'status': 'active',
+            'is_archived': False,
+            'created_by': user.get('email', 'Unknown'),
+            'updated_at': datetime.now().isoformat()
+        }
+        
+        if existing_events and len(existing_events) > 0:
+            # Update existing event
+            event_id = existing_events[0].get('id')
+            update_document('calendar_events', event_id, event_data)
+            action_message = 'updated'
+            is_new = False
+        else:
+            # Create new event
+            event_id = str(uuid.uuid4())
+            event_data['created_at'] = datetime.now().isoformat()
+            create_document('calendar_events', event_data, event_id)
+            action_message = 'created'
+            is_new = True
+        
+        # Create notifications for all users
+        try:
+            from accreditation.notification_utils import create_notification
+            
+            # Get all active users
+            all_users = get_all_documents('users')
+            active_users = [u for u in all_users if u.get('is_active', True)]
+            
+            # Format date for notification
+            from datetime import datetime as dt
+            date_obj = dt.strptime(deadline_date, '%Y-%m-%d')
+            formatted_date = date_obj.strftime('%B %d, %Y')
+            
+            notification_title = "Accreditation Deadline Set 🎯" if is_new else "Accreditation Deadline Updated 🔔"
+            notification_message = f"Deadline: {formatted_date}"
+            notification_details = f"The accreditation submission deadline has been {'set' if is_new else 'updated'} to {formatted_date}. Please ensure all submissions are completed before this date."
+            
+            notification_data = {
+                'deadline_date': deadline_date,
+                'formatted_date': formatted_date,
+                'action': 'set' if is_new else 'updated',
+                'set_by': user.get('email', 'Unknown')
+            }
+            
+            # Notify all active users
+            for active_user in active_users:
+                create_notification(
+                    user_id=active_user.get('id'),
+                    notification_type='deadline_set' if is_new else 'deadline_updated',
+                    title=notification_title,
+                    message=notification_message,
+                    details=notification_details,
+                    data=notification_data
+                )
+            
+            print(f"Created notifications for {len(active_users)} users about deadline {action_message}")
+            
+        except Exception as notif_error:
+            print(f"Error creating deadline notifications: {str(notif_error)}")
+            import traceback
+            traceback.print_exc()
+        
+        # Log audit event
+        try:
+            ip = get_client_ip(request)
+            log_audit(
+                user, 
+                action_type='update' if not is_new else 'create',
+                resource_type='accreditation_deadline', 
+                resource_id='system_settings',
+                details=f"{'Set' if is_new else 'Updated'} accreditation deadline to {deadline_date} and {action_message} calendar event '{event_data['title']}'", 
+                status='success',
+                ip=ip
+            )
+        except Exception as audit_error:
+            print(f"Error logging audit trail: {str(audit_error)}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': f'Accreditation deadline {"set" if is_new else "updated"} to {deadline_date}'
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'message': 'Invalid request format.'})
+    except Exception as e:
+        print(f"Error setting deadline: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({'success': False, 'message': 'An error occurred while setting the deadline.'})
+
+
+@login_required
+@require_http_methods(["GET"])
+def get_deadline_view(request):
+    """Get current accreditation deadline - accessible to all authenticated users"""
+    user = get_user_from_session(request)
+    
+    # All authenticated users can check the deadline
+    if not user:
+        return JsonResponse({'success': False, 'message': 'Authentication required.'})
+    
+    try:
+        from accreditation.firebase_utils import get_all_documents
+        
+        # Get system_settings document
+        settings_docs = get_all_documents('system_settings')
+        
+        if settings_docs and len(settings_docs) > 0:
+            deadline = settings_docs[0].get('accreditation_deadline')
+            if deadline:
+                return JsonResponse({
+                    'success': True,
+                    'deadline': deadline
+                })
+        
+        return JsonResponse({
+            'success': True,
+            'deadline': None
+        })
+        
+    except Exception as e:
+        print(f"Error getting deadline: {str(e)}")
+        return JsonResponse({'success': False, 'message': 'An error occurred while fetching the deadline.'})
 
 
 @login_required

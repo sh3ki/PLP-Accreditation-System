@@ -580,14 +580,27 @@ def reset_password_submit(request):
             return JsonResponse({'success': False, 'message': 'Session expired. Please start over.'})
         
         # Update password in Firestore
-        from accreditation.firebase_utils import update_document
-        from django.contrib.auth.hashers import make_password
+        from accreditation.firebase_utils import update_document, get_document
+        from accreditation.firebase_auth import FirebaseUser
+        import hashlib
+        import secrets
         
         try:
-            hashed_password = make_password(new_password)
+            # Get the user to update their password using FirebaseUser's hashing
+            user = FirebaseUser.get_by_id(user_id)
+            if not user:
+                return JsonResponse({'success': False, 'message': 'User not found.'})
+            
+            # Use FirebaseUser's password hashing method
+            salt = secrets.token_hex(16)
+            password_hash = hashlib.pbkdf2_hmac('sha256', 
+                                              new_password.encode('utf-8'),
+                                              salt.encode('utf-8'),
+                                              100000)
+            hashed_password = f"{salt}${password_hash.hex()}"
             
             update_data = {
-                'password': hashed_password,
+                'password_hash': hashed_password,
                 'is_password_changed': True
             }
             

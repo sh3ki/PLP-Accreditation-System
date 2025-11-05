@@ -406,6 +406,10 @@
 
 <div class="settings-header">
     <h1 class="settings-title">Accreditation Settings</h1>
+    <button class="btn-action-header" onclick="openDeadlineModal()">
+        <i class="fas fa-calendar-alt"></i>
+        Set Deadline
+    </button>
 </div>
 
 <div class="section-header">
@@ -508,6 +512,36 @@
             <div class="modal-footer">
                 <button type="button" class="btn-cancel" onclick="closeModal()">Cancel</button>
                 <button type="button" class="btn-submit" onclick="confirmSaveDepartment()">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Deadline Modal -->
+<div id="deadlineModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Set Accreditation Deadline</h3>
+            <button class="modal-close" onclick="closeDeadlineModal()">&times;</button>
+        </div>
+        <form id="deadlineForm">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="deadlineDate">Deadline Date <span style="color: red;">*</span></label>
+                    <input 
+                        type="date" 
+                        id="deadlineDate" 
+                        name="deadline_date" 
+                        required
+                        min="{{ today|date:'Y-m-d' }}"
+                    >
+                    <span class="form-error" id="deadlineError"></span>
+                    <small style="color: #666; display: block; margin-top: 5px;">Select the deadline for accreditation submissions</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeDeadlineModal()">Cancel</button>
+                <button type="button" class="btn-submit" onclick="saveDeadline()">Save Deadline</button>
             </div>
         </form>
     </div>
@@ -848,6 +882,101 @@ function searchItems(listId, searchInputId, itemClass, nameClass) {
         }
         list.style.display = '';
     }
+}
+
+// Deadline Modal Functions
+function openDeadlineModal() {
+    // Fetch current deadline if exists
+    fetch('/dashboard/settings/get-deadline/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.deadline) {
+                document.getElementById('deadlineDate').value = data.deadline;
+            }
+            document.getElementById('deadlineModal').classList.add('show');
+        })
+        .catch(error => {
+            console.error('Error loading deadline:', error);
+            document.getElementById('deadlineModal').classList.add('show');
+        });
+}
+
+function closeDeadlineModal() {
+    document.getElementById('deadlineModal').classList.remove('show');
+    document.getElementById('deadlineForm').reset();
+    document.getElementById('deadlineError').textContent = '';
+}
+
+function saveDeadline() {
+    const deadlineDate = document.getElementById('deadlineDate').value;
+    const errorEl = document.getElementById('deadlineError');
+    
+    // Clear previous errors
+    errorEl.textContent = '';
+    
+    // Validate
+    if (!deadlineDate) {
+        errorEl.textContent = 'Please select a deadline date';
+        return;
+    }
+    
+    // Format date for display
+    const dateObj = new Date(deadlineDate);
+    const formattedDate = dateObj.toLocaleDateString('en-US', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    });
+    
+    // Show confirmation modal
+    ConfirmationModal.show({
+        title: 'Set Accreditation Deadline',
+        message: `Are you sure you want to set the accreditation deadline to ${formattedDate}?`,
+        type: 'save',
+        confirmText: 'Set Deadline',
+        cancelText: 'Cancel',
+        onConfirm: () => {
+            confirmSaveDeadline(deadlineDate);
+        }
+    });
+}
+
+function confirmSaveDeadline(deadlineDate) {
+    // Show loading state
+    const submitBtn = document.querySelector('#deadlineForm .btn-submit');
+    const originalText = submitBtn.textContent;
+    submitBtn.textContent = 'Saving...';
+    submitBtn.disabled = true;
+    
+    // Save deadline
+    fetch('/dashboard/settings/set-deadline/', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': getCookie('csrftoken')
+        },
+        body: JSON.stringify({
+            deadline_date: deadlineDate
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        
+        if (data.success) {
+            Toast.success(data.message);
+            closeDeadlineModal();
+        } else {
+            Toast.error(data.message);
+        }
+    })
+    .catch(error => {
+        submitBtn.textContent = originalText;
+        submitBtn.disabled = false;
+        Toast.error('An error occurred while saving the deadline');
+        console.error('Error:', error);
+    });
 }
 </script>
 

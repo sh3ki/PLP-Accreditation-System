@@ -31,6 +31,7 @@
         background: rgba(0, 0, 0, 0.5);
         z-index: 9999;
         animation: fadeIn 0.3s;
+  
     }
     
     .modal.show {
@@ -47,6 +48,7 @@
         max-height: 90vh;
         overflow-y: auto;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+ 
     }
     
     .modal-header {
@@ -262,9 +264,25 @@
 <div id="documentModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
-            <h3>Add Documents</h3>
+            <h3 id="modalTitle">Add Documents</h3>
             <button class="modal-close" onclick="closeDocumentModal()">&times;</button>
         </div>
+        
+        <!-- Deadline Passed Message (Hidden by default) -->
+        <div id="deadlinePassedMessage" style="display: none;">
+            <div class="modal-body" style="text-align: center; padding: 40px 20px;">
+                <i class="fas fa-calendar-times" style="font-size: 64px; color: #dc3545; margin-bottom: 20px;"></i>
+                <h4 style="color: #333; margin-bottom: 15px;">Submission Deadline Has Passed</h4>
+                <p style="color: #666; font-size: 16px; margin-bottom: 30px;">
+                    You cannot upload documents right now since the accreditation submission deadline has passed.
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-cancel" onclick="closeDocumentModal()">Close</button>
+            </div>
+        </div>
+        
+        <!-- Normal Upload Form (Hidden when deadline passed) -->
         <form id="documentForm" enctype="multipart/form-data">
             <div class="modal-body">
                 <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
@@ -396,16 +414,84 @@ function getCookie(name) {
 }
 
 function openAddDocumentModal() {
-    document.getElementById('documentModal').classList.add('show');
-    document.getElementById('documentForm').reset();
-    
-    // Disable all dropdowns initially except Department
-    document.getElementById('modalProgram').disabled = true;
-    document.getElementById('modalType').disabled = true;
-    document.getElementById('modalArea').disabled = true;
-    document.getElementById('modalChecklist').disabled = true;
-    
-    loadModalDepartments();
+    // Check deadline first - v2.0 updated
+    checkDeadlineBeforeOpening();
+}
+
+async function checkDeadlineBeforeOpening() {
+    console.log('Checking deadline before opening modal...');
+    try {
+        const response = await fetch('/dashboard/settings/get-deadline/');
+        const data = await response.json();
+        
+        console.log('Deadline API response:', data);
+        
+        let isPastDeadline = false;
+        
+        if (data.success && data.deadline) {
+            // Parse deadline date (just the date part, no time)
+            const deadlineDateStr = data.deadline; // Format: YYYY-MM-DD
+            const [year, month, day] = deadlineDateStr.split('-').map(Number);
+            
+            console.log('Deadline parsed:', { year, month, day });
+            
+            // Get current date in Asia/Manila timezone
+            const nowManila = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+            const currentYear = nowManila.getFullYear();
+            const currentMonth = nowManila.getMonth() + 1; // JavaScript months are 0-indexed
+            const currentDay = nowManila.getDate();
+            
+            console.log('Current date Manila:', { currentYear, currentMonth, currentDay });
+            
+            // Compare dates: if current date >= deadline date, uploads are blocked
+            isPastDeadline = (currentYear > year) || 
+                           (currentYear === year && currentMonth > month) ||
+                           (currentYear === year && currentMonth === month && currentDay >= day);
+            
+            console.log('isPastDeadline:', isPastDeadline);
+        } else {
+            console.log('No deadline set or API call failed');
+        }
+        
+        // Show modal
+        document.getElementById('documentModal').classList.add('show');
+        
+        if (isPastDeadline) {
+            // Show deadline message, hide form
+            document.getElementById('deadlinePassedMessage').style.display = 'block';
+            document.getElementById('documentForm').style.display = 'none';
+            document.getElementById('modalTitle').textContent = 'Upload Not Available';
+        } else {
+            // Show form, hide deadline message
+            document.getElementById('deadlinePassedMessage').style.display = 'none';
+            document.getElementById('documentForm').style.display = 'block';
+            document.getElementById('modalTitle').textContent = 'Add Documents';
+            
+            // Reset and prepare form
+            document.getElementById('documentForm').reset();
+            
+            // Disable all dropdowns initially except Department
+            document.getElementById('modalProgram').disabled = true;
+            document.getElementById('modalType').disabled = true;
+            document.getElementById('modalArea').disabled = true;
+            document.getElementById('modalChecklist').disabled = true;
+            
+            loadModalDepartments();
+        }
+    } catch (error) {
+        console.error('Error checking deadline:', error);
+        // On error, show the form anyway
+        document.getElementById('documentModal').classList.add('show');
+        document.getElementById('deadlinePassedMessage').style.display = 'none';
+        document.getElementById('documentForm').style.display = 'block';
+        document.getElementById('modalTitle').textContent = 'Add Documents';
+        document.getElementById('documentForm').reset();
+        document.getElementById('modalProgram').disabled = true;
+        document.getElementById('modalType').disabled = true;
+        document.getElementById('modalArea').disabled = true;
+        document.getElementById('modalChecklist').disabled = true;
+        loadModalDepartments();
+    }
 }
 
 function closeDocumentModal() {
@@ -817,3 +903,4 @@ function uploadDocuments() {
     });
 }
 </script>
+
