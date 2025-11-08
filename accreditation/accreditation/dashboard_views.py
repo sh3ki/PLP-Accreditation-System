@@ -2617,6 +2617,9 @@ def user_management_view(request):
             # Add role display name
             user_role = user_item.get('role', '')
             user_item['role_display'] = UserRole.get_role_display(user_role)
+            
+            # Map profile_image_url to profile_picture for template compatibility
+            user_item['profile_picture'] = user_item.get('profile_image_url', '')
         
     except Exception as e:
         messages.error(request, f'Error loading users: {str(e)}')
