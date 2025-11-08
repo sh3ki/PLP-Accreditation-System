@@ -842,7 +842,18 @@ def reports_view(request):
         
         types = get_all_documents('accreditation_types')
         types = [t for t in types if t.get('is_active', True) and not t.get('is_archived', False)]
-        types.sort(key=lambda x: x.get('name', ''))
+        
+        # Remove duplicates by name (keep first occurrence)
+        seen_names = set()
+        unique_types = []
+        for t in types:
+            type_name = t.get('name', '')
+            if type_name and type_name not in seen_names:
+                seen_names.add(type_name)
+                unique_types.append(t)
+        
+        unique_types.sort(key=lambda x: x.get('name', ''))
+        types = unique_types
         
         # Fetch reports history
         reports_history = get_all_documents('reports_history')
