@@ -2021,12 +2021,49 @@ def results_view(request):
         # Sort by department, program, type, area
         areas_data.sort(key=lambda x: (x['dept_code'], x['prog_code'], x['type_name'], x['area_name']))
         
+        # Pagination - 10 items per page
+        from math import ceil
+        page = int(request.GET.get('page', 1))
+        per_page = 10
+        total_items = len(areas_data)
+        total_pages = ceil(total_items / per_page) if total_items else 1
+        
+        # Ensure page is within valid range
+        if page < 1:
+            page = 1
+        elif page > total_pages:
+            page = total_pages
+        
+        # Calculate slice indices
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        
+        # Slice the areas for current page
+        paginated_areas = areas_data[start_idx:end_idx]
+        
+        # Calculate page range for pagination UI
+        page_range = []
+        if total_pages <= 7:
+            page_range = list(range(1, total_pages + 1))
+        else:
+            if page <= 4:
+                page_range = list(range(1, 6)) + ['...', total_pages]
+            elif page >= total_pages - 3:
+                page_range = [1, '...'] + list(range(total_pages - 4, total_pages + 1))
+            else:
+                page_range = [1, '...'] + list(range(page - 1, page + 2)) + ['...', total_pages]
+        
     except Exception as e:
         print(f"Error fetching results data: {str(e)}")
         departments = []
         programs = []
         types = []
         areas_data = []
+        paginated_areas = []
+        total_items = 0
+        page = 1
+        total_pages = 1
+        page_range = [1]
     
     context = {
         'active_page': 'results',
@@ -2034,7 +2071,13 @@ def results_view(request):
         'departments': departments,
         'programs': programs,
         'types': types,
-        'areas': areas_data,
+        'areas': paginated_areas,  # Use paginated areas
+        'total_items': total_items,
+        'current_page': page,
+        'total_pages': total_pages,
+        'page_range': page_range,
+        'has_previous': page > 1,
+        'has_next': page < total_pages,
     }
     return render(request, 'dashboard/results.html', context)
 
