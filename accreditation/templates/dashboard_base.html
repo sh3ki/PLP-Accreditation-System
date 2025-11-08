@@ -1210,7 +1210,12 @@
             .then(data => {
                 if (data.success) {
                     document.getElementById('passwordChangeModal').style.display = 'none';
-                    showToastNotification('Password changed successfully!', 'success');
+                    
+                    // Use the existing toast notification system
+                    if (typeof Toast !== 'undefined') {
+                        Toast.success('Password changed successfully!');
+                    }
+                    
                     // Reload page to update session
                     setTimeout(() => location.reload(), 1000);
                 } else {
@@ -1221,7 +1226,6 @@
             .catch(error => {
                 errorDiv.textContent = 'An error occurred. Please try again.';
                 errorDiv.style.display = 'block';
-                console.error('Error:', error);
             });
         }
         
@@ -1238,24 +1242,6 @@
                 }
             }
             return cookieValue;
-        }
-        
-        function showToastNotification(message, type) {
-            const toast = document.createElement('div');
-            toast.style.cssText = `
-                position: fixed;
-                top: 90px;
-                right: 20px;
-                padding: 15px 20px;
-                background: ${type === 'success' ? '#28a745' : '#dc3545'};
-                color: white;
-                border-radius: 4px;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-                z-index: 10001;
-            `;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
         }
     </script>
     {% endif %}
