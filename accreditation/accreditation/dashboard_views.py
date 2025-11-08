@@ -1922,7 +1922,7 @@ def delete_report(request, report_id):
         try:
             report_type = report.get('type', 'Unknown')
             report_format = report.get('format', 'Unknown')
-            log_audit(user, action_type='delete', resource_type='report', resource_id=report_id, details=f"Deleted report: {report_type} ({report_format})", status='success')
+            log_audit(user, action_type='delete', resource_type='report', resource_id=report_id, details=f"Deleted report: {report_type} ({report_format})", status='success', ip=get_client_ip(request))
         except Exception:
             pass
         
@@ -2294,7 +2294,7 @@ def upload_profile_image_view(request):
         
         if success:
             try:
-                log_audit(user, action_type='update', resource_type='user', resource_id=user['id'], details=f"Updated profile image for user: {user.get('name', user.get('email'))}", status='success')
+                log_audit(user, action_type='update', resource_type='user', resource_id=user['id'], details=f"Updated profile image for user: {user.get('name', user.get('email'))}", status='success', ip=get_client_ip(request))
             except Exception:
                 pass
             # Update session
@@ -2344,7 +2344,7 @@ def remove_profile_image_view(request):
         
         if success:
             try:
-                log_audit(user, action_type='update', resource_type='user', resource_id=user['id'], details=f"Removed profile image for user: {user.get('name', user.get('email'))}", status='success')
+                log_audit(user, action_type='update', resource_type='user', resource_id=user['id'], details=f"Removed profile image for user: {user.get('name', user.get('email'))}", status='success', ip=get_client_ip(request))
             except Exception:
                 pass
             # Update session
@@ -2697,7 +2697,7 @@ def user_add_view(request):
             
             user_id = create_document('users', user_data)
             try:
-                log_audit(user, action_type='create', resource_type='user', resource_id=user_id, details=f"Created new user: {full_name} ({email})", status='success')
+                log_audit(user, action_type='create', resource_type='user', resource_id=user_id, details=f"Created new user: {full_name} ({email})", status='success', ip=get_client_ip(request))
             except Exception:
                 pass
             
@@ -3922,7 +3922,7 @@ def department_add_view(request):
         
         create_document('departments', dept_data, code)
         try:
-            log_audit(user, action_type='create', resource_type='department', resource_id=code, details=f"Created department: {name} ({code})", status='success')
+            log_audit(user, action_type='create', resource_type='department', resource_id=code, details=f"Created department: {name} ({code})", status='success', ip=get_client_ip(request))
         except Exception:
             pass
         
@@ -4297,7 +4297,7 @@ def program_add_view(request, dept_id):
         
         create_document('programs', prog_data, code)
         try:
-            log_audit(user, action_type='create', resource_type='program', resource_id=code, details=f"Created program: {name} ({code})", status='success')
+            log_audit(user, action_type='create', resource_type='program', resource_id=code, details=f"Created program: {name} ({code})", status='success', ip=get_client_ip(request))
         except Exception:
             pass
         
@@ -6478,7 +6478,7 @@ def document_update_status_view(request, dept_id, prog_id, type_id, area_id, che
         try:
             doc_name = document.get('name', 'Unknown document')
             action_text = "approved" if status == "approved" else "disapproved"
-            log_audit(user, action_type='update', resource_type='document', resource_id=document_id, details=f"{action_text.capitalize()} document: {doc_name}", status='success')
+            log_audit(user, action_type='update', resource_type='document', resource_id=document_id, details=f"{action_text.capitalize()} document: {doc_name}", status='success', ip=get_client_ip(request))
         except Exception:
             pass
         
@@ -6919,7 +6919,7 @@ def create_calendar_event(request):
             event_title = data['title']
             event_type = data['event_type']
             event_date = data['date']
-            log_audit(user, action_type='create', resource_type='calendar_event', resource_id=event_id, details=f"Created calendar event: {event_title} ({event_type}) on {event_date}", status='success')
+            log_audit(user, action_type='create', resource_type='calendar_event', resource_id=event_id, details=f"Created calendar event: {event_title} ({event_type}) on {event_date}", status='success', ip=get_client_ip(request))
         except Exception:
             pass
         
@@ -7016,7 +7016,7 @@ def delete_calendar_event(request, event_id):
         try:
             event_title = event.get('title', 'Unknown Event')
             event_type = event.get('event_type', 'Unknown Type')
-            log_audit(user, action_type='delete', resource_type='calendar_event', resource_id=event_id, details=f"Deleted calendar event: {event_title} ({event_type})", status='success')
+            log_audit(user, action_type='delete', resource_type='calendar_event', resource_id=event_id, details=f"Deleted calendar event: {event_title} ({event_type})", status='success', ip=get_client_ip(request))
         except Exception:
             pass
         
@@ -8660,12 +8660,13 @@ def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_
                             # Log audit
                             try:
                                 log_audit(
-                                    user_id=user.get('id'),
-                                    user_email=user.get('email'),
-                                    action='DOWNLOAD_DOCUMENT',
-                                    target_type='document',
-                                    target_id=document_id,
-                                    details={'document_name': f"{document_name}.pdf (converted)", 'page': 'my_accreditation'}
+                                    user,
+                                    action_type='download',
+                                    resource_type='document',
+                                    resource_id=document_id,
+                                    details=f"Downloaded as PDF (converted): {document_name}",
+                                    status='success',
+                                    ip=get_client_ip(request)
                                 )
                             except: pass
                             
@@ -8693,21 +8694,13 @@ def my_accreditation_download_document(request, dept_id, prog_id, type_id, area_
         # For non-DOCX or if conversion failed, return original file URL
         # Log audit trail
         log_audit(
-            user_id=user.get('id'),
-            user_email=user.get('email'),
-            action='DOWNLOAD_DOCUMENT',
-            target_type='document',
-            target_id=document_id,
-            details={
-                'document_name': document.get('name'),
-                'document_format': document.get('format'),
-                'department_id': dept_id,
-                'program_id': prog_id,
-                'type_id': type_id,
-                'area_id': area_id,
-                'checklist_id': checklist_id,
-                'page': 'my_accreditation'
-            }
+            user,
+            action_type='download',
+            resource_type='document',
+            resource_id=document_id,
+            details=f"Downloaded document: {document.get('name')} from {dept_id}/{prog_id}",
+            status='success',
+            ip=get_client_ip(request)
         )
         
         return JsonResponse({
@@ -8837,7 +8830,8 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
                                         log_audit(user, action_type='download', resource_type='document', 
                                                  resource_id=document_id, 
                                                  details=f"Downloaded as PDF: {document_name}", 
-                                                 status='success')
+                                                 status='success',
+                                                 ip=get_client_ip(request))
                                     except: pass
                                     
                                     http_response = HttpResponse(pdf_response.content, content_type='application/pdf')
@@ -8916,7 +8910,6 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
                 print(f"Looking for PDF at: {pdf_path}")
                 if not os.path.exists(pdf_path):
                     # List files in temp_dir
-                    files_in_dir = os.listdir(temp_dir)
                     print(f"Files in temp dir: {files_in_dir}")
                     raise Exception(f"PDF file not generated at {pdf_path}")
                 
@@ -8931,9 +8924,11 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
                         resource_type='document', 
                         resource_id=document_id, 
                         details=f"Downloaded document as PDF: {document_name} from {dept_id}/{prog_id}", 
-                        status='success'
+                        status='success',
+                        ip=get_client_ip(request)
                     )
                 except Exception as audit_error:
+                    print(f"Audit logging failed (non-critical): {audit_error}")
                     print(f"Audit logging failed (non-critical): {audit_error}")
                 
                 # Read PDF file
@@ -8968,7 +8963,6 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
         # Modify Cloudinary URL to force download
         if 'cloudinary.com' in download_url:
             if '/upload/' in download_url:
-                download_url = download_url.replace('/upload/', '/upload/fl_attachment/')
                 
                 if '?' in download_url:
                     download_url += f'&filename={document_name}.{document_format}'
@@ -8983,9 +8977,11 @@ def accreditation_download_document(request, dept_id, prog_id, type_id, area_id,
                 resource_type='document', 
                 resource_id=document_id, 
                 details=f"Downloaded document: {document_name} from {dept_id}/{prog_id}", 
-                status='success'
+                status='success',
+                ip=get_client_ip(request)
             )
         except Exception as audit_error:
+            print(f"Audit logging failed (non-critical): {audit_error}")
             print(f"Audit logging failed (non-critical): {audit_error}")
         
         # Return success with download URL
