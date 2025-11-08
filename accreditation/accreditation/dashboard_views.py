@@ -2491,8 +2491,11 @@ def change_password_view(request):
         new_password = data.get('new_password', '')
         confirm_password = data.get('confirm_password', '')
         
+        # Check if this is a first login password change (no current password provided)
+        is_first_login = not current_password
+        
         # Validate required fields
-        if not current_password or not new_password or not confirm_password:
+        if not new_password or not confirm_password:
             return JsonResponse({'success': False, 'message': 'All fields are required'})
         
         # Validate new passwords match
@@ -2509,55 +2512,43 @@ def change_password_view(request):
         if not user_doc:
             return JsonResponse({'success': False, 'message': 'User not found'})
         
-        # Verify current password using PBKDF2-HMAC-SHA256
-        stored_password = user_doc.get('password_hash') or user_doc.get('password', '')
-        
-        print(f"DEBUG - Password verification")
-        print(f"DEBUG - User ID: {user['id']}")
-        print(f"DEBUG - Stored password field: {'password_hash' if user_doc.get('password_hash') else 'password'}")
-        print(f"DEBUG - Stored password starts with: {stored_password[:20] if stored_password else 'EMPTY'}...")
-        
-        if not stored_password:
-            return JsonResponse({'success': False, 'message': 'No password set for this user'})
-        
-        # Check if password matches (handle both password_hash and password fields)
-        password_verified = False
-        
-        # Try PBKDF2 format first (salt$hash)
-        if '$' in stored_password:
-            try:
-                salt, stored_hash = stored_password.split('$', 1)
-                password_hash = hashlib.pbkdf2_hmac('sha256',
-                                                   current_password.encode('utf-8'),
-                                                   salt.encode('utf-8'),
-                                                   100000)
-                computed_hash = password_hash.hex()
-                print(f"DEBUG - PBKDF2 verification:")
-                print(f"DEBUG - Salt: {salt[:10]}...")
-                print(f"DEBUG - Stored hash: {stored_hash[:20]}...")
-                print(f"DEBUG - Computed hash: {computed_hash[:20]}...")
-                print(f"DEBUG - Hashes match: {computed_hash == stored_hash}")
-                
-                if computed_hash == stored_hash:
-                    password_verified = True
-                    print(f"DEBUG - Password verified via PBKDF2!")
-            except Exception as e:
-                print(f"Error verifying PBKDF2 password: {str(e)}")
-        
-        # If not verified and looks like werkzeug hash, try that
-        if not password_verified:
-            try:
-                from werkzeug.security import check_password_hash
-                if check_password_hash(stored_password, current_password):
-                    password_verified = True
-                    print(f"DEBUG - Password verified via Werkzeug!")
-            except:
-                pass
-        
-        print(f"DEBUG - Final password verification result: {password_verified}")
-        
-        if not password_verified:
-            return JsonResponse({'success': False, 'message': 'Current password is incorrect'})
+        # If not first login, verify current password
+        if not is_first_login:
+            # Verify current password using PBKDF2-HMAC-SHA256
+            stored_password = user_doc.get('password_hash') or user_doc.get('password', '')
+            
+            if not stored_password:
+                return JsonResponse({'success': False, 'message': 'No password set for this user'})
+            
+            # Check if password matches (handle both password_hash and password fields)
+            password_verified = False
+            
+            # Try PBKDF2 format first (salt$hash)
+            if '$' in stored_password:
+                try:
+                    salt, stored_hash = stored_password.split('$', 1)
+                    password_hash = hashlib.pbkdf2_hmac('sha256',
+                                                       current_password.encode('utf-8'),
+                                                       salt.encode('utf-8'),
+                                                       100000)
+                    computed_hash = password_hash.hex()
+                    
+                    if computed_hash == stored_hash:
+                        password_verified = True
+                except Exception as e:
+                    pass
+            
+            # If not verified and looks like werkzeug hash, try that
+            if not password_verified:
+                try:
+                    from werkzeug.security import check_password_hash
+                    if check_password_hash(stored_password, current_password):
+                        password_verified = True
+                except:
+                    pass
+            
+            if not password_verified:
+                return JsonResponse({'success': False, 'message': 'Current password is incorrect'})
         
         # Hash new password using PBKDF2-HMAC-SHA256
         salt = secrets.token_hex(16)
@@ -2578,6 +2569,9 @@ def change_password_view(request):
         success = update_document('users', user['id'], update_data)
         
         if success:
+            # Update session to mark password as changed
+            request.session['is_password_changed'] = True
+            
             return JsonResponse({
                 'success': True,
                 'message': 'Password changed successfully'
@@ -2586,9 +2580,6 @@ def change_password_view(request):
             return JsonResponse({'success': False, 'message': 'Failed to change password'})
             
     except Exception as e:
-        print(f"Error changing password: {str(e)}")
-        import traceback
-        traceback.print_exc()
         return JsonResponse({'success': False, 'message': 'An error occurred'})
 
 
