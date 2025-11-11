@@ -9156,7 +9156,7 @@ This is an automated confirmation email from the PLP Accreditation System.
 Please do not reply to this email.
 
 For urgent matters, you may contact us directly at:
-Email: qa@plpasig.edu.ph
+Email: accreditationsystem2023@gmail.com
 Phone: (02) 8643-7000
 
 Best regards,
