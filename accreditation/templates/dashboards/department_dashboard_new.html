@@ -372,7 +372,7 @@
             </li>
             <!-- Note: User Management, Accreditation Settings, and System Appearance removed for Department Users -->
             <li class="sidebar-item">
-                <a href="{% url 'auth:logout' %}" class="sidebar-link">
+                <a href="#" class="sidebar-link" onclick="event.preventDefault(); showLogoutModal();">
                     <i class="fas fa-sign-out-alt"></i>
                     Logout
                 </a>
@@ -496,6 +496,163 @@
                         display: false
                     }
                 }
+            }
+        });
+    </script>
+
+    <!-- Logout Confirmation Modal -->
+    <div id="logoutModal" class="logout-modal" style="display: none;">
+        <div class="logout-modal-content">
+            <div class="logout-modal-header">
+                <h3>Confirm Logout</h3>
+            </div>
+            <div class="logout-modal-body">
+                <p>Are you sure you want to logout?</p>
+            </div>
+            <div class="logout-modal-footer">
+                <button type="button" class="btn-cancel-logout" onclick="hideLogoutModal()">
+                    Cancel
+                </button>
+                <button type="button" class="btn-confirm-logout" onclick="confirmLogout()">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        .logout-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        .logout-modal-content {
+            background: white;
+            border-radius: 8px;
+            padding: 0;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateY(-50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        .logout-modal-header {
+            padding: 20px 25px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .logout-modal-header h3 {
+            margin: 0;
+            font-size: 20px;
+            color: #333;
+        }
+        
+        .logout-modal-body {
+            padding: 25px;
+        }
+        
+        .logout-modal-body p {
+            margin: 0;
+            font-size: 15px;
+            color: #666;
+        }
+        
+        .logout-modal-footer {
+            padding: 15px 25px;
+            border-top: 1px solid #eee;
+            text-align: right;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
+        
+        .btn-cancel-logout {
+            background: #6c757d;
+            color: white;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+        
+        .btn-cancel-logout:hover {
+            background: #5a6268;
+        }
+        
+        .btn-confirm-logout {
+            background: #dc3545;
+            color: white;
+            padding: 8px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            font-size: 14px;
+            transition: background 0.3s ease;
+        }
+        
+        .btn-confirm-logout:hover {
+            background: #c82333;
+        }
+    </style>
+
+    <script>
+        function showLogoutModal() {
+            const modal = document.getElementById('logoutModal');
+            if (modal) {
+                modal.style.display = 'flex';
+            }
+        }
+
+        function hideLogoutModal() {
+            const modal = document.getElementById('logoutModal');
+            if (modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        function confirmLogout() {
+            window.location.href = "{% url 'auth:logout' %}";
+        }
+
+        // Close modal when clicking outside of it
+        document.addEventListener('DOMContentLoaded', function() {
+            const modal = document.getElementById('logoutModal');
+            if (modal) {
+                modal.addEventListener('click', function(event) {
+                    if (event.target === modal) {
+                        hideLogoutModal();
+                    }
+                });
+            }
+        });
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'Escape') {
+                hideLogoutModal();
             }
         });
     </script>
